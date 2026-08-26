@@ -133,12 +133,33 @@ function buildFromInternational(bare: string): NormalisedPhone | null {
       return build(rule.callingCode, national, rule.iso2);
     }
     // Right country, wrong length — keep it as E.164 but do not claim a country.
-    return { e164: `+${bare}`, waId: bare, countryIso2: null, formatted: `+${bare}` };
+    return unknownCountry(bare);
   }
 
-  // A country we have no rule for. Valid E.164 length, so accept it rather than
-  // reject a legitimate customer, but do not pretend to know the country.
-  return { e164: `+${bare}`, waId: bare, countryIso2: null, formatted: `+${bare}` };
+  // A country we have no rule for. Accept it rather than reject a legitimate
+  // customer, but do not pretend to know the country.
+  return unknownCountry(bare);
+}
+
+/**
+ * The fallback for a number we cannot attribute to a known country.
+ *
+ * It still has to be a *valid* E.164 number, which is why this goes through
+ * `isValidE164` rather than just prepending a `+`. No country calling code
+ * begins with zero, so `+0300123456` is not a number that exists — and the two
+ * ways to reach it were both live: an input written as `+0300…`, and a national
+ * number given with a `defaultCountry` we have no rule for, which skipped the
+ * trunk-prefix stripping and fell through to here with the leading zero intact.
+ *
+ * Returning it would have written an unreachable value into
+ * `Contact.phoneE164`, which is the contact's identity key. That contact could
+ * never receive a message and could never be merged with the real one — exactly
+ * the failure this module exists to prevent. Null is the honest answer.
+ */
+function unknownCountry(bare: string): NormalisedPhone | null {
+  const e164 = `+${bare}`;
+  if (!isValidE164(e164)) return null;
+  return { e164, waId: bare, countryIso2: null, formatted: e164 };
 }
 
 function build(callingCode: string, national: string, iso2: string): NormalisedPhone {

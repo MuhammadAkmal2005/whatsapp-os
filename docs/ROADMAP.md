@@ -19,7 +19,7 @@ server-side totals, and seed data.
 
 **The verification gate has not run in full.** Lint, typecheck, `next build`, Prisma migration generation and
 Playwright all still need a machine with a package registry and a PostgreSQL instance. `npm run verify:sandbox`
-covers syntax, first-party imports and 282 unit tests, and that is genuinely all it covers. `docs/TESTING.md` is
+covers syntax, first-party imports and 311 unit tests, and that is genuinely all it covers. `docs/TESTING.md` is
 precise about the difference.
 
 ---

@@ -63,7 +63,7 @@ file's imports are evaluated, which is why this works there and would not work i
 
 ## Unit tests
 
-301 tests across 12 files. Pure logic only: no database, no network, no clock dependence. 282 of them run under the
+330 tests across 13 files. Pure logic only: no database, no network, no clock dependence. 311 of them run under the
 bare-node sandbox runner; the other 19 sit in two files that import `zod` and run only under Vitest, which is why
 the table below sums higher than the count the sandbox gate prints.
 
@@ -72,6 +72,7 @@ the table below sums higher than the count the sandbox gate prints.
 | `member-rules.test.ts` | 54 | Who may act on whom. Exhaustive over every actor/target role pairing. |
 | `permissions.test.ts` | 46 | The role/permission table, and that the primitives fail closed. |
 | `invite-token.test.ts` | 29 | Invite token *shape*, because the value lands in a redirect path. Open-redirect and header-splitting inputs. |
+| `phone.test.ts` | 29 | E.164 normalisation — the contact identity key. That every way of writing one number collapses to one value, and that the output is always valid E.164. |
 | `password.test.ts` | 26 | scrypt hashing, constant-time verification, parameters recorded in the hash. |
 | `tenant-isolation.test.ts` | 24 | `assertBelongsToWorkspace` and friends, including hostile inputs. |
 | `order-totals.test.ts` | 23 | Order arithmetic in integer minor units. |
@@ -82,7 +83,7 @@ the table below sums higher than the count the sandbox gate prints.
 | `features.test.ts` | 12 | That the deployment flag gates before the plan entitlement, and that `resolveFeatures` serialises. Needs `zod` transitively, so the bare-node runner skips it. |
 | `job-payloads.test.ts` | 7 | Job payload schemas. Needs `zod`, so the bare-node runner skips it. |
 
-Two things in that table are worth singling out.
+Three things in that table are worth singling out.
 
 **`member-rules.test.ts` found a real privilege escalation.** It cross-checks `capabilitiesFor` — the function the
 UI renders controls from — against the rules the mutations enforce, for every pairing. That surfaced a two-step
@@ -91,14 +92,23 @@ forbade. None of the 44 hand-written rule tests had caught it, because each asse
 case someone had thought of. The lesson is now a standing rule: **where the UI mirrors a server-side decision,
 test the agreement exhaustively across every input pairing** rather than asserting a handful of booleans.
 
-**Three files test hostile input, not merely wrong input.** `tenant-isolation` and `webhook-signature` cover empty
+**Four files test hostile input, not merely wrong input.** `tenant-isolation` and `webhook-signature` cover empty
 strings, a bare `sha256` with no digest, a right-length signature made of NUL characters, multi-byte emoji.
 `invite-token` covers fifteen values that would each redirect the browser off the application if they reached
 `/invite/${token}` — a protocol-relative host, an absolute URL, parent traversal, a percent-encoded slash, an
-encoded CRLF for header splitting, a backslash that some clients normalise to a slash. The interesting failure in
-a security helper is rarely a plausible wrong value; it is the value that makes a comparison throw, return
-`undefined`, or take a different code path. Note that the guard *rejects* these rather than escaping them, which
-is the right choice when the safe set is as narrow as base64url.
+encoded CRLF for header splitting, a backslash that some clients normalise to a slash. `phone` passes `null`,
+`undefined`, a number and an object, because contact details arrive from a webhook body as often as from a form.
+The interesting failure in a security helper is rarely a plausible wrong value; it is the value that makes a
+comparison throw, return `undefined`, or take a different code path. Note that the guard *rejects* these rather
+than escaping them, which is the right choice when the safe set is as narrow as base64url.
+
+**`phone.test.ts` found a real defect while being written.** `normalisePhone` returned `+0300123456` for an input
+written as `+0300…`, and for any national number given with a `defaultCountry` the module had no rule for. No
+country calling code begins with zero, so that value describes no reachable number — and it would have been stored
+as `Contact.phoneE164`, the identity key, producing a contact that could never receive a message and could never be
+merged with the real one. The fix routes both fallback paths through `isValidE164`; the standing lesson is to
+**assert the output invariant, not just the happy-path mapping.** The suite now checks that no non-null result
+fails `isValidE164`, which is the assertion that caught it.
 
 ---
 
@@ -180,16 +190,16 @@ would be worse than saying so.
 
 `npm run verify:sandbox` is the local substitute. It runs three checks that need nothing but Node:
 
-- **`tools/syntax-check.mjs`** — runs Node's type stripper over all 81 TypeScript files. Catches syntax errors,
+- **`tools/syntax-check.mjs`** — runs Node's type stripper over all 83 TypeScript files. Catches syntax errors,
   unbalanced braces and malformed generics. It skips `.tsx` deliberately, because the stripper has no JSX parser
   and every component would report a false failure. It also scans every text file for a literal NUL byte, which
   sounds obscure but has happened four times: the file still parses, yet grep classifies it as binary and
   silently skips it from every subsequent search, including a security audit.
-- **`tools/import-check.mjs`** — resolves all 395 first-party imports and checks each of the 812 named bindings
+- **`tools/import-check.mjs`** — resolves all 397 first-party imports and checks each of the 822 named bindings
   exists in the target module. This is the closest available stand-in for the class of error `tsc` would catch,
   and it has caught real broken imports.
 - **`tools/sandbox-test.mjs`** — executes the unit suite under bare Node with a resolver that understands the
-  `@/…` alias. 282 tests genuinely run. Two files skip because they reach `zod`; a skip is reported as a skip
+  `@/…` alias. 311 tests genuinely run. Two files skip because they reach `zod`; a skip is reported as a skip
   rather than counted as a pass, and the runner names the missing dependency.
 
 **These are not a substitute for the real gate.** Still to be run on a machine with a registry and a database:
