@@ -58,6 +58,8 @@ function walk(dir, out = []) {
 const allFiles = walk(ROOT).sort();
 const files = allFiles.filter((file) => EXTENSIONS.has(extname(file)));
 const textFiles = allFiles.filter((file) => TEXT_EXTENSIONS.has(extname(file)));
+/** Counted and reported, not silently dropped — see the note below the summary. */
+const unparsed = allFiles.filter((file) => extname(file) === '.tsx');
 const failures = [];
 const binary = [];
 
@@ -98,5 +100,15 @@ process.stdout.write(
     ? `syntax ok — ${files.length} TypeScript files parsed, ${textFiles.length} text files scanned for NUL bytes\n`
     : `\n${problems} problem(s): ${failures.length} parse failure(s), ${binary.length} file(s) with NUL bytes\n`,
 );
+
+// Stated on every run, including a clean one. "syntax ok" would otherwise read as
+// "the code parses", when a third of the codebase — every component — was never
+// looked at. A gate that overstates its coverage is worse than one that admits it.
+if (problems === 0 && unparsed.length > 0) {
+  process.stdout.write(
+    `      ${unparsed.length} .tsx file(s) NOT parsed — Node's type stripper has no JSX parser.\n` +
+      `      Components are covered by import-check only. Run "npm run typecheck" on a machine with node_modules.\n`,
+  );
+}
 
 process.exit(problems === 0 ? 0 : 1);
