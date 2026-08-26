@@ -42,3 +42,26 @@ export type PrismaTransaction = Omit<
 /** Either the root client or a transaction client. Repositories accept this so
  *  the same method works inside and outside a transaction. */
 export type Db = PrismaClient | PrismaTransaction;
+
+/**
+ * Whether an error is Postgres rejecting a duplicate against a unique index.
+ *
+ * Needed because a uniqueness check followed by an insert is a race: two messages
+ * from the same customer arriving together both find no existing contact and both
+ * try to create one. The loser gets P2002, and that is a normal outcome to be
+ * translated into "this customer already exists" rather than a 500.
+ *
+ * Duck-typed rather than an `instanceof PrismaClientKnownRequestError`, because
+ * that class is re-exported from more than one entry point and an instance
+ * constructed under a different module instance would fail the check while being
+ * exactly the error we mean.
+ */
+export function isUniqueConstraintViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code: unknown }).code === 'P2002'
+  );
+}
+

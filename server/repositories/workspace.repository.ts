@@ -212,6 +212,24 @@ export async function createBusinessProfileShell(
   });
 }
 
+/**
+ * The workspace's country, as an ISO 3166-1 alpha-2 code.
+ *
+ * Read from `BusinessProfile` because that is where the business's own address
+ * lives. It matters more than it looks: it is the default country for phone
+ * normalisation, so it decides whether a customer who typed `0300 1234567`
+ * becomes `+923001234567` or `+443001234567`. Falls back to the column default
+ * rather than throwing, because a workspace mid-onboarding has no profile row yet
+ * and refusing to save a contact over that would be absurd.
+ */
+export async function getWorkspaceCountry(db: Db, workspaceId: string): Promise<string> {
+  const profile = await db.businessProfile.findUnique({
+    where: { workspaceId },
+    select: { country: true },
+  });
+  return profile?.country ?? 'PK';
+}
+
 /** Records activity so the switcher can order by "where I was last". Best-effort
  *  — a failure here must never break a request, so callers ignore the result. */
 export async function touchMemberActivity(db: Db, membershipId: string, at: Date): Promise<void> {
