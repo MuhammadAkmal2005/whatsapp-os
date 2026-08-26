@@ -1,0 +1,48 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# build output
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# environment — never commit real secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+
+# local file storage used by the "local" StorageProvider driver
+.storage/
+
+# test artefacts
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# logs
+*.log
+npm-debug.log*
+yarn-error.log*
+.npm/
+
+# editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# misc
+.vercel
+.turbo
+*.pem

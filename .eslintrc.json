@@ -1,0 +1,45 @@
+{
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+    ],
+    "@typescript-eslint/no-non-null-assertion": "warn",
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "prefer-const": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["**/db/prisma", "@prisma/client"],
+            "importNames": ["prisma", "PrismaClient"],
+            "message": "Routes, server actions and components must not import the Prisma client. Go through a repository; a service or the tenancy resolver may hold the client only to open a transaction or resolve request context."
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "server/repositories/**/*.ts",
+        "server/services/**/*.ts",
+        "server/jobs/**/*.ts",
+        "server/tenancy/**/*.ts",
+        "db/**/*.ts",
+        "prisma/**/*.ts",
+        "tests/**/*.ts"
+      ],
+      "rules": { "no-restricted-imports": "off" }
+    },
+    {
+      "files": ["config/env.ts", "db/seed.ts", "server/jobs/worker-entry.ts", "tests/**/*.ts"],
+      "rules": { "no-console": "off" }
+    }
+  ],
+  "ignorePatterns": ["node_modules/", ".next/", "coverage/", "playwright-report/"]
+}

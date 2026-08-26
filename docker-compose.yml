@@ -1,0 +1,50 @@
+# PostgreSQL with pgvector for local development.
+#
+#   docker compose up -d
+#   npm run db:migrate
+#   npm run db:seed
+#
+# The pgvector image is the plain Postgres image plus the extension, so the
+# migration that runs `CREATE EXTENSION vector` succeeds without extra setup.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: whatsapp-os-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: whatsapp_os
+      POSTGRES_PASSWORD: whatsapp_os
+      POSTGRES_DB: whatsapp_os
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U whatsapp_os -d whatsapp_os']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # A second database used only by the integration test suite, so that running
+  # tests never destroys the development data you were just looking at.
+  postgres-test:
+    image: pgvector/pgvector:pg16
+    container_name: whatsapp-os-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: whatsapp_os
+      POSTGRES_PASSWORD: whatsapp_os
+      POSTGRES_DB: whatsapp_os_test
+    ports:
+      - '5433:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U whatsapp_os -d whatsapp_os_test']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
