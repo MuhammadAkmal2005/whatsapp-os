@@ -48,7 +48,11 @@ import {
   type ContactRow,
   type ContactWriteFields,
 } from '@/server/repositories/contact.repository';
-import { findMemberById, listMembers } from '@/server/repositories/member.repository';
+import {
+  findMemberById,
+  listMembers,
+  type MemberRow,
+} from '@/server/repositories/member.repository';
 import { getWorkspaceCountry } from '@/server/repositories/workspace.repository';
 import { can, requirePermission, type TenantContext } from '@/server/tenancy/context';
 import type {
@@ -136,6 +140,27 @@ function toNote(row: ContactNoteRow): ContactNote {
   };
 }
 
+/**
+ * Splits the team into "names for display" and "people who may be assigned".
+ *
+ * They are not the same set, and conflating them is a small bug with an annoying
+ * shape. A suspended member keeps their name on the customers they already hold,
+ * because a blank byline reads as data loss — but they must not be offered as a new
+ * assignee, since they cannot open the conversation to act on it. The customer would
+ * sit in a queue nobody is watching.
+ */
+function assigneeView(members: MemberRow[]): {
+  names: Map<string, string>;
+  options: { id: string; name: string }[];
+} {
+  return {
+    names: new Map(members.map((member) => [member.id, member.user.name])),
+    options: members
+      .filter((member) => member.status === 'ACTIVE')
+      .map((member) => ({ id: member.id, name: member.user.name })),
+  };
+}
+
 export async function getContacts(
   ctx: TenantContext,
   input: ListContactsInput,
@@ -168,7 +193,7 @@ export async function getContacts(
     listMembers(prisma, ctx.workspaceId),
   ]);
 
-  const assigneeNames = new Map(members.map((member) => [member.id, member.user.name]));
+  const assignees = assigneeView(members);
   const capability = {
     update: can(ctx, 'contact:update'),
     delete: can(ctx, 'contact:delete'),
@@ -176,11 +201,11 @@ export async function getContacts(
   };
 
   return {
-    contacts: page.rows.map((row) => toContact(row, assigneeNames, capability)),
+    contacts: page.rows.map((row) => toContact(row, assignees.names, capability)),
     nextCursor: page.nextCursor,
     statusCounts,
     usage: { used, limit: getPlan(ctx.planKey).limits.contacts },
-    assignees: members.map((member) => ({ id: member.id, name: member.user.name })),
+    assignees: assignees.options,
     can: { create: can(ctx, 'contact:create'), export: can(ctx, 'contact:export') },
   };
 }
@@ -205,7 +230,7 @@ export async function getContact(ctx: TenantContext, contactId: string): Promise
     listMembers(prisma, ctx.workspaceId),
   ]);
 
-  const assigneeNames = new Map(members.map((member) => [member.id, member.user.name]));
+  const assignees = assigneeView(members);
   const capability = {
     update: can(ctx, 'contact:update'),
     delete: can(ctx, 'contact:delete'),
@@ -213,19 +238,23 @@ export async function getContact(ctx: TenantContext, contactId: string): Promise
   };
 
   return {
-    contact: toContact(row, assigneeNames, capability),
+    contact: toContact(row, assignees.names, capability),
     notes: notes.map(toNote),
-    assignees: members.map((member) => ({ id: member.id, name: member.user.name })),
+    assignees: assignees.options,
     can: { ...capability, addNote: can(ctx, 'contact:update') },
   };
 }
 
 /**
- * Confirms an assignee is a member of *this* workspace before storing their id.
+ * Confirms an assignee is an active member of *this* workspace before storing their id.
  *
- * Without this, a crafted form post could attach a competitor's staff member to a
- * customer record — the foreign key would accept it, because it points at
+ * Without the workspace check, a crafted form post could attach a competitor's staff
+ * member to a customer record — the foreign key would accept it, because it points at
  * `workspace_members` globally rather than at this workspace's slice of it.
+ *
+ * The status check is a product rule rather than a security one: a suspended member
+ * cannot open the conversation, so assigning a customer to them parks that customer
+ * in a queue nobody reads.
  */
 async function resolveAssignee(
   ctx: TenantContext,
@@ -234,6 +263,11 @@ async function resolveAssignee(
   if (!memberId) return null;
   const member = await findMemberById(prisma, ctx.workspaceId, memberId);
   if (!member) throw new NotFoundError('Team member');
+  if (member.status !== 'ACTIVE') {
+    throw new BusinessRuleError(
+      `${member.user.name}'s access is suspended, so customers cannot be assigned to them.`,
+    );
+  }
   return member.id;
 }
 
@@ -427,9 +461,8 @@ async function getContactOrThrow(ctx: TenantContext, contactId: string): Promise
   if (!row || row.workspaceId !== ctx.workspaceId) throw new NotFoundError('Customer');
 
   const members = await listMembers(prisma, ctx.workspaceId);
-  const assigneeNames = new Map(members.map((member) => [member.id, member.user.name]));
 
-  return toContact(row, assigneeNames, {
+  return toContact(row, assigneeView(members).names, {
     update: can(ctx, 'contact:update'),
     delete: can(ctx, 'contact:delete'),
     assign: can(ctx, 'contact:update'),
