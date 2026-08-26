@@ -39,10 +39,6 @@ fail. The initial migration also has to create the `vector` and `pg_trgm` extens
 workspace, because the cross-tenant acceptance test needs two tenants to prove isolation between, and a
 single-tenant seed cannot fail in the way that matters.
 
-**No git repository.** `git init` has not been run, despite `CLAUDE.md` specifying commit conventions. Every change
-so far is uncommitted, which means there is no history to bisect and no way to review a diff. This should be fixed
-before Phase 2 rather than after.
-
 ### Correctness
 
 **Feature flags do not resolve on the client.** `config/features.ts` reads unprefixed environment names while
