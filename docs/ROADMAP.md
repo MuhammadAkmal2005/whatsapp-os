@@ -41,12 +41,6 @@ single-tenant seed cannot fail in the way that matters.
 
 ### Correctness
 
-**Feature flags do not resolve on the client.** `config/features.ts` reads unprefixed environment names while
-documenting itself as client-importable. On the client those reads are `undefined` and every flag silently falls
-back to its default, so a flag enabled in `.env` will not appear enabled in client-rendered UI. Server-side reads
-are correct. The fix is to make the module server-only and pass resolved flags down from a server component.
-A silent fallback is the bad part — a loud failure would have been found immediately.
-
 **`tests/setup.ts` and the `server-only` Vitest alias have never executed.** Both were written to fix problems
 reasoned about rather than observed: the setup file was referenced by `vitest.config.ts` and missing, which would
 have failed `npm run test` on the first full install, and the alias exists because `server-only` throws outside the

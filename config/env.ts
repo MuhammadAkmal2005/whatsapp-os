@@ -6,8 +6,8 @@ import { z } from 'zod';
  *
  * Two rules follow from this file existing:
  *
- *  1. No other module reads `process.env` directly. Grep for it — this file and
- *     `config/features.ts` should be the only hits outside tests.
+ *  1. No other module reads `process.env` directly. Grep for it — this file
+ *     should be the only hit outside `tests/` and `tools/`.
  *  2. The schema is parsed once at import time, so a missing or malformed
  *     variable crashes the process at boot with a readable list of problems
  *     rather than throwing on the first request that happens to need it. A

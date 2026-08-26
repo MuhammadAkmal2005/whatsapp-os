@@ -63,7 +63,9 @@ file's imports are evaluated, which is why this works there and would not work i
 
 ## Unit tests
 
-282 tests across 11 files. Pure logic only: no database, no network, no clock dependence.
+301 tests across 12 files. Pure logic only: no database, no network, no clock dependence. 282 of them run under the
+bare-node sandbox runner; the other 19 sit in two files that import `zod` and run only under Vitest, which is why
+the table below sums higher than the count the sandbox gate prints.
 
 | File | Tests | What it protects |
 | --- | --- | --- |
@@ -77,6 +79,7 @@ file's imports are evaluated, which is why this works there and would not work i
 | `session-token.test.ts` | 23 | Token generation and hashing, session lifetime, sliding renewal, constant-time comparison. |
 | `job-backoff.test.ts` | 18 | Retry backoff, jitter bounds, attempt ceiling, lock expiry, dedupe keys. |
 | `webhook-signature.test.ts` | 16 | HMAC verification, including malformed and hostile headers. |
+| `features.test.ts` | 12 | That the deployment flag gates before the plan entitlement, and that `resolveFeatures` serialises. Needs `zod` transitively, so the bare-node runner skips it. |
 | `job-payloads.test.ts` | 7 | Job payload schemas. Needs `zod`, so the bare-node runner skips it. |
 
 Two things in that table are worth singling out.
@@ -182,12 +185,12 @@ would be worse than saying so.
   and every component would report a false failure. It also scans every text file for a literal NUL byte, which
   sounds obscure but has happened four times: the file still parses, yet grep classifies it as binary and
   silently skips it from every subsequent search, including a security audit.
-- **`tools/import-check.mjs`** — resolves all 394 first-party imports and checks each of the 811 named bindings
+- **`tools/import-check.mjs`** — resolves all 395 first-party imports and checks each of the 812 named bindings
   exists in the target module. This is the closest available stand-in for the class of error `tsc` would catch,
   and it has caught real broken imports.
 - **`tools/sandbox-test.mjs`** — executes the unit suite under bare Node with a resolver that understands the
-  `@/…` alias. 282 tests genuinely run. One file skips because it imports `zod`; a skip is reported as a skip
-  rather than counted as a pass.
+  `@/…` alias. 282 tests genuinely run. Two files skip because they reach `zod`; a skip is reported as a skip
+  rather than counted as a pass, and the runner names the missing dependency.
 
 **These are not a substitute for the real gate.** Still to be run on a machine with a registry and a database:
 

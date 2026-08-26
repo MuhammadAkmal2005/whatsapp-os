@@ -8,8 +8,9 @@ boot with a list of problems rather than at the first request that happens to ne
 import it. That is the mechanism keeping secrets out of the browser bundle — not a convention, a compile
 failure. Two consequences follow, and both are rules:
 
-**No other module reads `process.env`.** Grep for it; `config/env.ts` should be the only hit outside tests and
-`config/features.ts`.
+**No other module reads `process.env`.** Grep for it: `config/env.ts` is the only hit outside `tests/` and
+`tools/`. `config/features.ts` used to be a second reader and no longer is — it was the one exception, and it was
+also a bug.
 
 **A secret never goes in a `NEXT_PUBLIC_` variable.** Anything so prefixed is inlined into JavaScript served to
 the browser. `NEXT_PUBLIC_APP_NAME` is the only one here, and it is a display string.
@@ -172,11 +173,14 @@ edit rather than a search across the codebase.
 A disabled feature is absent from the UI entirely. It is never rendered as "coming soon" — a shop owner clicking
 a dead control learns the product is unfinished, which is worse than not seeing it at all.
 
-> **Known issue.** `config/features.ts` reads these unprefixed names while documenting itself as importable from
-> a client component. On the client those reads resolve to `undefined` and every flag silently falls back to its
-> default, so a flag enabled in `.env` will not appear enabled in client-rendered UI. The fix is to make the
-> module server-only and pass resolved flags down from a server component. Tracked, not yet done. Server-side
-> flag reads are correct today.
+These are validated by `config/env.ts` like everything else, so an unrecognised value — `ENABLE_CAMPAIGNS=ture` —
+refuses to boot and names the variable, rather than being read as "off".
+
+Flags resolve **on the server only**. `config/features.ts` imports `server-only` and reads them through
+`config/env.ts`; a server component calls `resolveFeatures(planKey)` and passes the resulting object to client
+components as props. They are deliberately not `NEXT_PUBLIC_*`: those are inlined at build time, so one build
+could not serve two deployments with different flags, and the whole flag set would ship in a bundle any visitor
+can read. Flags are deployment configuration, not public data.
 
 ---
 
