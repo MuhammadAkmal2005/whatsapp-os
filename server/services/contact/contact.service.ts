@@ -273,9 +273,18 @@ async function resolveAssignee(
 
 type AuditMeta = { ipAddress?: string | null; userAgent?: string | null };
 
+/**
+ * Maps validated input onto the columns the repository writes.
+ *
+ * `assignedToMemberId` is passed separately rather than read from `input`, and it is
+ * allowed to be `undefined`: Prisma treats an undefined value as "leave this column
+ * alone", which is how the edit path avoids clearing an assignment it never asked
+ * about. `null` still means "clear it" — that distinction is the whole point of the
+ * third state.
+ */
 function writeFields(
-  input: Omit<CreateContactInput, 'phone'> | Omit<UpdateContactInput, 'contactId'>,
-  assignedToMemberId: string | null,
+  input: Omit<CreateContactInput, 'phone' | 'assignedToMemberId'> | Omit<UpdateContactInput, 'contactId'>,
+  assignedToMemberId: string | null | undefined,
 ): ContactWriteFields {
   return {
     name: input.name,
@@ -363,8 +372,9 @@ export async function updateContact(
 ): Promise<Contact> {
   requirePermission(ctx, 'contact:update');
 
-  const assignedToMemberId = await resolveAssignee(ctx, input.assignedToMemberId);
-  const fields = writeFields(input, assignedToMemberId);
+  // `undefined`, not the result of `resolveAssignee`: this path does not touch the
+  // assignment at all. See the note on `updateContactSchema`.
+  const fields = writeFields(input, undefined);
 
   assertTouched(await updateContactRow(prisma, ctx.workspaceId, input.contactId, fields));
   await audit(ctx, 'contact.updated', input.contactId, null, meta);

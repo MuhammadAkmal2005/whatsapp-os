@@ -117,7 +117,6 @@ const contactFields = {
   source: optionalText(SOURCE_MAX, 'That source label is too long.'),
   /** BCP 47-ish, but free text: the agent handles Roman Urdu, which has no tag. */
   language: optionalText(16, 'That language code is too long.'),
-  assignedToMemberId: optionalMemberId,
   city: optionalText(CITY_MAX, 'That city name is too long.'),
   addressLine1: optionalText(ADDRESS_MAX, 'That address line is too long.'),
   addressLine2: optionalText(ADDRESS_MAX, 'That address line is too long.'),
@@ -126,6 +125,8 @@ const contactFields = {
 
 export const createContactSchema = z.object({
   phone: phoneInput,
+  /** Offered on creation, where there is no existing assignment to destroy. */
+  assignedToMemberId: optionalMemberId,
   ...contactFields,
 });
 
@@ -137,6 +138,13 @@ export const createContactSchema = z.object({
  * attached to the record at a different human. Changing who a contact *is* should
  * be a merge, which is its own operation with its own confirmation, so it is
  * recorded in the roadmap rather than smuggled into this form.
+ *
+ * `assignedToMemberId` is absent for a related reason. Every text field here is
+ * write-through: a blank input means "clear it", because a form that posts all its
+ * fields cannot distinguish blank from absent. Assignment cannot survive that rule —
+ * the edit form does not offer it, so it would post nothing, and "clear it" is
+ * exactly the wrong reading. Handing a customer to a colleague is `assignContact`,
+ * which is also what the picker on the profile calls.
  */
 export const updateContactSchema = z.object({
   contactId,

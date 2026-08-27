@@ -232,7 +232,13 @@ export type ContactWriteFields = {
   leadStage?: LeadStage;
   source: string | null;
   language: string | null;
-  assignedToMemberId: string | null;
+  /**
+   * Three states, deliberately. A member id assigns, `null` clears, and `undefined`
+   * leaves the column untouched — Prisma skips undefined values on an update. The
+   * edit form needs that third state: it does not offer an assignment picker, so
+   * without it every save would clear whoever was looking after the customer.
+   */
+  assignedToMemberId?: string | null;
   city: string | null;
   addressLine1: string | null;
   addressLine2: string | null;

@@ -47,7 +47,11 @@ import {
 const CONTACTS_PATH = '/contacts';
 
 /** The editable fields, read from a form in one place so the create and update
- *  actions cannot drift apart on which fields they accept. */
+ *  actions cannot drift apart on which fields they accept.
+ *
+ *  Assignment is not here. Only creation offers it, and it is read explicitly there,
+ *  because a form that posts a blank field means "clear it" — which is the right
+ *  reading for a city and the wrong one for the colleague looking after a customer. */
 function contactFieldsFrom(formData: FormData) {
   return {
     name: formData.get('name') ?? undefined,
@@ -56,7 +60,6 @@ function contactFieldsFrom(formData: FormData) {
     leadStage: formData.get('leadStage') ?? undefined,
     source: formData.get('source') ?? undefined,
     language: formData.get('language') ?? undefined,
-    assignedToMemberId: formData.get('assignedToMemberId') ?? undefined,
     city: formData.get('city') ?? undefined,
     addressLine1: formData.get('addressLine1') ?? undefined,
     addressLine2: formData.get('addressLine2') ?? undefined,
@@ -77,6 +80,7 @@ export async function createContactAction(
 ): Promise<FormState> {
   const parsed = createContactSchema.safeParse({
     phone: formData.get('phone'),
+    assignedToMemberId: formData.get('assignedToMemberId') ?? undefined,
     ...contactFieldsFrom(formData),
   });
   if (!parsed.success) return validationFormState(parsed.error);
