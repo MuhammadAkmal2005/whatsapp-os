@@ -33,7 +33,11 @@ import { Input } from '@/components/ui/input';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { IDLE_FORM_STATE } from '@/lib/form-state';
 import { createContactAction } from '@/server/actions/contact.actions';
-import { CONTACT_STATUSES, CONTACT_STATUS_LABELS } from '@/server/validation/contact';
+import {
+  CONTACT_FIELD_MAX,
+  CONTACT_STATUSES,
+  CONTACT_STATUS_LABELS,
+} from '@/server/validation/contact';
 
 const SELECT_CLASS =
   'h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
@@ -76,7 +80,7 @@ export function CreateContactDialog({ assignees }: { assignees: { id: string; na
                 autoComplete="off"
                 placeholder="0300 1234567"
                 required
-                maxLength={32}
+                maxLength={CONTACT_FIELD_MAX.phone}
               />
             </FormControl>
             <FormDescription>
@@ -88,14 +92,14 @@ export function CreateContactDialog({ assignees }: { assignees: { id: string; na
             <FormField error={fieldErrors?.name?.[0]}>
               <FormLabel>Name</FormLabel>
               <FormControl>
-                <Input name="name" autoComplete="off" placeholder="e.g. Ayesha Khan" maxLength={120} />
+                <Input name="name" autoComplete="off" placeholder="e.g. Ayesha Khan" maxLength={CONTACT_FIELD_MAX.name} />
               </FormControl>
             </FormField>
 
             <FormField error={fieldErrors?.city?.[0]}>
               <FormLabel>City</FormLabel>
               <FormControl>
-                <Input name="city" autoComplete="off" placeholder="e.g. Lahore" maxLength={80} />
+                <Input name="city" autoComplete="off" placeholder="e.g. Lahore" maxLength={CONTACT_FIELD_MAX.city} />
               </FormControl>
             </FormField>
           </div>

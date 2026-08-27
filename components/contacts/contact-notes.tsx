@@ -22,6 +22,7 @@ import { formatDateTime } from '@/lib/datetime';
 import { IDLE_FORM_STATE } from '@/lib/form-state';
 import { addContactNoteAction } from '@/server/actions/contact.actions';
 import type { ContactNote } from '@/server/services/contact/contact.service';
+import { CONTACT_FIELD_MAX } from '@/server/validation/contact';
 
 export function ContactNotes({
   contactId,
@@ -81,7 +82,7 @@ function AddNoteForm({ contactId }: { contactId: string }) {
           <Textarea
             name="body"
             rows={3}
-            maxLength={4000}
+            maxLength={CONTACT_FIELD_MAX.note}
             placeholder="e.g. Wants the navy kurta in L — will confirm after payday."
             aria-label="Add an internal note"
           />

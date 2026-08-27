@@ -28,8 +28,32 @@ const SOURCE_MAX = 60;
 const CITY_MAX = 80;
 const ADDRESS_MAX = 200;
 const POSTAL_CODE_MAX = 20;
+const PHONE_MAX = 32;
+const LANGUAGE_MAX = 16;
 const SEARCH_MAX = 80;
 const NOTE_MAX = 4000;
+
+/**
+ * The same limits the schemas enforce, exported for the forms' `maxLength`.
+ *
+ * The attribute is only a courtesy — the server validates regardless — but a
+ * courtesy that disagrees with the server is worse than none, because the browser
+ * stops accepting keystrokes at a length the server would have accepted and the
+ * person cannot tell why their address will not fit. Hand-copying the numbers into
+ * the components had already produced two such disagreements.
+ */
+export const CONTACT_FIELD_MAX = {
+  name: NAME_MAX,
+  email: EMAIL_MAX,
+  source: SOURCE_MAX,
+  city: CITY_MAX,
+  address: ADDRESS_MAX,
+  postalCode: POSTAL_CODE_MAX,
+  phone: PHONE_MAX,
+  search: SEARCH_MAX,
+  language: LANGUAGE_MAX,
+  note: NOTE_MAX,
+} as const;
 
 export const CONTACT_STATUSES = ['LEAD', 'NEW', 'ACTIVE', 'RETURNING', 'VIP', 'INACTIVE', 'BLOCKED'] as const;
 export const LEAD_STAGES = [
@@ -69,7 +93,7 @@ const phoneInput = z
   .string()
   .trim()
   .min(1, 'Enter a WhatsApp number.')
-  .max(32, 'That number is too long — check for extra digits.')
+  .max(PHONE_MAX, 'That number is too long — check for extra digits.')
   .regex(/^[+0-9()\-.\s]+$/, 'A number can only contain digits, spaces and + ( ) - .')
   .refine((value) => (value.match(/\d/g)?.length ?? 0) >= 6, {
     message: 'That does not look like a complete phone number.',
@@ -116,7 +140,7 @@ const contactFields = {
   leadStage: leadStage.optional(),
   source: optionalText(SOURCE_MAX, 'That source label is too long.'),
   /** BCP 47-ish, but free text: the agent handles Roman Urdu, which has no tag. */
-  language: optionalText(16, 'That language code is too long.'),
+  language: optionalText(LANGUAGE_MAX, 'That language code is too long.'),
   city: optionalText(CITY_MAX, 'That city name is too long.'),
   addressLine1: optionalText(ADDRESS_MAX, 'That address line is too long.'),
   addressLine2: optionalText(ADDRESS_MAX, 'That address line is too long.'),

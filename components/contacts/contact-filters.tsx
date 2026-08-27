@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import {
+  CONTACT_FIELD_MAX,
   CONTACT_STATUSES,
   CONTACT_STATUS_LABELS,
   LEAD_STAGES,
@@ -114,7 +115,7 @@ export function ContactFilters({ assignees }: { assignees: Assignee[] }) {
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search by name, number, email or city"
           className="ps-9"
-          maxLength={80}
+          maxLength={CONTACT_FIELD_MAX.search}
           autoComplete="off"
         />
         {pending ? (
