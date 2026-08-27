@@ -57,6 +57,14 @@ tests pass" means "they passed for whoever last remembered to run them."
 **No Playwright config.** `npm run test:e2e` is wired and `@playwright/test` is installed, but `playwright.config.ts`
 and `tests/e2e/` do not exist, so the command fails.
 
+**`InventoryItem` has no unique constraint on its product-level row.** `variantId` is unique, so a variant
+has exactly one stock row and can be upserted. The row *for the product itself* — where `variantId IS NULL` —
+is covered by nothing, so `ensureStockRow` is a find-then-create and two concurrent requests can both find
+nothing and both insert. A product with two stock rows then reports whichever `available` a later query happens
+to read, and the figure will not stay still. The fix is a partial unique index, `(productId) WHERE variantId IS
+NULL`, added in the initial migration; the exposure today is low only because both callers are one shop owner
+saving one form.
+
 **`AIAgent.isDefault` has no constraint behind it.** It is `Boolean @default(true)` with no unique index, so
 creating a second agent in a workspace produces two rows both claiming to be the default and the turn pipeline has
 no defined answer for which one replies. Harmless while the MVP configures one agent, and it must be a partial
