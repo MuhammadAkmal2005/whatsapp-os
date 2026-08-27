@@ -33,7 +33,9 @@ verify passes, the UI has been looked at on a phone-width viewport, and the docs
 tests/
   setup.ts                   # env for every run; forces the test database
   unit/                      # pure logic, no I/O
-  integration/               # real database, one tenant per test  (not created yet)
+  integration/               # real database, one tenant per test
+    fixtures.ts              # workspaces, members and contacts inserted through Prisma
+    contact/                 # grouped by module
   e2e/                       # Playwright, real browser              (not created yet)
   stubs/server-only.mjs      # no-op stand-in for the server-only guard
   sandbox-resolver.mjs       # @/… alias + .ts resolution for bare node
@@ -63,9 +65,9 @@ file's imports are evaluated, which is why this works there and would not work i
 
 ## Unit tests
 
-330 tests across 13 files. Pure logic only: no database, no network, no clock dependence. 311 of them run under the
-bare-node sandbox runner; the other 19 sit in two files that import `zod` and run only under Vitest, which is why
-the table below sums higher than the count the sandbox gate prints.
+Pure logic only: no database, no network, no clock dependence. Almost all of them run under the bare-node sandbox
+runner; two files import `zod` and so run only under Vitest. The per-file counts below are an inventory of what
+each file is responsible for — for the current totals, run the command, whose output is never out of date.
 
 | File | Tests | What it protects |
 | --- | --- | --- |
@@ -81,6 +83,7 @@ the table below sums higher than the count the sandbox gate prints.
 | `job-backoff.test.ts` | 18 | Retry backoff, jitter bounds, attempt ceiling, lock expiry, dedupe keys. |
 | `webhook-signature.test.ts` | 16 | HMAC verification, including malformed and hostile headers. |
 | `features.test.ts` | 12 | That the deployment flag gates before the plan entitlement, and that `resolveFeatures` serialises. Needs `zod` transitively, so the bare-node runner skips it. |
+| `contact-capability.test.ts` | 9 | Which roles may edit, remove, assign and export customers, and that the flags the UI renders from agree with what the service enforces. |
 | `job-payloads.test.ts` | 7 | Job payload schemas. Needs `zod`, so the bare-node runner skips it. |
 
 Three things in that table are worth singling out.
@@ -114,13 +117,63 @@ fails `isValidE164`, which is the assertion that caught it.
 
 ## Integration tests
 
-Not written yet. They need a live PostgreSQL instance and they land with the features they protect, in Phases 2
-and 3. When they arrive they cover the webhook path end to end, message persistence and status transitions, order
-creation, and — most importantly — cross-tenant denial against a real database.
+These run against a real PostgreSQL database, because the properties they check are properties of the queries. A
+mocked Prisma client would let a repository that forgot its `workspaceId` pass: the mock returns whatever the test
+told it to.
 
-The pattern each one follows: create two workspaces, act as a member of one, attempt to read and to mutate the
-other's rows by id, and assert `NotFoundError` every time. Two tenants, not one, because a single-tenant test
-cannot fail in the way that matters.
+Nothing starts the database for you. Bring up the throwaway container, apply the schema to it, then run the suite:
+
+```bash
+docker compose up -d postgres-test
+DATABASE_URL=postgresql://whatsapp_os:whatsapp_os@localhost:5433/whatsapp_os_test npm run db:push
+npm test
+```
+
+The `DATABASE_URL` override on the middle line matters. `tests/setup.ts` redirects the *test process* to port 5433,
+but `prisma db push` is a separate process that reads your `.env` — without the override it would push the schema
+to your development database and leave the test one empty, and the failure reads as a missing table rather than as
+a missing step.
+
+### `fixtures.ts`
+
+Fixtures insert through Prisma, never through the services. A fixture that called `createContact` to set up a test
+of `createContact` would pass whenever the service was self-consistently wrong, which is precisely the failure mode
+worth catching.
+
+`createWorkspaceFixture` returns a `TenantContext` for the workspace's owner, built by hand rather than resolved
+from a session — the session path has its own tests, and going through it here would make every integration test
+depend on cookie handling. `createMemberFixture` adds a member at any role, so a test can hold a real AGENT or
+VIEWER context. `resetDatabase` truncates `users` and `workspaces` with `CASCADE`: they are the two roots, so
+cascading from both clears the schema without naming forty tables that would need maintaining every time a model
+is added.
+
+Slugs and emails carry a random suffix because both are globally unique, and two fixtures colliding on a unique
+index produces a failure that reads as a bug in the code under test. Emails use the reserved `example.test` TLD and
+phone numbers are fictional.
+
+### `contact/contact-isolation.test.ts`
+
+Acceptance test #96, against the service rather than the assertion helper. `tests/unit/tenant-isolation.test.ts`
+proves `assertBelongsToWorkspace` refuses a foreign row, but it would still pass if a repository never called it.
+This one creates a customer in Workspace A and then, holding a valid context for Workspace B, attempts every read
+and every mutation the module offers: read, list, search, edit, status, lead stage, note, assign, remove. Each must
+raise `NotFoundError`, and the write assertions re-read the row afterwards to confirm nothing was touched.
+
+Three cases in it are worth naming.
+
+**Indistinguishability is asserted, not assumed.** One test compares the error for a foreign customer against the
+error for an id that never existed — code, status and message — because "404 not 403" is only half the property. If
+the two differed in their message, the distinction an attacker needs would still be there.
+
+**Assignment is tested in the direction a foreign key does not catch.** `Contact.assignedToMemberId` references
+`workspace_members` globally, so the database would happily accept a competitor's employee. A crafted form post
+doing that would park the customer in a queue inside another business, along with their phone number and notes.
+The refusal comes from `resolveAssignee`, and this is the test that keeps it there.
+
+**A leaked cursor is treated as a plausible input.** Ids travel in URLs, so the pagination cursor is the most
+likely way a foreign id reaches a query. The assertion is that Workspace A's row never appears in Workspace B's
+page, and it deliberately tolerates either a rejection or an empty result — pinning which one Prisma does would
+make the test a version detector rather than a tenancy check.
 
 ---
 
@@ -148,7 +201,11 @@ client-supplied total ignored rather than validated.
 stock to 0 and it must not say available. With no return policy stored, it must not invent one. This is the test
 that distinguishes the product from a chatbot, and it is why grounding is tested rather than trusted.
 
-Of the six, order totals and rank rules pass today. The others need the features they describe.
+Of the six, order totals and rank rules pass today. Cross-tenant denial and role authorization are written for
+contacts in `tests/integration/contact/contact-isolation.test.ts` but have never executed, because this
+environment has no database — treat them as unverified until someone runs them. They will need extending to
+orders and conversations as those modules land. Webhook idempotency and AI grounding need the features they
+describe.
 
 ---
 
@@ -203,8 +260,11 @@ would be worse than saying so.
   error `tsc` would catch, it is the *only* automated check that reads the components, and it has caught real
   broken imports.
 - **`tools/sandbox-test.mjs`** — executes the unit suite under bare Node with a resolver that understands the
-  `@/…` alias. 311 tests genuinely run. Two files skip because they reach `zod`; a skip is reported as a skip
-  rather than counted as a pass, and the runner names the missing dependency.
+  `@/…` alias. Most of the unit tests genuinely run. Two files skip because they reach `zod`; a skip is reported as
+  a skip rather than counted as a pass, and the runner names the missing dependency. Integration files are found and
+  listed as `DEFER`, never attempted — they need a database, and a wall of connection errors on every run would
+  train the reader to ignore red output. Listing them keeps them visible: **a suite that appears in no local run is
+  one nobody notices has drifted away from the code it covers.**
 
 The exact file and import counts are deliberately not written down here. They moved with every commit and the line
 went stale three times in a week, which taught the wrong lesson twice: that the document was unreliable, and that
@@ -232,6 +292,12 @@ the first test to reach a repository would have failed on import. That reasoning
 ---
 
 ## Known gaps
+
+The integration suite has never executed. `tests/integration/fixtures.ts` and the contact isolation tests are
+written against the real service and the real schema, and every signature in them was checked against source, but
+"checked against source" is not "ran". The first run on a machine with a database should be treated as part of
+writing them, not as a formality — the likely failures are a table name in the `TRUNCATE`, a column default, and
+whatever Prisma does with a cursor its `where` clause excludes.
 
 `tests/setup.ts` was referenced by `vitest.config.ts` and did not exist, which meant `npm run test` would have
 failed on the first machine that ran it with a full install. It is written now. It was found while writing this
