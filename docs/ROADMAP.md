@@ -14,12 +14,16 @@ Phase 0 and Phase 1 are built: configuration, feature flags, plan config, the fu
 authentication, workspaces, members and roles, the authorization layer, tenant context, rate limiting, audit
 logging, the API envelope, the dashboard shell and the documentation set.
 
-Phases 2 through 10 are not started. Phase 2 is next: contacts, products with variants and inventory, orders with
-server-side totals, and seed data.
+Phase 2 is in progress. **Contacts are built**: validation schemas, a workspace-scoped repository, the service with
+its authorization checks and phone-number identity handling, server actions, the customer list with filters and
+cursor pagination, the profile with notes and inline status, stage and assignment controls, and the create and
+remove dialogs. Its unit tests pass; its integration tests are written but have not executed here, for want of a
+database. Products with variants and inventory, orders with server-side totals, and seed data are what remain in
+the phase.
 
 **The verification gate has not run in full.** Lint, typecheck, `next build`, Prisma migration generation and
 Playwright all still need a machine with a package registry and a PostgreSQL instance. `npm run verify:sandbox`
-covers syntax, first-party imports and 311 unit tests, and that is genuinely all it covers. `docs/TESTING.md` is
+covers syntax, first-party imports and the unit suite, and that is genuinely all it covers. `docs/TESTING.md` is
 precise about the difference.
 
 ---
@@ -119,6 +123,13 @@ behind `ENABLE_VOICE`. Realtime voice calling is a different product and is not 
 **Campaigns and appointments.** Both are behind flags (`ENABLE_CAMPAIGNS`, `ENABLE_APPOINTMENTS`) and land in
 Phase 11. Campaigns in particular must not ship before the 24-hour window, template approval and opt-out are all
 enforced, because a campaign feature that ignores them is a spam tool that costs every tenant their number.
+
+**Editing a customer's phone number, and merging duplicates.** `updateContactSchema` deliberately omits the phone
+number. It is half of `@@unique([workspaceId, phoneE164])` — the contact's identity — so changing it silently
+re-points every conversation, order and payment already attached to that record at a different person. What a shop
+owner actually wants when they reach for it is a *merge*: two records for one customer, usually because the number
+was saved once with the country code and once without. That is its own operation, with its own confirmation screen
+and a decision about which record's history survives, and it is Phase 11 work rather than a field on the edit form.
 
 **Local Pakistani payment providers.** The `PaymentProvider` interface is the right shape for them; the integrations
 need a real business entity and merchant accounts, so Stripe is the first implementation and local providers follow.
