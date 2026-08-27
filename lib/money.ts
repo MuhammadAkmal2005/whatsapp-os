@@ -195,6 +195,18 @@ const CURRENCY_SYMBOLS: Record<SupportedCurrency, string> = {
   EUR: '€',
 };
 
+/**
+ * The display symbol for a currency, e.g. `Rs.` for PKR.
+ *
+ * For labelling a price *input*, where the amount is typed in major units and no full
+ * `Money` value exists to run through `formatMoney`. Hard-coding `Rs.` on the form would
+ * misprice a Dubai seller's catalogue, which is the same reason the schema keeps prices
+ * currency-free until the service converts them.
+ */
+export function currencySymbol(currency: SupportedCurrency): string {
+  return CURRENCY_SYMBOLS[currency];
+}
+
 export type FormatMoneyOptions = {
   /** Hide the ".00" tail when the amount is whole. Prices read better without
    *  it in Pakistani retail, where amounts are almost always whole rupees. */

@@ -84,6 +84,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: '/contacts',
         icon: Users,
         permission: 'contact:read',
+        available: true,
       },
     ],
   },
@@ -95,8 +96,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: '/products',
         icon: Package,
         permission: 'product:read',
-        available: false,
-        reason: IN_PROGRESS,
+        available: true,
       },
       {
         label: 'Orders',
