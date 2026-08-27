@@ -54,7 +54,15 @@ import {
   type MemberRow,
 } from '@/server/repositories/member.repository';
 import { getWorkspaceCountry } from '@/server/repositories/workspace.repository';
-import { can, requirePermission, type TenantContext } from '@/server/tenancy/context';
+import {
+  contactCapability,
+  contactDetailCapability,
+  contactListCapability,
+  type ContactCapability,
+  type ContactDetailCapability,
+  type ContactListCapability,
+} from '@/server/services/contact/contact.capability';
+import { requirePermission, type TenantContext } from '@/server/tenancy/context';
 import type {
   AddContactNoteInput,
   AssignContactInput,
@@ -94,7 +102,7 @@ export type Contact = ContactRow & {
   assignedToName: string | null;
   /** What the *caller* may do to this record. Rendering convenience; the service
    *  enforces the same rules regardless of what the UI chose to show. */
-  can: { update: boolean; delete: boolean; assign: boolean };
+  can: ContactCapability;
 };
 
 export type ContactNote = {
@@ -112,7 +120,7 @@ export type ContactListPage = {
    *  fails rather than after. */
   usage: { used: number; limit: number | null };
   assignees: { id: string; name: string }[];
-  can: { create: boolean; export: boolean };
+  can: ContactListCapability;
 };
 
 function toContact(
@@ -194,11 +202,7 @@ export async function getContacts(
   ]);
 
   const assignees = assigneeView(members);
-  const capability = {
-    update: can(ctx, 'contact:update'),
-    delete: can(ctx, 'contact:delete'),
-    assign: can(ctx, 'contact:update'),
-  };
+  const capability = contactCapability(ctx);
 
   return {
     contacts: page.rows.map((row) => toContact(row, assignees.names, capability)),
@@ -206,7 +210,7 @@ export async function getContacts(
     statusCounts,
     usage: { used, limit: getPlan(ctx.planKey).limits.contacts },
     assignees: assignees.options,
-    can: { create: can(ctx, 'contact:create'), export: can(ctx, 'contact:export') },
+    can: contactListCapability(ctx),
   };
 }
 
@@ -214,7 +218,7 @@ export type ContactDetail = {
   contact: Contact;
   notes: ContactNote[];
   assignees: { id: string; name: string }[];
-  can: { update: boolean; delete: boolean; addNote: boolean };
+  can: ContactDetailCapability;
 };
 
 export async function getContact(ctx: TenantContext, contactId: string): Promise<ContactDetail> {
@@ -231,17 +235,13 @@ export async function getContact(ctx: TenantContext, contactId: string): Promise
   ]);
 
   const assignees = assigneeView(members);
-  const capability = {
-    update: can(ctx, 'contact:update'),
-    delete: can(ctx, 'contact:delete'),
-    assign: can(ctx, 'contact:update'),
-  };
+  const capability = contactDetailCapability(ctx);
 
   return {
     contact: toContact(row, assignees.names, capability),
     notes: notes.map(toNote),
     assignees: assignees.options,
-    can: { ...capability, addNote: can(ctx, 'contact:update') },
+    can: capability,
   };
 }
 
@@ -472,11 +472,7 @@ async function getContactOrThrow(ctx: TenantContext, contactId: string): Promise
 
   const members = await listMembers(prisma, ctx.workspaceId);
 
-  return toContact(row, assigneeView(members).names, {
-    update: can(ctx, 'contact:update'),
-    delete: can(ctx, 'contact:delete'),
-    assign: can(ctx, 'contact:update'),
-  });
+  return toContact(row, assigneeView(members).names, contactCapability(ctx));
 }
 
 /**
