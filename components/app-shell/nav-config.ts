@@ -84,8 +84,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: '/contacts',
         icon: Users,
         permission: 'contact:read',
-        available: false,
-        reason: IN_PROGRESS,
       },
     ],
   },

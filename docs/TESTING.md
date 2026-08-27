@@ -190,21 +190,25 @@ would be worse than saying so.
 
 `npm run verify:sandbox` is the local substitute. It runs three checks that need nothing but Node:
 
-- **`tools/syntax-check.mjs`** — runs Node's type stripper over all 87 `.ts` files. Catches syntax errors,
+- **`tools/syntax-check.mjs`** — runs Node's type stripper over every `.ts` file. Catches syntax errors,
   unbalanced braces and malformed generics. It cannot parse `.tsx`, because the stripper has no JSX parser and
-  every component would report a false failure, so it prints the number of files it skipped on every run —
-  currently 68. That is a real gap and the summary line says so rather than implying the components were checked;
-  they are covered by import-check alone until `npm run typecheck` runs on a machine with `node_modules`. It also
-  scans every text file for a literal NUL byte, which sounds obscure but has happened four times: the file still
-  parses, yet grep classifies it as binary and silently skips it from every subsequent search, including a
+  every component would report a false failure, so it prints the number of files it skipped on every run — around
+  a third of the codebase. That is a real gap and the summary line says so rather than implying the components were
+  checked; they are covered by import-check alone until `npm run typecheck` runs on a machine with `node_modules`.
+  It also scans every text file for a literal NUL byte, which sounds obscure but has happened four times: the file
+  still parses, yet grep classifies it as binary and silently skips it from every subsequent search, including a
   security audit.
-- **`tools/import-check.mjs`** — resolves all 423 first-party imports across both `.ts` and `.tsx` and checks each
-  of the 899 named bindings exists in the target module. This is the closest available stand-in for the class of
+- **`tools/import-check.mjs`** — resolves every first-party import across both `.ts` and `.tsx` and checks that each
+  named binding exists in the target module. This is the closest available stand-in for the class of
   error `tsc` would catch, it is the *only* automated check that reads the components, and it has caught real
   broken imports.
 - **`tools/sandbox-test.mjs`** — executes the unit suite under bare Node with a resolver that understands the
   `@/…` alias. 311 tests genuinely run. Two files skip because they reach `zod`; a skip is reported as a skip
   rather than counted as a pass, and the runner names the missing dependency.
+
+The exact file and import counts are deliberately not written down here. They moved with every commit and the line
+went stale three times in a week, which taught the wrong lesson twice: that the document was unreliable, and that
+the numbers mattered. Run the command — it prints them, and its output is never out of date.
 
 **These are not a substitute for the real gate.** Still to be run on a machine with a registry and a database:
 
