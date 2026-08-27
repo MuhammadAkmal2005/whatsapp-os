@@ -65,6 +65,14 @@ to read, and the figure will not stay still. The fix is a partial unique index, 
 NULL`, added in the initial migration; the exposure today is low only because both callers are one shop owner
 saving one form.
 
+**Deleting a variant does not check its reserved stock.** `deleteVariant` removes the size and, by cascade, its
+`InventoryItem` row — including any `reserved` units held by an unconfirmed order. The order itself survives
+intact, because `OrderItem` carries `variantSnapshot` and the price it was sold at and its FK is `SetNull`, so
+nothing a customer was promised is lost. What is lost is the reservation: the units silently stop being counted as
+held. The check belongs with orders rather than with the catalogue — the product service has no business deciding
+what a reservation means — so it lands with Phase 2's order work, as a refusal to delete a variant that an open
+order is holding.
+
 **`AIAgent.isDefault` has no constraint behind it.** It is `Boolean @default(true)` with no unique index, so
 creating a second agent in a workspace produces two rows both claiming to be the default and the turn pipeline has
 no defined answer for which one replies. Harmless while the MVP configures one agent, and it must be a partial

@@ -185,6 +185,11 @@ const flagInput = z
  * unaffected by which currency they turn out to be, so long as they are both the same
  * one, and they always are. The service re-derives both amounts and does not trust
  * this having happened.
+ *
+ * Strictly below, not at or below. A sale price equal to the normal price advertises a
+ * saving of nothing, and the comparison has to match `assertSaleBelowPrice` in the
+ * service exactly — a form that accepts a value the service then refuses is the specific
+ * failure these shared schemas exist to prevent.
  */
 function saleBelowPrice(input: {
   priceMinor?: string | null;
@@ -194,7 +199,7 @@ function saleBelowPrice(input: {
   const price = parseMoney(input.priceMinor);
   const sale = parseMoney(input.salePriceMinor);
   if (!price || !sale) return true; // Already reported by the field refinements.
-  return sale.minor <= price.minor;
+  return sale.minor < price.minor;
 }
 
 /** The message is attached to the sale price rather than the object, so the form shows
