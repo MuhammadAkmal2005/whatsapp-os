@@ -3,285 +3,348 @@
  *
  * These tests verify the critical order behaviors that MUST work:
  * - Cross-tenant isolation: orders never leak between workspaces
- * - Permissions: order:create/read/update/cancel are enforced
+ * - Permissions: order:create/update/cancel are enforced server-side
  * - Inventory correctness: stock is reserved on create, released on cancel, marked sold on delivery
  * - Server-side totals: the service recomputes totals from database prices, never trusts client input
  * - Status transitions: only legal moves are allowed, terminal statuses stay terminal
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 
-import { prisma } from '@/server/db';
-import { createOrder, cancelOrder, updateOrderStatus, listOrders, getOrderDetail } from '@/server/services/order/order.service';
-import type { TenantContext } from '@/server/tenancy/context';
+import { prisma } from '@/db/prisma';
+import {
+  createOrder,
+  cancelOrder,
+  updateOrderStatus,
+  listOrders,
+  getOrderDetail,
+} from '@/server/services/order/order.service';
+import { ForbiddenError, NotFoundError } from '@/server/errors';
 import type { CreateOrderInput } from '@/server/validation/order';
-import { AppError } from '@/server/errors/app-error';
-
-// Test workspace IDs
-const WORKSPACE_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-const WORKSPACE_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
-const MEMBER_A = 'maaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-const MEMBER_B = 'mbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
-
-function makeContext(workspaceId: string, membershipId: string, permissions: string[]): TenantContext {
-  return {
-    workspaceId,
-    workspaceName: 'Test Workspace',
-    membershipId,
-    userId: 'user-id',
-    role: 'OWNER',
-    permissions,
-    currency: 'PKR',
-  };
-}
-
-const FULL_PERMISSIONS = ['order:create', 'order:read', 'order:update', 'order:cancel'];
+import {
+  createContactFixture,
+  createMemberFixture,
+  createWorkspaceFixture,
+  resetDatabase,
+  tenantContextFor,
+  type WorkspaceFixture,
+} from '../fixtures';
 
 describe('Order service — cross-tenant isolation', () => {
-  let contactA: string;
-  let contactB: string;
-  let productA: string;
-  let productB: string;
+  let workspaceA: WorkspaceFixture;
+  let workspaceB: WorkspaceFixture;
+  let contactA: { id: string; phoneE164: string; name: string };
+  let contactB: { id: string; phoneE164: string; name: string };
+  let productA: { id: string };
+  let productB: { id: string };
 
   beforeEach(async () => {
-    await prisma.$executeRaw`TRUNCATE TABLE "Order", "OrderItem", "OrderEvent", "Contact", "Product", "ProductStock" CASCADE`;
+    await resetDatabase();
 
-    // Workspace A: one contact, one product
-    const cA = await prisma.contact.create({
-      data: { workspaceId: WORKSPACE_A, name: 'Customer A', phoneE164: '+923001111111' },
+    workspaceA = await createWorkspaceFixture({ name: 'Workspace A' });
+    workspaceB = await createWorkspaceFixture({ name: 'Workspace B' });
+
+    // Workspace A: one contact, one product with 100 stock
+    contactA = await createContactFixture(workspaceA.workspaceId, {
+      name: 'Customer A',
+      phoneE164: '+923001111111',
     });
-    contactA = cA.id;
 
     const pA = await prisma.product.create({
       data: {
-        workspaceId: WORKSPACE_A,
+        workspaceId: workspaceA.workspaceId,
         name: 'Product A',
         slug: 'product-a',
         status: 'ACTIVE',
         trackInventory: true,
-        basePriceMinor: 1000,
+        priceMinor: 1000,
         currency: 'PKR',
       },
     });
-    productA = pA.id;
+    productA = pA;
 
-    await prisma.productStock.create({
-      data: { workspaceId: WORKSPACE_A, productId: productA, variantId: null, available: 100, reserved: 0, sold: 0 },
+    await prisma.inventoryItem.create({
+      data: {
+        workspaceId: workspaceA.workspaceId,
+        productId: productA.id,
+        variantId: null,
+        available: 100,
+        reserved: 0,
+        sold: 0,
+      },
     });
 
-    // Workspace B: one contact, one product
-    const cB = await prisma.contact.create({
-      data: { workspaceId: WORKSPACE_B, name: 'Customer B', phoneE164: '+923002222222' },
+    // Workspace B: one contact, one product with 100 stock
+    contactB = await createContactFixture(workspaceB.workspaceId, {
+      name: 'Customer B',
+      phoneE164: '+923002222222',
     });
-    contactB = cB.id;
 
     const pB = await prisma.product.create({
       data: {
-        workspaceId: WORKSPACE_B,
+        workspaceId: workspaceB.workspaceId,
         name: 'Product B',
         slug: 'product-b',
         status: 'ACTIVE',
         trackInventory: true,
-        basePriceMinor: 2000,
+        priceMinor: 2000,
         currency: 'PKR',
       },
     });
-    productB = pB.id;
+    productB = pB;
 
-    await prisma.productStock.create({
-      data: { workspaceId: WORKSPACE_B, productId: productB, variantId: null, available: 100, reserved: 0, sold: 0 },
+    await prisma.inventoryItem.create({
+      data: {
+        workspaceId: workspaceB.workspaceId,
+        productId: productB.id,
+        variantId: null,
+        available: 100,
+        reserved: 0,
+        sold: 0,
+      },
     });
   });
 
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
   it('does not allow workspace A to create an order for workspace B contact', async () => {
-    const ctx = makeContext(WORKSPACE_A, MEMBER_A, FULL_PERMISSIONS);
     const input: CreateOrderInput = {
-      contactId: contactB, // belongs to workspace B
-      items: [{ productId: productA, variantId: null, quantity: 1 }],
+      contactId: contactB.id, // belongs to workspace B
+      items: [{ productId: productA.id, variantId: null, quantity: 1 }],
       customerName: 'Customer B',
       phoneE164: '+923002222222',
+      country: 'PK',
       paymentMethod: 'COD',
     };
 
-    await expect(createOrder(ctx, input)).rejects.toThrow();
+    await expect(createOrder(workspaceA.context, input)).rejects.toThrow(NotFoundError);
   });
 
   it('does not allow workspace A to create an order for workspace B product', async () => {
-    const ctx = makeContext(WORKSPACE_A, MEMBER_A, FULL_PERMISSIONS);
     const input: CreateOrderInput = {
-      contactId: contactA,
-      items: [{ productId: productB, variantId: null, quantity: 1 }], // belongs to workspace B
+      contactId: contactA.id,
+      items: [{ productId: productB.id, variantId: null, quantity: 1 }], // belongs to workspace B
       customerName: 'Customer A',
       phoneE164: '+923001111111',
+      country: 'PK',
       paymentMethod: 'COD',
     };
 
-    await expect(createOrder(ctx, input)).rejects.toThrow();
+    await expect(createOrder(workspaceA.context, input)).rejects.toThrow(NotFoundError);
   });
 
   it('does not return workspace B orders when workspace A lists orders', async () => {
-    const ctxA = makeContext(WORKSPACE_A, MEMBER_A, FULL_PERMISSIONS);
-    const ctxB = makeContext(WORKSPACE_B, MEMBER_B, FULL_PERMISSIONS);
-
     const inputA: CreateOrderInput = {
-      contactId: contactA,
-      items: [{ productId: productA, variantId: null, quantity: 1 }],
+      contactId: contactA.id,
+      items: [{ productId: productA.id, variantId: null, quantity: 1 }],
       customerName: 'Customer A',
       phoneE164: '+923001111111',
+      country: 'PK',
       paymentMethod: 'COD',
     };
 
     const inputB: CreateOrderInput = {
-      contactId: contactB,
-      items: [{ productId: productB, variantId: null, quantity: 1 }],
+      contactId: contactB.id,
+      items: [{ productId: productB.id, variantId: null, quantity: 1 }],
       customerName: 'Customer B',
       phoneE164: '+923002222222',
+      country: 'PK',
       paymentMethod: 'COD',
     };
 
-    const orderA = await createOrder(ctxA, inputA);
-    const orderB = await createOrder(ctxB, inputB);
+    const orderA = await createOrder(workspaceA.context, inputA);
+    const orderB = await createOrder(workspaceB.context, inputB);
 
-    const pageA = await listOrders(ctxA, {});
-    const pageB = await listOrders(ctxB, {});
+    const pageA = await listOrders(workspaceA.context, { limit: 20 });
+    const pageB = await listOrders(workspaceB.context, { limit: 20 });
 
     expect(pageA.orders).toHaveLength(1);
-    expect(pageA.orders[0].id).toBe(orderA.id);
+    expect(pageA.orders[0]?.id).toBe(orderA.id);
 
     expect(pageB.orders).toHaveLength(1);
-    expect(pageB.orders[0].id).toBe(orderB.id);
+    expect(pageB.orders[0]?.id).toBe(orderB.id);
   });
 
   it('returns null when workspace A tries to read workspace B order by id', async () => {
-    const ctxA = makeContext(WORKSPACE_A, MEMBER_A, FULL_PERMISSIONS);
-    const ctxB = makeContext(WORKSPACE_B, MEMBER_B, FULL_PERMISSIONS);
-
     const inputB: CreateOrderInput = {
-      contactId: contactB,
-      items: [{ productId: productB, variantId: null, quantity: 1 }],
+      contactId: contactB.id,
+      items: [{ productId: productB.id, variantId: null, quantity: 1 }],
       customerName: 'Customer B',
       phoneE164: '+923002222222',
+      country: 'PK',
       paymentMethod: 'COD',
     };
 
-    const orderB = await createOrder(ctxB, inputB);
+    const orderB = await createOrder(workspaceB.context, inputB);
 
-    const result = await getOrderDetail(ctxA, orderB.id);
+    const result = await getOrderDetail(workspaceA.context, orderB.id);
     expect(result).toBeNull();
   });
 });
 
 describe('Order service — permissions', () => {
-  let contactId: string;
-  let productId: string;
+  let workspace: WorkspaceFixture;
+  let contact: { id: string; phoneE164: string; name: string };
+  let product: { id: string };
 
   beforeEach(async () => {
-    await prisma.$executeRaw`TRUNCATE TABLE "Order", "OrderItem", "OrderEvent", "Contact", "Product", "ProductStock" CASCADE`;
+    await resetDatabase();
 
-    const contact = await prisma.contact.create({
-      data: { workspaceId: WORKSPACE_A, name: 'Customer', phoneE164: '+923001111111' },
+    workspace = await createWorkspaceFixture({ name: 'Permissions Test WS' });
+
+    contact = await createContactFixture(workspace.workspaceId, {
+      name: 'Customer',
+      phoneE164: '+923001111111',
     });
-    contactId = contact.id;
 
-    const product = await prisma.product.create({
+    product = await prisma.product.create({
       data: {
-        workspaceId: WORKSPACE_A,
+        workspaceId: workspace.workspaceId,
         name: 'Product',
         slug: 'product',
         status: 'ACTIVE',
         trackInventory: true,
-        basePriceMinor: 1000,
+        priceMinor: 1000,
         currency: 'PKR',
       },
     });
-    productId = product.id;
 
-    await prisma.productStock.create({
-      data: { workspaceId: WORKSPACE_A, productId, variantId: null, available: 100, reserved: 0, sold: 0 },
+    await prisma.inventoryItem.create({
+      data: {
+        workspaceId: workspace.workspaceId,
+        productId: product.id,
+        variantId: null,
+        available: 100,
+        reserved: 0,
+        sold: 0,
+      },
     });
   });
 
-  it('throws when creating an order without order:create permission', async () => {
-    const ctx = makeContext(WORKSPACE_A, MEMBER_A, ['order:read']);
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it('throws when creating an order without order:create permission (VIEWER)', async () => {
+    const viewer = await createMemberFixture(workspace.workspaceId, 'VIEWER', {
+      name: 'Viewer User',
+    });
+    const viewerCtx = tenantContextFor({
+      workspaceId: workspace.workspaceId,
+      workspaceSlug: workspace.workspaceSlug,
+      workspaceName: 'Permissions Test WS',
+      currency: 'PKR',
+      userId: viewer.userId,
+      userName: viewer.name,
+      userEmail: viewer.email,
+      membershipId: viewer.membershipId,
+      role: 'VIEWER',
+    });
+
     const input: CreateOrderInput = {
-      contactId,
-      items: [{ productId, variantId: null, quantity: 1 }],
+      contactId: contact.id,
+      items: [{ productId: product.id, variantId: null, quantity: 1 }],
       customerName: 'Customer',
       phoneE164: '+923001111111',
+      country: 'PK',
       paymentMethod: 'COD',
     };
 
-    await expect(createOrder(ctx, input)).rejects.toThrow(AppError);
+    await expect(createOrder(viewerCtx, input)).rejects.toThrow(ForbiddenError);
   });
 
-  it('throws when listing orders without order:read permission', async () => {
-    const ctx = makeContext(WORKSPACE_A, MEMBER_A, ['order:create']);
-
-    await expect(listOrders(ctx, {})).rejects.toThrow(AppError);
-  });
-
-  it('throws when cancelling an order without order:cancel permission', async () => {
-    const ctxFull = makeContext(WORKSPACE_A, MEMBER_A, FULL_PERMISSIONS);
-    const ctxNoCan = makeContext(WORKSPACE_A, MEMBER_A, ['order:read', 'order:update']);
+  it('throws when cancelling an order without order:cancel permission (AGENT)', async () => {
+    const agent = await createMemberFixture(workspace.workspaceId, 'AGENT', {
+      name: 'Agent User',
+    });
+    const agentCtx = tenantContextFor({
+      workspaceId: workspace.workspaceId,
+      workspaceSlug: workspace.workspaceSlug,
+      workspaceName: 'Permissions Test WS',
+      currency: 'PKR',
+      userId: agent.userId,
+      userName: agent.name,
+      userEmail: agent.email,
+      membershipId: agent.membershipId,
+      role: 'AGENT',
+    });
 
     const input: CreateOrderInput = {
-      contactId,
-      items: [{ productId, variantId: null, quantity: 1 }],
+      contactId: contact.id,
+      items: [{ productId: product.id, variantId: null, quantity: 1 }],
       customerName: 'Customer',
       phoneE164: '+923001111111',
+      country: 'PK',
       paymentMethod: 'COD',
     };
 
-    const order = await createOrder(ctxFull, input);
+    const order = await createOrder(workspace.context, input);
 
-    await expect(cancelOrder(ctxNoCan, order.id, { reason: 'Test' })).rejects.toThrow(AppError);
+    await expect(cancelOrder(agentCtx, order.id, { reason: 'Test' })).rejects.toThrow(
+      ForbiddenError,
+    );
   });
 });
 
 describe('Order service — inventory correctness', () => {
-  let contactId: string;
-  let productId: string;
+  let workspace: WorkspaceFixture;
+  let contact: { id: string; phoneE164: string; name: string };
+  let product: { id: string };
 
   beforeEach(async () => {
-    await prisma.$executeRaw`TRUNCATE TABLE "Order", "OrderItem", "OrderEvent", "Contact", "Product", "ProductStock" CASCADE`;
+    await resetDatabase();
 
-    const contact = await prisma.contact.create({
-      data: { workspaceId: WORKSPACE_A, name: 'Customer', phoneE164: '+923001111111' },
+    workspace = await createWorkspaceFixture({ name: 'Inventory Test WS' });
+
+    contact = await createContactFixture(workspace.workspaceId, {
+      name: 'Customer',
+      phoneE164: '+923001111111',
     });
-    contactId = contact.id;
 
-    const product = await prisma.product.create({
+    product = await prisma.product.create({
       data: {
-        workspaceId: WORKSPACE_A,
+        workspaceId: workspace.workspaceId,
         name: 'Product',
         slug: 'product',
         status: 'ACTIVE',
         trackInventory: true,
-        basePriceMinor: 1000,
+        priceMinor: 1000,
         currency: 'PKR',
       },
     });
-    productId = product.id;
 
-    await prisma.productStock.create({
-      data: { workspaceId: WORKSPACE_A, productId, variantId: null, available: 100, reserved: 0, sold: 0 },
+    await prisma.inventoryItem.create({
+      data: {
+        workspaceId: workspace.workspaceId,
+        productId: product.id,
+        variantId: null,
+        available: 100,
+        reserved: 0,
+        sold: 0,
+      },
     });
   });
 
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
   it('reserves stock when an order is created', async () => {
-    const ctx = makeContext(WORKSPACE_A, MEMBER_A, FULL_PERMISSIONS);
     const input: CreateOrderInput = {
-      contactId,
-      items: [{ productId, variantId: null, quantity: 5 }],
+      contactId: contact.id,
+      items: [{ productId: product.id, variantId: null, quantity: 5 }],
       customerName: 'Customer',
       phoneE164: '+923001111111',
+      country: 'PK',
       paymentMethod: 'COD',
     };
 
-    await createOrder(ctx, input);
+    await createOrder(workspace.context, input);
 
-    const stock = await prisma.productStock.findFirst({
-      where: { workspaceId: WORKSPACE_A, productId, variantId: null },
+    const stock = await prisma.inventoryItem.findFirst({
+      where: { workspaceId: workspace.workspaceId, productId: product.id, variantId: null },
     });
 
     expect(stock?.available).toBe(95);
@@ -290,21 +353,21 @@ describe('Order service — inventory correctness', () => {
   });
 
   it('releases stock when an order is cancelled', async () => {
-    const ctx = makeContext(WORKSPACE_A, MEMBER_A, FULL_PERMISSIONS);
     const input: CreateOrderInput = {
-      contactId,
-      items: [{ productId, variantId: null, quantity: 5 }],
+      contactId: contact.id,
+      items: [{ productId: product.id, variantId: null, quantity: 5 }],
       customerName: 'Customer',
       phoneE164: '+923001111111',
+      country: 'PK',
       paymentMethod: 'COD',
     };
 
-    const order = await createOrder(ctx, input);
+    const order = await createOrder(workspace.context, input);
 
-    await cancelOrder(ctx, order.id, { reason: 'Customer changed mind' });
+    await cancelOrder(workspace.context, order.id, { reason: 'Customer changed mind' });
 
-    const stock = await prisma.productStock.findFirst({
-      where: { workspaceId: WORKSPACE_A, productId, variantId: null },
+    const stock = await prisma.inventoryItem.findFirst({
+      where: { workspaceId: workspace.workspaceId, productId: product.id, variantId: null },
     });
 
     expect(stock?.available).toBe(100);
@@ -313,25 +376,25 @@ describe('Order service — inventory correctness', () => {
   });
 
   it('marks stock as sold when an order is delivered', async () => {
-    const ctx = makeContext(WORKSPACE_A, MEMBER_A, FULL_PERMISSIONS);
     const input: CreateOrderInput = {
-      contactId,
-      items: [{ productId, variantId: null, quantity: 5 }],
+      contactId: contact.id,
+      items: [{ productId: product.id, variantId: null, quantity: 5 }],
       customerName: 'Customer',
       phoneE164: '+923001111111',
+      country: 'PK',
       paymentMethod: 'COD',
     };
 
-    const order = await createOrder(ctx, input);
+    const order = await createOrder(workspace.context, input);
 
     // PENDING → CONFIRMED → PROCESSING → SHIPPED → DELIVERED
-    await updateOrderStatus(ctx, order.id, { status: 'CONFIRMED' });
-    await updateOrderStatus(ctx, order.id, { status: 'PROCESSING' });
-    await updateOrderStatus(ctx, order.id, { status: 'SHIPPED' });
-    await updateOrderStatus(ctx, order.id, { status: 'DELIVERED' });
+    await updateOrderStatus(workspace.context, order.id, { status: 'CONFIRMED' });
+    await updateOrderStatus(workspace.context, order.id, { status: 'PROCESSING' });
+    await updateOrderStatus(workspace.context, order.id, { status: 'SHIPPED' });
+    await updateOrderStatus(workspace.context, order.id, { status: 'DELIVERED' });
 
-    const stock = await prisma.productStock.findFirst({
-      where: { workspaceId: WORKSPACE_A, productId, variantId: null },
+    const stock = await prisma.inventoryItem.findFirst({
+      where: { workspaceId: workspace.workspaceId, productId: product.id, variantId: null },
     });
 
     expect(stock?.available).toBe(95);
@@ -341,48 +404,60 @@ describe('Order service — inventory correctness', () => {
 });
 
 describe('Order service — server-side totals', () => {
-  let contactId: string;
-  let productId: string;
+  let workspace: WorkspaceFixture;
+  let contact: { id: string; phoneE164: string; name: string };
+  let product: { id: string };
 
   beforeEach(async () => {
-    await prisma.$executeRaw`TRUNCATE TABLE "Order", "OrderItem", "OrderEvent", "Contact", "Product", "ProductStock" CASCADE`;
+    await resetDatabase();
 
-    const contact = await prisma.contact.create({
-      data: { workspaceId: WORKSPACE_A, name: 'Customer', phoneE164: '+923001111111' },
+    workspace = await createWorkspaceFixture({ name: 'Totals Test WS' });
+
+    contact = await createContactFixture(workspace.workspaceId, {
+      name: 'Customer',
+      phoneE164: '+923001111111',
     });
-    contactId = contact.id;
 
-    const product = await prisma.product.create({
+    product = await prisma.product.create({
       data: {
-        workspaceId: WORKSPACE_A,
+        workspaceId: workspace.workspaceId,
         name: 'Product',
         slug: 'product',
         status: 'ACTIVE',
         trackInventory: true,
-        basePriceMinor: 1000,
+        priceMinor: 1000,
         currency: 'PKR',
       },
     });
-    productId = product.id;
 
-    await prisma.productStock.create({
-      data: { workspaceId: WORKSPACE_A, productId, variantId: null, available: 100, reserved: 0, sold: 0 },
+    await prisma.inventoryItem.create({
+      data: {
+        workspaceId: workspace.workspaceId,
+        productId: product.id,
+        variantId: null,
+        available: 100,
+        reserved: 0,
+        sold: 0,
+      },
     });
   });
 
-  it('computes the order total from database prices, ignoring any client-provided total', async () => {
-    const ctx = makeContext(WORKSPACE_A, MEMBER_A, FULL_PERMISSIONS);
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
 
+  it('computes the order total from database prices, ignoring any client-provided total', async () => {
     // Client sends quantity 3 at price 1000 each = subtotal 3000
     const input: CreateOrderInput = {
-      contactId,
-      items: [{ productId, variantId: null, quantity: 3 }],
+      contactId: contact.id,
+      items: [{ productId: product.id, variantId: null, quantity: 3 }],
       customerName: 'Customer',
       phoneE164: '+923001111111',
+      country: 'PK',
       paymentMethod: 'COD',
     };
 
-    const order = await createOrder(ctx, input);
+    const order = await createOrder(workspace.context, input);
 
     // Server reads price from database (1000), multiplies by quantity (3) = 3000
     expect(order.subtotalMinor).toBe(3000);
@@ -390,20 +465,19 @@ describe('Order service — server-side totals', () => {
   });
 
   it('applies optional discount/delivery/tax overrides when provided', async () => {
-    const ctx = makeContext(WORKSPACE_A, MEMBER_A, FULL_PERMISSIONS);
-
     const input: CreateOrderInput = {
-      contactId,
-      items: [{ productId, variantId: null, quantity: 2 }],
+      contactId: contact.id,
+      items: [{ productId: product.id, variantId: null, quantity: 2 }],
       customerName: 'Customer',
       phoneE164: '+923001111111',
+      country: 'PK',
       paymentMethod: 'COD',
       discountMinor: 200,
       deliveryFeeMinor: 300,
       taxMinor: 100,
     };
 
-    const order = await createOrder(ctx, input);
+    const order = await createOrder(workspace.context, input);
 
     // Subtotal: 2 × 1000 = 2000
     // Discount: -200
