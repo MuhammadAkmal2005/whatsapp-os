@@ -50,19 +50,19 @@ export async function claimJobs(
     UPDATE jobs AS j
     SET status = 'RUNNING',
         attempts = j.attempts + 1,
-        locked_at = now(),
-        locked_by = ${workerId},
-        started_at = COALESCE(j.started_at, now())
+        "lockedAt" = now(),
+        "lockedBy" = ${workerId},
+        "startedAt" = COALESCE(j."startedAt", now())
     FROM (
       SELECT id
       FROM jobs
-      WHERE status = 'PENDING' AND run_after <= now()
-      ORDER BY priority DESC, run_after ASC
+      WHERE status = 'PENDING' AND "runAfter" <= now()
+      ORDER BY priority DESC, "runAfter" ASC
       LIMIT ${limit}
       FOR UPDATE SKIP LOCKED
     ) AS eligible
     WHERE j.id = eligible.id
-    RETURNING j.id, j.type, j.payload, j.workspace_id, j.attempts, j.max_attempts
+    RETURNING j.id, j.type, j.payload, j."workspaceId" AS workspace_id, j.attempts, j."maxAttempts" AS max_attempts
   `);
 }
 
@@ -108,8 +108,9 @@ export async function insertJob(
   }
 
   const inserted = await db.$queryRaw<{ id: string }[]>(Prisma.sql`
-    INSERT INTO jobs (type, payload, workspace_id, run_after, max_attempts, priority, dedupe_key)
+    INSERT INTO jobs (id, type, payload, "workspaceId", "runAfter", "maxAttempts", priority, "dedupeKey")
     VALUES (
+      gen_random_uuid(),
       ${input.type},
       ${input.payload}::jsonb,
       ${input.workspaceId}::uuid,
@@ -118,7 +119,7 @@ export async function insertJob(
       ${input.priority},
       ${input.dedupeKey}
     )
-    ON CONFLICT (dedupe_key) DO NOTHING
+    ON CONFLICT ("dedupeKey") DO NOTHING
     RETURNING id
   `);
 

@@ -39,19 +39,19 @@ export async function incrementBucket(
   resetAt: Date,
 ): Promise<BucketState> {
   const rows = await db.$queryRaw<{ count: number; reset_at: Date }[]>(Prisma.sql`
-    INSERT INTO rate_limit_buckets (key, count, reset_at, updated_at)
+    INSERT INTO rate_limit_buckets (key, count, "resetAt", "updatedAt")
     VALUES (${key}, 1, ${resetAt}, now())
     ON CONFLICT (key) DO UPDATE
     SET count = CASE
-          WHEN rate_limit_buckets.reset_at <= now() THEN 1
+          WHEN rate_limit_buckets."resetAt" <= now() THEN 1
           ELSE rate_limit_buckets.count + 1
         END,
-        reset_at = CASE
-          WHEN rate_limit_buckets.reset_at <= now() THEN EXCLUDED.reset_at
-          ELSE rate_limit_buckets.reset_at
+        "resetAt" = CASE
+          WHEN rate_limit_buckets."resetAt" <= now() THEN EXCLUDED."resetAt"
+          ELSE rate_limit_buckets."resetAt"
         END,
-        updated_at = now()
-    RETURNING count, reset_at
+        "updatedAt" = now()
+    RETURNING count, "resetAt" AS reset_at
   `);
 
   const row = rows[0];
