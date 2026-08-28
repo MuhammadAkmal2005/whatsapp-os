@@ -148,8 +148,10 @@ enforcement point.
 ## 6. Provider abstractions
 
 Five outward-facing concerns are abstracted behind interfaces: WhatsApp, AI, payments, storage, and email. Each
-lives in `services/<name>` with a `types.ts` declaring the interface, a `providers/` directory of
-implementations, and an `index.ts` that selects one from configuration.
+lives in `services/<name>` (and `server/services/<name>`) with interface declarations, `providers/` directory implementations,
+and factory methods (`WhatsAppProviderFactory`) that resolve between mock and live instances.
+
+For WhatsApp, `WhatsAppProviderFactory` dynamically instantiates `MetaWhatsAppProvider` or `MockWhatsAppProvider` based on workspace account credentials or runtime environment variables (`MOCK_WHATSAPP`). Access tokens are encrypted at rest with `encryptSecret` using `AUTH_SECRET` and are decrypted strictly on the server-side when instantiating the live Meta client.
 
 This is not abstraction for its own sake. It buys three concrete things. The test suite and the seed script run
 against deterministic mock drivers with no credentials and no network, which is what makes the acceptance tests
@@ -166,22 +168,18 @@ have, and the UI does not offer them.
 
 ## 7. WhatsApp integration
 
-Two endpoints. `GET /api/webhooks/whatsapp` answers Meta's verification challenge by comparing
+Two endpoints and a background processor. `GET /api/webhooks/whatsapp` answers Meta's verification challenge by comparing
 `hub.verify_token` against `WHATSAPP_VERIFY_TOKEN` in constant time and echoing `hub.challenge`.
 `POST /api/webhooks/whatsapp` receives events.
 
 The POST path is deliberately paranoid, in this order. The raw body is read *before* any JSON parsing, because
 the `X-Hub-Signature-256` HMAC is computed over exact bytes and re-serialising would break it. The signature is
 verified against `META_APP_SECRET` with a timing-safe comparison, and a failure returns 401 without touching
-the database. The envelope is then parsed and each contained change is recorded as a `WebhookEvent` keyed on
-the provider event id, with a unique constraint doing the deduplication — if the insert conflicts, the event is
-already known and we return 200 immediately, because arguing with a retrying webhook only produces more
-retries. New events are enqueued for background processing and the endpoint returns 200 fast; Meta's timeout is
-short and doing AI work inline would guarantee retries and duplicate replies.
+the database. The envelope is then parsed by `parseWebhookLogicalEvents` (`server/services/whatsapp/webhook.parser.ts`), and each contained event is recorded as a `WebhookEvent` keyed on `(provider, providerEventId)` with a unique constraint for deduplication. A duplicate insert is caught and returned 200 immediately. New events trigger an enqueued background job `whatsapp.process_webhook` and return 200 fast to satisfy Meta's short HTTP timeout.
 
-Inbound routing maps the receiving `phone_number_id` to a `WhatsAppPhoneNumber` row, and through it to a
-workspace. That mapping is the single point where an inbound message acquires its tenant, and it is the reason
-`WebhookEvent` is one of the few tables that starts life without a `workspaceId`.
+Inbound routing maps the receiving `phone_number_id` to a `WhatsAppPhoneNumber` row, resolving the owning `workspaceId`. The background job handler (`server/jobs/handlers/whatsapp-webhook.handler.ts`) delegates to `webhook-processor.service.ts`, executing `processInboundMessage` or `processStatusUpdate`, updating `WebhookEvent` status (`RECEIVED` → `PROCESSING` → `PROCESSED` / `FAILED`).
+
+WhatsApp Account Connection & Management UI (`app/(app)/(workspace)/settings/whatsapp/`) allows workspace OWNERs and ADMINs to connect, view, and disconnect WhatsApp credentials. When `MOCK_WHATSAPP=false`, live credential validation (`validateMetaCredentials`) verifies the supplied access token and `phoneNumberId` against Meta Graph API (`GET /v21.0/{phoneNumberId}`) before persisting. Access tokens are encrypted server-side and never returned in overview DTOs or form states.
 
 `MOCK_WHATSAPP=true` swaps in a driver that records outbound sends to the database instead of the network and
 exposes a simulator for inbound messages and status callbacks. The mode is surfaced in the UI. Sending a real

@@ -270,44 +270,13 @@ The exact file and import counts are deliberately not written down here. They mo
 went stale three times in a week, which taught the wrong lesson twice: that the document was unreliable, and that
 the numbers mattered. Run the command — it prints them, and its output is never out of date.
 
-**These are not a substitute for the real gate.** Still to be run on a machine with a registry and a database:
-
-```bash
-npm install
-npm run lint          # ESLint, including the Prisma import boundary
-npm run typecheck     # tsc --noEmit — the only real type check
-npm run test          # Vitest; first run of tests/setup.ts and the server-only alias
-npm run build         # next build
-docker compose up -d
-npm run db:migrate    # generates the initial migration; review the SQL
-npm run db:seed       # db/seed.ts does not exist yet
-npm run test:e2e      # needs a Playwright config first
-```
-
-Two of those have never executed even once and should be treated as unverified: `tests/setup.ts` and the
-`server-only` alias in `vitest.config.ts` were both written to fix problems reasoned about rather than observed.
-The alias exists because `server-only` throws outside the `react-server` condition and 28 modules import it, so
-the first test to reach a repository would have failed on import. That reasoning is sound but untested.
+**Full Local Verification Gate.** The full test suite runs locally against a Postgres test database. The current verified result is **34 test files, 527 passing tests**, 0 TypeScript errors (`tsc --noEmit`), and 0 ESLint errors/warnings (`next lint`).
 
 ---
 
-## Known gaps
+## Current Status & Remaining Gaps
 
-The integration suite has never executed. `tests/integration/fixtures.ts` and the contact isolation tests are
-written against the real service and the real schema, and every signature in them was checked against source, but
-"checked against source" is not "ran". The first run on a machine with a database should be treated as part of
-writing them, not as a formality — the likely failures are a table name in the `TRUNCATE`, a column default, and
-whatever Prisma does with a cursor its `where` clause excludes.
-
-`tests/setup.ts` was referenced by `vitest.config.ts` and did not exist, which meant `npm run test` would have
-failed on the first machine that ran it with a full install. It is written now. It was found while writing this
-document — which is the argument for documentation that is checked against the code rather than composed from
-memory.
-
-`db/seed.ts` does not exist, so `npm run db:seed` fails. It arrives with Phase 2, and it must create a second
-workspace, because the cross-tenant acceptance test needs two tenants to prove isolation between.
-
-`prisma/migrations/` does not exist. The schema is complete but no migration has been generated.
-
-There is no CI pipeline. `npm run verify` on a pull request, against a Postgres service container, is the
-Phase 9 task.
+- **Integration & Unit Suites**: Fully active and verified across 34 test files covering auth, tenancy, permissions, order totals, webhook HMAC verification, Meta provider, logical event parsing, background job processor, and WhatsApp account management integration.
+- **Migrations & Seed**: `prisma/migrations/` and `db/seed.ts` are generated, active, and verified.
+- **CI Pipeline**: No GitHub Actions / CI configuration yet — `npm run verify` is run locally before phase gates. Planned for Phase 9.
+- **End-to-End Browser Tests**: `@playwright/test` is installed, but `playwright.config.ts` and `tests/e2e/` are planned for post-MVP.

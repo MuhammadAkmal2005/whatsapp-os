@@ -155,7 +155,7 @@ typecheck, tests, and build all pass, the UI has been inspected, and the docs ar
 | **1** | Auth (signup/login/logout/session), workspace creation, members and roles, authorization layer, tenant context, rate limiting, audit log, API envelope, dashboard shell, UI primitive kit, landing page, onboarding checklist | Tenant-isolation and RBAC unit tests pass; the Workspace A vs B acceptance test from §96 of the brief passes; build passes |
 | **2** | Contacts/CRM, products with variants and inventory, orders with server-side totals, payments records, full CRUD with validation and authorization, seed data | Order-total test (Rs. 7,248 case) passes; inventory cannot go negative; seed produces a usable dashboard |
 | **3** | Conversation inbox (three-column desktop, mobile-adaptive), messages, message states, attachments, mock WhatsApp driver, message simulator | A simulated inbound message appears in the inbox and can be replied to; states transition correctly |
-| **4** | Real WhatsApp Cloud API driver, webhook verification and signature validation, idempotent event processing, phone-number-to-workspace mapping, media download | Duplicate-webhook test passes; signature rejection test passes |
+| **4** | Real Meta WhatsApp Cloud API integration in 5 units: Unit 1 Provider (`a823b83`), Unit 2 Webhook Receiver (`8b857df`), Unit 3 Webhook Processor (`75360a5`), Unit 4 WhatsApp Account UI (implemented/uncommitted), Unit 5 Final Integration / Acceptance Suite (next). Media download/storage deferred. | Unit 1–3 committed; Unit 4 verified locally; Unit 5 next |
 | **5** | AI agent config, prompt architecture, knowledge base ingestion, chunking, embeddings, RAG retrieval, tool registry with validated tools, safety and grounding layer, AI test playground | The three AI acceptance tests from §97 pass, including the out-of-stock and no-return-policy cases |
 | **6** | Human handoff, AI pause/resume, assignment, notifications, automation engine with triggers and actions, scheduled follow-ups | Handoff pauses the AI and notifies; a wait-then-act automation fires once |
 | **7** | Analytics aggregation, usage metering per workspace, AI cost attribution, dashboard charts | Metrics match hand-computed values against seed data |
@@ -232,8 +232,13 @@ production build all green.
 
 | Date | Phase | Status |
 | --- | --- | --- |
-| 2026-08-26 | 0 | In progress — planning documents authored |
 | 2026-08-26 | 0 | **Complete** — config, feature flags, plan config, full Prisma schema (52 models, 40 enums), job queue, logger, error types, API envelope, sandbox verification gate |
 | 2026-08-27 | 1 | **Complete** — authentication, sessions, workspaces, members and roles, permission catalogue, tenant context and scoped repositories, rate limiting, audit log, dashboard shell |
-| 2026-08-27 | — | Documentation set complete: README plus ENVIRONMENT, ARCHITECTURE, DATABASE, API, SECURITY, AI, WHATSAPP, TESTING, DEPLOYMENT, ROADMAP. Every claim verified against source; the pass corrected an HTTP status drift (401 vs 403), a composite-key description, a nonexistent `ChannelProvider` seam, and four schema-field errors, and it found the missing `tests/setup.ts` and the `server-only` Vitest alias |
-| 2026-08-27 | 2 | Next — contacts, products with variants and inventory, orders with server-side totals, seed data. Blocked first on `git init` and the initial Prisma migration, both recorded in `docs/ROADMAP.md` |
+| 2026-08-27 | 2 | **Complete** — contacts/CRM, products with variants and inventory, orders with server-side totals, seed data |
+| 2026-08-28 | 3 | **Complete** — conversation inbox, messages, message states, attachments, mock WhatsApp provider foundation, e2e simulator |
+| 2026-08-28 | 4 (Unit 1) | **Complete & Committed (`a823b83`)** — Meta WhatsApp Cloud API Provider adapter (`MetaWhatsAppProvider`) |
+| 2026-08-28 | 4 (Unit 2) | **Complete & Committed (`8b857df`)** — Meta WhatsApp Webhook Receiver route (`/api/webhooks/whatsapp`) with HMAC verification & deduplication |
+| 2026-08-28 | 4 (Unit 3) | **Complete & Committed (`75360a5`)** — WhatsApp Webhook Processor service & background job handlers |
+| 2026-08-28 | 4 (Unit 4) | **Implemented & Verified (Uncommitted)** — WhatsApp Account Connection & Management UI (`app/(app)/(workspace)/settings/whatsapp/`) |
+| 2026-08-29 | 4 (Unit 5) | **Next** — Final Integration / Acceptance Suite |
+| 2026-08-29 | Deferred | Media download/storage, AI/RAG, Campaigns, Voice, Billing, Multi-channel expansion |

@@ -12,9 +12,7 @@ Both are **thin adapters**. They authenticate, validate, delegate to a service, 
 rules and authorization live in `server/services` so that an action, a route and a background job all enforce the
 identical rule. When the same rule is written twice it drifts, and the wrong copy is the one in production.
 
-> **`app/api/` does not exist yet.** The webhook routes land with Phase 4, the WhatsApp integration. The contract
-> below is what they will implement, and `services/whatsapp/signature.ts` — the HMAC verification they depend on
-> — is already written and tested.
+> **Active API & Actions Status.** `app/api/webhooks/whatsapp` is active and built (`GET` verification handshake & `POST` HMAC-signed ingestion). Server actions in `server/actions/` cover authentication, workspaces, members, contacts, products, orders, and WhatsApp account connection (`whatsapp-account.actions.ts`).
 
 ---
 

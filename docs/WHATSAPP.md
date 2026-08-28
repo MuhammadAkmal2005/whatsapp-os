@@ -3,11 +3,7 @@
 WhatsApp is the first channel and, for the MVP, the only one. The architecture treats it as *a* channel rather
 than *the* channel, so Instagram, Messenger, web chat and SMS can be added later without rewriting the inbox.
 
-> **Not built yet.** The integration lands in Phase 4. What exists today is
-> `services/whatsapp/signature.ts` — HMAC verification and the subscription handshake, both pure and covered by 16
-> tests — plus the complete data model: `WhatsAppAccount`, `WhatsAppPhoneNumber`, `Conversation`, `Message`,
-> `MessageAttachment`, `MessageTemplate`, `WebhookEvent`. There is no `app/api/` directory. This document is the
-> contract the rest must implement.
+> **Implementation Status.** Phase 4 Units 1–3 are built and committed (`75360a5`): `MetaWhatsAppProvider`, HMAC webhook verification (`/api/webhooks/whatsapp`), logical event parser (`webhook.parser.ts`), and async background job processor (`whatsapp.process_webhook`). Phase 4 Unit 4 (WhatsApp Account Connection & Management UI) is implemented and verified locally (uncommitted). Unit 5 (Final Integration / Acceptance Suite) is next. Media download/storage is deferred.
 
 ---
 

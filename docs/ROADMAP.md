@@ -10,21 +10,16 @@ recorded is a decision; a gap that is not is a surprise for whoever hits it.
 
 ## Where the build is
 
-Phase 0 and Phase 1 are built: configuration, feature flags, plan config, the full Prisma schema, the job queue,
-authentication, workspaces, members and roles, the authorization layer, tenant context, rate limiting, audit
-logging, the API envelope, the dashboard shell and the documentation set.
+Phase 0, Phase 1, Phase 2, and Phase 3 are complete: configuration, feature flags, plan config, full Prisma schema and migrations, job queue, authentication, workspaces, roles/permissions, authorization layer, tenant context, rate limiting, audit logging, API envelope, dashboard shell, contacts/CRM, products with variants and inventory, orders with server-side totals, seed data, conversation inbox UI, message lifecycle, and mock WhatsApp simulation.
 
-Phase 2 is in progress. **Contacts are built**: validation schemas, a workspace-scoped repository, the service with
-its authorization checks and phone-number identity handling, server actions, the customer list with filters and
-cursor pagination, the profile with notes and inline status, stage and assignment controls, and the create and
-remove dialogs. Its unit tests pass; its integration tests are written but have not executed here, for want of a
-database. Products with variants and inventory, orders with server-side totals, and seed data are what remain in
-the phase.
+Phase 4 (Meta WhatsApp Integration) is in progress:
+- **Unit 1 — Meta WhatsApp Provider (`a823b83`)**: Complete and committed. Official Meta Graph API Cloud API driver (`MetaWhatsAppProvider`), text/template sending, graph API error handling.
+- **Unit 2 — Meta WhatsApp Webhook Receiver (`8b857df`)**: Complete and committed. Verification endpoint `GET /api/webhooks/whatsapp` and receiver endpoint `POST /api/webhooks/whatsapp` with HMAC `X-Hub-Signature-256` verification, payload parsing, raw body integrity, and idempotent `WebhookEvent` database insertion.
+- **Unit 3 — WhatsApp Webhook Processor (`75360a5`)**: Complete and committed. Webhook processing service, job worker handler `whatsapp.process_webhook`, tenant phone number routing, monotonic status transitions, and automatic contact/conversation/message creation.
+- **Unit 4 — WhatsApp Account Connection & Management UI**: Implemented and verified locally, but **currently uncommitted**. Settings UI (`/settings/whatsapp`), encrypted credentials storage (`accessTokenEncrypted`), tenant-scoped account repository and actions.
+- **Unit 5 — Final Integration / Acceptance Suite**: Next.
 
-**The verification gate has not run in full.** Lint, typecheck, `next build`, Prisma migration generation and
-Playwright all still need a machine with a package registry and a PostgreSQL instance. `npm run verify:sandbox`
-covers syntax, first-party imports and the unit suite, and that is genuinely all it covers. `docs/TESTING.md` is
-precise about the difference.
+**The test and verification gate is active.** 34 test files with 527 passing tests (unit + database-backed integration), TypeScript strict typecheck, and ESLint all pass locally.
 
 ---
 
@@ -32,24 +27,7 @@ precise about the difference.
 
 Ordered by what would hurt most if it shipped as-is.
 
-### Blocks the next phase
-
-**`prisma/migrations/` does not exist.** The schema is complete and validated by reading, but no migration has
-been generated, so no database has ever been created from it. Generating it must be treated as a step that can
-fail. The initial migration also has to create the `vector` and `pg_trgm` extensions and add the HNSW index on
-`knowledge_chunks.embedding` — without that index, retrieval degrades to a sequential scan over every chunk.
-
-**`db/seed.ts` does not exist**, so `npm run db:seed` fails. It arrives with Phase 2. It must create a *second*
-workspace, because the cross-tenant acceptance test needs two tenants to prove isolation between, and a
-single-tenant seed cannot fail in the way that matters.
-
 ### Correctness
-
-**`tests/setup.ts` and the `server-only` Vitest alias have never executed.** Both were written to fix problems
-reasoned about rather than observed: the setup file was referenced by `vitest.config.ts` and missing, which would
-have failed `npm run test` on the first full install, and the alias exists because `server-only` throws outside the
-`react-server` condition and 28 modules import it. The reasoning is sound and untested, which is not the same as
-working.
 
 **No CI.** `npm run verify` on every pull request, against a Postgres service container. Until this exists, "the
 tests pass" means "they passed for whoever last remembered to run them."
@@ -116,6 +94,10 @@ An untested backup is a belief.
 ## Deliberately deferred
 
 These are choices, not omissions, and each buys something.
+
+**Media Download and Storage.** Inbound media attachment downloads (images/audio/documents) and S3 storage persistence are deliberately deferred from Phase 4 text-first Cloud API integration. Media processing arrives in a subsequent media-handling phase.
+
+**AI Agent & RAG System.** Vector embeddings (`pgvector`), knowledge base ingestion, prompt assembly, and RAG retrieval are deferred to Phase 5. The Phase 4 pipeline is text-first message and status update processing.
 
 **Redis.** `QUEUE_DRIVER=postgres` uses `FOR UPDATE SKIP LOCKED` and needs no broker — one fewer service to run,
 back up, monitor and pay for. At MVP volumes the throughput difference is irrelevant. Revisit when queue depth

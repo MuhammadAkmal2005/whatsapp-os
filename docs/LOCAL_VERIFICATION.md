@@ -1,7 +1,6 @@
 # Local verification checklist (Windows)
 
-Run these on a Windows machine with a package registry and Docker — the environment this
-project was authored in had neither, so nothing below has been executed here. Commands are
+Run these on a Windows machine with Node 20+, npm, and Docker Desktop running. Commands are
 written for **PowerShell** (the default Windows terminal). Run them from the project root.
 
 The one-command gate is `npm run verify` (lint + typecheck + test + build). Steps 1–4 set it
@@ -81,8 +80,7 @@ database is now in sync with your schema"**, and the Prisma client is generated.
 include `CREATE EXTENSION` for `vector` and `pg_trgm` (the `pgvector/pgvector` image provides
 both). Skim the generated `migration.sql` once — it is worth reviewing the first time.
 
-> `npm run db:seed` is **not runnable yet** — `db/seed.ts` does not exist (it arrives with the
-> orders/seed task). Skip it for now.
+> `npm run db:seed` seeds the database with realistic workspaces, products, variants, orders, and contacts.
 
 ---
 

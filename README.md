@@ -13,30 +13,21 @@ The user is a shop owner, not an engineer. That constraint shapes most of the pr
 
 ## Status
 
-Under active development. Phases 0 and 1 are built; the rest is planned in [`PROJECT_PLAN.md`](PROJECT_PLAN.md).
+Under active development. Phases 0–3 are built and committed; Phase 4 Units 1–3 are built and committed; Phase 4 Unit 4 is implemented and verified locally (uncommitted). Details in [`PROJECT_PLAN.md`](PROJECT_PLAN.md).
 
 | Phase | Scope | State |
 | --- | --- | --- |
-| 0 | Planning, environment, Prisma schema (52 models), error/logging/config foundation, job queue | Built |
-| 1 | Authentication, workspaces, roles and permissions, team management, dashboard shell, marketing pages | Built |
-| 2 | Contacts, products, orders | Not started |
-| 3 | Conversation inbox, messages, mock WhatsApp | Not started |
-| 4 | WhatsApp Cloud API integration | Not started |
-| 5 | AI agent, knowledge base, RAG, tools | Not started |
-| 6 | Human handoff, automation, notifications | Not started |
-| 7 | Analytics, usage metering, AI cost tracking | Not started |
-| 8 | Billing, plans, subscriptions | Not started |
-| 9 | Security hardening, full test pass, performance | Not started |
-| 10 | Production deployment | Not started |
-
-Two things are deliberately absent rather than stubbed, and are called out here so nobody hunts for them:
-
-**`prisma/migrations/` does not exist yet.** The schema is written, but no migration has been generated, because
-the environment this was authored in had no PostgreSQL instance and no Docker. Generating it is the first thing
-to do on a machine that has one — see [Getting started](#getting-started).
-
-**`db/seed.ts` does not exist yet.** The `db:seed` script points at it. Seed data lands with Phase 2, when there
-are products, contacts and orders worth seeding.
+| 0 | Planning, environment, Prisma schema (52 models), error/logging/config foundation, job queue | Built & Committed |
+| 1 | Authentication, workspaces, roles and permissions, team management, dashboard shell, marketing pages | Built & Committed |
+| 2 | Contacts, products with variants & inventory, orders with server-side totals, seed data | Built & Committed |
+| 3 | Conversation inbox (3-column responsive), messages backend, mock WhatsApp provider, e2e simulator | Built & Committed |
+| 4 | WhatsApp Cloud API integration (Meta provider, webhooks, processor, account UI) | Units 1–3 Built & Committed (`75360a5`), Unit 4 Implemented & Verified (Uncommitted), Unit 5 Next |
+| 5 | AI agent, knowledge base, RAG, tools | Planned |
+| 6 | Human handoff, automation, notifications | Planned |
+| 7 | Analytics, usage metering, AI cost tracking | Planned |
+| 8 | Billing, plans, subscriptions | Planned |
+| 9 | Security hardening, full test pass, performance | Planned |
+| 10 | Production deployment | Planned |
 
 ---
 
