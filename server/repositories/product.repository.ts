@@ -284,6 +284,51 @@ export async function findProductDetail(
 }
 
 /**
+ * Active products with their variants and stock, for the manual order builder's picker.
+ *
+ * A single query rather than a page-then-detail dance: the builder needs a name, a code,
+ * an effective price and an available count for every orderable unit at once, so it can
+ * show what is in stock without a round trip per product. Only ACTIVE products and ACTIVE
+ * variants are offered — a draft is not something to sell — which mirrors what the AI may
+ * quote. Capped by `limit`; a catalogue past it is searched by name instead.
+ *
+ * The prices here are for display only. The order service re-reads and re-derives every
+ * price when the order is placed, so a stale figure in this list can never become a
+ * charged total.
+ */
+export type OrderableProductRow = ProductRow & {
+  variants: VariantRow[];
+  stock: ProductStockRow[];
+};
+
+export async function listOrderableProducts(
+  db: Db,
+  workspaceId: string,
+  limit: number,
+): Promise<OrderableProductRow[]> {
+  const rows = await db.product.findMany({
+    where: { workspaceId, deletedAt: null, status: 'ACTIVE' },
+    select: {
+      ...PRODUCT_SELECT,
+      variants: {
+        where: { status: 'ACTIVE' },
+        select: VARIANT_SELECT,
+        orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+      },
+      inventory: { select: STOCK_SELECT },
+    },
+    orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    take: limit,
+  });
+
+  return rows.map(({ variants, inventory, ...product }) => ({
+    ...(product as ProductRow),
+    variants: variants as VariantRow[],
+    stock: inventory,
+  }));
+}
+
+/**
  * Whether a slug is already taken in this workspace.
  *
  * `exceptId` is for the edit case: a product keeps its own slug when its name has not

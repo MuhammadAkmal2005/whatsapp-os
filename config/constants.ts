@@ -66,6 +66,14 @@ export const MAX_PAGE_SIZE = 100;
 /** Messages are taller than table rows, so a thread page is smaller. */
 export const MESSAGE_PAGE_SIZE = 40;
 
+/**
+ * How many active products the manual order builder loads into its picker at once.
+ * The picker filters this set in the browser, so the cap keeps the initial payload
+ * small; a shop past it searches by name to narrow the list. Well above a typical
+ * clothing seller's live catalogue, so in practice the whole catalogue is offered.
+ */
+export const ORDER_BUILDER_CATALOGUE_LIMIT = 200;
+
 // ── Rate limits ────────────────────────────────────────────────────────────
 /**
  * Each entry is [max attempts, window in seconds]. Authentication limits are
