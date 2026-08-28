@@ -62,8 +62,7 @@ export const SETTINGS_NAV: readonly SettingsNavItem[] = [
     icon: MessageSquare,
     description: 'Connect your WhatsApp Business number.',
     permission: 'whatsapp:read',
-    available: false,
-    reason: IN_PROGRESS,
+    available: true,
   },
   {
     label: 'AI agent',
