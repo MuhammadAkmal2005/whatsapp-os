@@ -136,6 +136,25 @@ export async function findDefaultPhoneNumberWithAccount(
   return row as WhatsAppPhoneNumberWithAccountRow;
 }
 
+/**
+ * Resolves a phone number and its account across all workspaces by Meta's `phoneNumberId`.
+ * CROSS-TENANT: Used exclusively for routing incoming webhooks to the correct tenant.
+ */
+export async function findPhoneNumberWithAccountByPhoneNumberId(
+  db: Db,
+  phoneNumberId: string,
+): Promise<WhatsAppPhoneNumberWithAccountRow | null> {
+  const row = await db.whatsAppPhoneNumber.findFirst({
+    where: { phoneNumberId },
+    select: {
+      ...PHONE_SELECT,
+      account: { select: ACCOUNT_SELECT },
+    },
+  });
+  if (!row) return null;
+  return row as WhatsAppPhoneNumberWithAccountRow;
+}
+
 export async function updateAccountError(
   db: Db,
   workspaceId: string,
