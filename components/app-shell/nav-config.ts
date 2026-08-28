@@ -76,8 +76,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: '/conversations',
         icon: MessageSquare,
         permission: 'conversation:read',
-        available: false,
-        reason: IN_PROGRESS,
+        available: true,
       },
       {
         label: 'Customers',

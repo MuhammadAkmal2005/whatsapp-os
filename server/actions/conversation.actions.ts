@@ -31,7 +31,10 @@ import {
   updateConversationStatusSchema,
 } from '@/server/validation/conversation';
 
-const INBOX_PATH = '/inbox';
+function revalidateInbox() {
+  revalidatePath('/conversations');
+  revalidatePath('/inbox');
+}
 
 export async function createConversationAction(
   _prev: FormState,
@@ -59,7 +62,7 @@ export async function createConversationAction(
   try {
     const ctx = await requireTenantContext();
     await createConversation(ctx, parsed.data, await getRequestMeta());
-    revalidatePath(INBOX_PATH);
+    revalidateInbox();
     return {
       status: 'success',
       message: 'Conversation started.',
@@ -86,7 +89,7 @@ export async function sendMessageAction(
   try {
     const ctx = await requireTenantContext();
     await sendMessage(ctx, parsed.data, await getRequestMeta());
-    revalidatePath(INBOX_PATH);
+    revalidateInbox();
     return {
       status: 'success',
       message: 'Message sent.',
@@ -110,7 +113,7 @@ export async function updateConversationStatusAction(
   try {
     const ctx = await requireTenantContext();
     await updateConversationStatus(ctx, parsed.data, await getRequestMeta());
-    revalidatePath(INBOX_PATH);
+    revalidateInbox();
     return { status: 'success', message: 'Status updated.' };
   } catch (error) {
     return formErrorFrom(error);
@@ -131,7 +134,7 @@ export async function assignConversationAction(
   try {
     const ctx = await requireTenantContext();
     await assignConversation(ctx, parsed.data, await getRequestMeta());
-    revalidatePath(INBOX_PATH);
+    revalidateInbox();
     return { status: 'success', message: 'Assignee updated.' };
   } catch (error) {
     return formErrorFrom(error);
@@ -152,7 +155,7 @@ export async function updateConversationPriorityAction(
   try {
     const ctx = await requireTenantContext();
     await updateConversationPriority(ctx, parsed.data, await getRequestMeta());
-    revalidatePath(INBOX_PATH);
+    revalidateInbox();
     return { status: 'success', message: 'Priority updated.' };
   } catch (error) {
     return formErrorFrom(error);
@@ -174,7 +177,7 @@ export async function toggleConversationAiAction(
   try {
     const ctx = await requireTenantContext();
     await toggleConversationAi(ctx, parsed.data, await getRequestMeta());
-    revalidatePath(INBOX_PATH);
+    revalidateInbox();
     return { status: 'success', message: 'AI settings updated.' };
   } catch (error) {
     return formErrorFrom(error);
