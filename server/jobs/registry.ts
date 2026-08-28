@@ -52,7 +52,13 @@ export function registerHandler<T extends JobType>(type: T, handler: JobHandler<
     // type, and whichever loaded last would silently win. Fail at boot instead.
     throw new Error(`A handler is already registered for job type "${type}".`);
   }
-  handlers[type] = handler;
+
+  // A write through a generic key cannot be checked soundly: TypeScript widens the
+  // target to the intersection of every JobHandler<…> in the map, which no single
+  // handler satisfies. The narrowing is safe here because `type` and `handler` are
+  // correlated by the same T at the call site, and `getHandler` reads back under
+  // that same T. The cast is confined to this line rather than loosening the map.
+  handlers[type] = handler as HandlerMap[T];
 }
 
 export function getHandler<T extends JobType>(type: T): JobHandler<T> | undefined {

@@ -70,7 +70,10 @@ export function createPostgresQueue(options: PostgresQueueOptions = {}): JobQueu
       payload: JobPayloadInput<T>,
       enqueueOptions: EnqueueOptions = {},
     ): Promise<EnqueueResult> {
-      const defaults = JOB_DEFAULTS[type] ?? {};
+      // Read without an `?? {}` fallback: the empty literal widens the union to
+      // include a type with no such properties, so `defaults.maxAttempts` stops
+      // type-checking. Optional chaining below carries the absent case instead.
+      const defaults = JOB_DEFAULTS[type];
 
       // Validated on the way in as well as on the way out. Catching a malformed
       // payload at the call site gives a stack trace that points at the bug,
@@ -88,8 +91,8 @@ export function createPostgresQueue(options: PostgresQueueOptions = {}): JobQueu
         payload: parsed.payload as Prisma.InputJsonValue,
         workspaceId,
         runAfter: enqueueOptions.runAt ?? now(),
-        maxAttempts: enqueueOptions.maxAttempts ?? defaults.maxAttempts ?? 5,
-        priority: enqueueOptions.priority ?? defaults.priority ?? 0,
+        maxAttempts: enqueueOptions.maxAttempts ?? defaults?.maxAttempts ?? 5,
+        priority: enqueueOptions.priority ?? defaults?.priority ?? 0,
         dedupeKey: enqueueOptions.dedupeKey ?? null,
       });
 

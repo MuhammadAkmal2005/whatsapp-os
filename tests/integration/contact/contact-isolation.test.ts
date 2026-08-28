@@ -17,7 +17,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { prisma } from '@/db/prisma';
-import { BusinessRuleError, ForbiddenError, NotFoundError } from '@/server/errors';
+import { AppError, BusinessRuleError, ForbiddenError, NotFoundError } from '@/server/errors';
 import {
   addContactNote,
   assignContact,
@@ -55,6 +55,27 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+/**
+ * Returns the error a call rejected with, failing the test if it resolved instead.
+ *
+ * Deliberately not `.catch((error) => error as NotFoundError)`. That types the settled
+ * value as the error but leaves the resolved branch in the union, and — worse — if
+ * `getContact` ever started *returning* a foreign customer, which is the precise
+ * regression this suite exists to catch, the comparisons would read `undefined` from a
+ * `ContactDetail` on both sides and the test would pass with the boundary wide open.
+ * A non-`AppError` is rethrown rather than compared, because an unexpected crash is a
+ * different failure from a refusal and should read as one.
+ */
+async function rejectionOf(operation: Promise<unknown>): Promise<AppError> {
+  try {
+    await operation;
+  } catch (thrown) {
+    if (thrown instanceof AppError) return thrown;
+    throw thrown;
+  }
+  throw new Error('Expected the call to be refused, but it resolved.');
+}
+
 describe('reading another workspace’s customer', () => {
   it('lets Workspace A read its own customer', async () => {
     const detail = await getContact(workspaceA.context, contactInA.id);
@@ -82,13 +103,10 @@ describe('reading another workspace’s customer', () => {
   });
 
   it('answers identically for a foreign customer and one that never existed', async () => {
-    const foreign = await getContact(workspaceB.context, contactInA.id).catch(
-      (error: unknown) => error as NotFoundError,
+    const foreign = await rejectionOf(getContact(workspaceB.context, contactInA.id));
+    const missing = await rejectionOf(
+      getContact(workspaceB.context, '99999999-9999-4999-8999-999999999999'),
     );
-    const missing = await getContact(
-      workspaceB.context,
-      '99999999-9999-4999-8999-999999999999',
-    ).catch((error: unknown) => error as NotFoundError);
 
     expect(foreign.code).toBe(missing.code);
     expect(foreign.status).toBe(missing.status);
