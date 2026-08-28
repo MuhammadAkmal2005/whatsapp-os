@@ -23,7 +23,8 @@
     "plugins": [{ "name": "next" }],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "server-only": ["./tests/stubs/server-only.mjs"]
     }
   },
   "include": [
