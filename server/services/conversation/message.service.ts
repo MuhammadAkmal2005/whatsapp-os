@@ -160,7 +160,7 @@ export async function updateMessageStatus(
 
   await getMessage(ctx, input.messageId);
 
-  const count = await updateMessageStatusRow(
+  await updateMessageStatusRow(
     prisma,
     ctx.workspaceId,
     input.messageId,
@@ -171,7 +171,6 @@ export async function updateMessageStatus(
       errorMessage: input.errorMessage,
     },
   );
-  assertTouched(count, 'Message');
 
   return getMessage(ctx, input.messageId);
 }

@@ -251,6 +251,23 @@ export async function findActiveConversationForContact(
   });
 }
 
+export async function findLatestConversationForContact(
+  db: Db,
+  workspaceId: string,
+  contactId: string,
+  channel: Channel = 'WHATSAPP',
+): Promise<ConversationRow | null> {
+  return db.conversation.findFirst({
+    where: {
+      workspaceId,
+      contactId,
+      channel,
+    },
+    orderBy: { createdAt: 'desc' },
+    select: CONVERSATION_SELECT,
+  });
+}
+
 function buildConversationWhere(workspaceId: string, filters: ConversationFilters) {
   const where: Record<string, unknown> = { workspaceId };
 
@@ -400,12 +417,16 @@ export async function touchConversationActivity(
     direction: 'INBOUND' | 'OUTBOUND';
     unreadDelta?: number;
     firstResponse?: boolean;
+    incrementCount?: boolean;
   },
 ): Promise<void> {
   const updateData: Record<string, unknown> = {
     lastMessageAt: deltas.lastMessageAt,
-    messageCount: { increment: 1 },
   };
+
+  if (deltas.incrementCount !== false) {
+    updateData.messageCount = { increment: 1 };
+  }
 
   if (deltas.direction === 'INBOUND') {
     updateData.lastInboundAt = deltas.lastMessageAt;

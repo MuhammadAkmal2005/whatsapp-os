@@ -21,6 +21,7 @@ import {
   updateConversationStatus,
 } from '@/server/services/conversation/conversation.service';
 import { sendMessage } from '@/server/services/conversation/message.service';
+import { dispatchOutboundMessage } from '@/server/services/whatsapp/outbound.service';
 import { requireTenantContext } from '@/server/tenancy/resolve';
 import {
   assignConversationSchema,
@@ -88,7 +89,10 @@ export async function sendMessageAction(
 
   try {
     const ctx = await requireTenantContext();
-    await sendMessage(ctx, parsed.data, await getRequestMeta());
+    const message = await sendMessage(ctx, parsed.data, await getRequestMeta());
+    if (parsed.data.direction === 'OUTBOUND') {
+      await dispatchOutboundMessage(ctx, message.id);
+    }
     revalidateInbox();
     return {
       status: 'success',

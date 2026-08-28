@@ -227,6 +227,7 @@ export async function countContacts(db: Db, workspaceId: string): Promise<number
 
 export type ContactWriteFields = {
   name: string | null;
+  waProfileName?: string | null;
   email: string | null;
   status?: ContactStatus;
   leadStage?: LeadStage;
@@ -254,6 +255,7 @@ export async function createContact(
       workspaceId: input.workspaceId,
       phoneE164: input.phoneE164,
       name: input.name,
+      waProfileName: input.waProfileName ?? null,
       email: input.email,
       status: input.status,
       leadStage: input.leadStage,
@@ -387,5 +389,29 @@ export async function createContactNote(
       body: input.body,
     },
     select: { id: true },
+  });
+}
+
+export async function touchContactInteraction(
+  db: Db,
+  workspaceId: string,
+  contactId: string,
+  at: Date = new Date(),
+): Promise<void> {
+  await db.contact.updateMany({
+    where: { id: contactId, workspaceId, deletedAt: null },
+    data: { lastInteractionAt: at },
+  });
+}
+
+export async function updateContactWaProfile(
+  db: Db,
+  workspaceId: string,
+  contactId: string,
+  waProfileName: string,
+): Promise<void> {
+  await db.contact.updateMany({
+    where: { id: contactId, workspaceId, deletedAt: null },
+    data: { waProfileName },
   });
 }

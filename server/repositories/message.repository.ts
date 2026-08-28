@@ -313,7 +313,7 @@ export async function updateMessageStatus(
 
   // Don't regress from READ to DELIVERED/SENT (monotonic transition)
   if (STATUS_RANK[existing.status] >= STATUS_RANK[newStatus] && newStatus !== 'FAILED') {
-    return 1; // already at equal or advanced state
+    return 0; // already at equal or advanced state, 0 rows modified
   }
 
   const timestamp = options.occurredAt ?? new Date();
@@ -334,4 +334,29 @@ export async function updateMessageStatus(
   });
 
   return result.count;
+}
+
+export async function recordMessageDispatch(
+  db: Db,
+  workspaceId: string,
+  messageId: string,
+  dispatch: {
+    providerMessageId: string;
+    status?: MessageStatus;
+    sentAt?: Date;
+  },
+): Promise<MessageWithDetailsRow | null> {
+  const sentAt = dispatch.sentAt ?? new Date();
+  const status = dispatch.status ?? 'SENT';
+
+  await db.message.updateMany({
+    where: { id: messageId, workspaceId },
+    data: {
+      providerMessageId: dispatch.providerMessageId,
+      status,
+      sentAt,
+    },
+  });
+
+  return findMessageById(db, workspaceId, messageId);
 }
