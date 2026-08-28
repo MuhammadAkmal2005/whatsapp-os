@@ -19,12 +19,14 @@ import { logger } from '@/lib/logger';
 
 import { JOB_TYPES, type JobType } from '../job-types';
 import { registerHandler, registeredTypes } from '../registry';
+import { aiRespondHandler } from './ai-turn.handler';
 import { maintenanceSweep } from './maintenance.handler';
 import { whatsappWebhookHandler } from './whatsapp-webhook.handler';
 
 export function registerAllHandlers(): void {
   registerHandler('maintenance.sweep', maintenanceSweep);
   registerHandler('whatsapp.process_webhook', whatsappWebhookHandler);
+  registerHandler('ai.respond', aiRespondHandler);
 
   const registered = new Set<JobType>(registeredTypes());
   const pending = JOB_TYPES.filter((type) => !registered.has(type));
