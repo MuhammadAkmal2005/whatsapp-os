@@ -321,8 +321,8 @@ describe('Phase 3 Unit 3: Mock WhatsApp Provider & Adapter Foundation', () => {
   });
 
   describe('Provider Factory & Mock Adapter', () => {
-    it('resolves MockWhatsAppProvider in test environment', () => {
-      const provider = getWhatsAppProvider();
+    it('resolves MockWhatsAppProvider in test environment', async () => {
+      const provider = await getWhatsAppProvider();
       expect(provider).toBeDefined();
       expect(provider).toBeInstanceOf(getMockWhatsAppProvider().constructor);
     });

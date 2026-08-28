@@ -61,9 +61,9 @@ describe('Mock WhatsApp Provider Unit Tests', () => {
     expect(provider.getSentMessages()).toHaveLength(0);
   });
 
-  it('factory returns singleton and resets cleanly', () => {
+  it('factory returns singleton and resets cleanly', async () => {
     resetMockWhatsAppProvider();
-    const p1 = getWhatsAppProvider();
+    const p1 = await getWhatsAppProvider();
     const p2 = getMockWhatsAppProvider();
 
     expect(p1).toBe(p2);

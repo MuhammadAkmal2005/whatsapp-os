@@ -9,7 +9,7 @@
 import 'server-only';
 
 import { prisma } from '@/db/prisma';
-import { NotFoundError } from '@/server/errors';
+import { isAppError, NotFoundError } from '@/server/errors';
 import {
   findConversationById,
   touchConversationActivity,
@@ -20,9 +20,21 @@ import {
   updateMessageStatus,
   type MessageWithDetailsRow,
 } from '@/server/repositories/message.repository';
+import {
+  findPhoneNumberById,
+  updateAccountError,
+} from '@/server/repositories/whatsapp-account.repository';
 import type { TenantContext } from '@/server/tenancy/context';
 import { getWhatsAppProvider } from './provider.factory';
 import type { ProviderSendResult } from './provider.interface';
+
+export type DispatchOutboundOptions = {
+  /** Optional provider overrides (e.g. for testing real Meta provider with mock fetch) */
+  providerOptions?: {
+    forceMeta?: boolean;
+    fetchFn?: typeof fetch;
+  };
+};
 
 /**
  * Dispatches an already-created outbound message to the WhatsApp provider.
@@ -32,6 +44,7 @@ import type { ProviderSendResult } from './provider.interface';
 export async function dispatchOutboundMessage(
   ctxOrScope: TenantContext | { workspaceId: string },
   messageId: string,
+  options?: DispatchOutboundOptions,
 ): Promise<MessageWithDetailsRow> {
   const workspaceId = ctxOrScope.workspaceId;
 
@@ -40,12 +53,32 @@ export async function dispatchOutboundMessage(
     throw new NotFoundError('Message');
   }
 
-  // Idempotency check: If already dispatched, return existing message without re-sending
+  // Idempotency check 1: If already has providerMessageId, return existing record immediately
+  if (message.providerMessageId) {
+    return message;
+  }
+
+  // Idempotency check 2: If already marked SENT, DELIVERED, or READ, return existing record
   if (
-    message.providerMessageId &&
-    (message.status === 'SENT' || message.status === 'DELIVERED' || message.status === 'READ')
+    message.status === 'SENT' ||
+    message.status === 'DELIVERED' ||
+    message.status === 'READ'
   ) {
     return message;
+  }
+
+  // Idempotency check 3: If message is in SENDING state, re-fetch to ensure providerMessageId was not written concurrently
+  if (message.status === 'SENDING') {
+    const refreshed = await findMessageById(prisma, workspaceId, messageId);
+    if (
+      refreshed?.providerMessageId ||
+      (refreshed &&
+        (refreshed.status === 'SENT' ||
+          refreshed.status === 'DELIVERED' ||
+          refreshed.status === 'READ'))
+    ) {
+      return refreshed;
+    }
   }
 
   const conversation = await findConversationById(prisma, workspaceId, message.conversationId);
@@ -54,7 +87,12 @@ export async function dispatchOutboundMessage(
   }
 
   const toPhone = conversation.contact.phoneE164;
-  const provider = getWhatsAppProvider();
+  const provider = await getWhatsAppProvider({
+    workspaceId,
+    phoneRecordId: conversation.phoneNumberId,
+    forceMeta: options?.providerOptions?.forceMeta,
+    fetchFn: options?.providerOptions?.fetchFn,
+  });
 
   // Monotonically advance to SENDING
   await updateMessageStatus(prisma, workspaceId, message.id, 'SENDING');
@@ -84,11 +122,34 @@ export async function dispatchOutboundMessage(
       });
     }
   } catch (err) {
+    const errorCode = isAppError(err) ? err.code : 'DISPATCH_ERROR';
     const errorMsg = err instanceof Error ? err.message : 'Provider dispatch error';
+
     await updateMessageStatus(prisma, workspaceId, message.id, 'FAILED', {
-      errorCode: 'DISPATCH_ERROR',
+      errorCode,
       errorMessage: errorMsg,
     });
+
+    // If an account authentication failure occurred, mark WhatsAppAccount as ERROR
+    if (
+      conversation.phoneNumberId &&
+      (errorCode === 'UNAUTHENTICATED' ||
+        errorCode === 'FORBIDDEN' ||
+        errorMsg.toLowerCase().includes('authentication') ||
+        errorMsg.toLowerCase().includes('oauth'))
+    ) {
+      try {
+        const phoneRecord = await findPhoneNumberById(prisma, workspaceId, conversation.phoneNumberId);
+        if (phoneRecord) {
+          await updateAccountError(prisma, workspaceId, phoneRecord.accountId, {
+            lastErrorMessage: errorMsg,
+          });
+        }
+      } catch {
+        // Suppress secondary error updating account state
+      }
+    }
+
     throw err;
   }
 
