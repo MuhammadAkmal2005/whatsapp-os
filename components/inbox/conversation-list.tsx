@@ -14,6 +14,7 @@ import { MessageSquare, Plus, Search, UserX, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ConversationListItem } from './conversation-list-item';
+import { MockSimulatorDialog } from './mock-simulator-dialog';
 import { NewConversationDialog } from './new-conversation-dialog';
 import type {
   ConversationListPage,
@@ -102,20 +103,23 @@ export function ConversationList({
           </p>
         </div>
 
-        {page.can.create ? (
-          <>
-            <Button size="sm" onClick={() => setNewDialogOpen(true)} className="gap-1 h-8 text-xs">
-              <Plus className="size-3.5" aria-hidden />
-              New chat
-            </Button>
-            <NewConversationDialog
-              open={newDialogOpen}
-              onOpenChange={setNewDialogOpen}
-              contacts={contacts}
-              assignees={assignees}
-            />
-          </>
-        ) : null}
+        <div className="flex items-center gap-1.5">
+          <MockSimulatorDialog />
+          {page.can.create ? (
+            <>
+              <Button size="sm" onClick={() => setNewDialogOpen(true)} className="gap-1 h-8 text-xs">
+                <Plus className="size-3.5" aria-hidden />
+                New chat
+              </Button>
+              <NewConversationDialog
+                open={newDialogOpen}
+                onOpenChange={setNewDialogOpen}
+                contacts={contacts}
+                assignees={assignees}
+              />
+            </>
+          ) : null}
+        </div>
       </div>
 
       {/* Search Input */}
