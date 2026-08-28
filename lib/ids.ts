@@ -85,11 +85,12 @@ export function orderNumberPrefix(businessName: string): string {
   if (words.length >= 2) {
     return words
       .slice(0, 3)
-      .map((word) => word[0]!.toUpperCase())
+      .map((word) => word.charAt(0).toUpperCase())
       .join('');
   }
   if (words.length === 1) {
-    return words[0]!.slice(0, 3).toUpperCase();
+    const [word] = words;
+    return word ? word.slice(0, 3).toUpperCase() : 'ORD';
   }
   return 'ORD';
 }
