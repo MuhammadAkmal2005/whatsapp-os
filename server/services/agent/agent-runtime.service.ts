@@ -33,7 +33,7 @@ import type {
 } from '@/services/ai/ai-provider.interface';
 import { createAITenantContext, type AITenantContext } from './context';
 import { loadConversationContext, type AIConversationContext } from './context-loader';
-import { classifyAIError, type AIErrorCategory } from './errors';
+import { classifyAIError, AIAgentError, type AIErrorCategory } from './errors';
 import { defaultToolRegistry, ToolRegistry } from './tools/registry';
 import { retrieveGroundingContext, type GroundingContext } from './grounding.service';
 import type { EmbeddingProvider } from '@/services/ai/embedding-provider.interface';

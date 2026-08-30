@@ -79,6 +79,7 @@ describe('Phase 5 Unit 6: Human Handoff Orchestration Integration', () => {
       classification: 'READ',
       sideEffect: 'NONE',
       capabilityRequired: 'products:read',
+      idempotency: 'SAFE_TO_RETRY',
       auditRequired: false,
       riskLevel: 'LOW',
       inputSchema: z.object({}),

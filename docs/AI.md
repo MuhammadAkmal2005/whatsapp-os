@@ -20,7 +20,7 @@ know, let me get someone" when there is nothing to look up.
 **The agent never states a fact it did not retrieve or receive from a tool.**
 
 Prices, stock, delivery times, policies, discounts, payment methods, order status, payment confirmations. All of
-it comes from a tool call or a knowledge chunk. When the support is absent, the agent says so and hands off.
+it comes from a tool call or a knowledge chunk. When the support is absent, the agent says so, but does not automatically hand off unless the customer explicitly requests human support or a tool failure occurs.
 
 This is not a prompt instruction, because a prompt instruction is a suggestion to a text predictor. It is a
 check that runs after generation and can replace the reply. `AITurn.groundingPassed` and `AITurn.blockedReason`

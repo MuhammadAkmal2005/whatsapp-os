@@ -10,7 +10,7 @@ export async function triggerHumanHandoff(
   reason: HandoffReason,
   triggeredByAi: boolean,
 ): Promise<void> {
-  await db.$transaction(async (tx) => {
+  const run = async (tx: Db) => {
     const conv = await tx.conversation.findUnique({
       where: { id: conversationId },
       select: { aiEnabled: true, handoffAt: true, assignedToMemberId: true, workspaceId: true }
@@ -62,5 +62,11 @@ export async function triggerHumanHandoff(
       resourceId: conversationId,
       metadata: { reason }
     });
-  });
+  };
+
+  if ('$transaction' in db) {
+    await db.$transaction(run);
+  } else {
+    await run(db);
+  }
 }

@@ -158,7 +158,8 @@ describe('Phase 5 Final Acceptance / End-to-End Validation', () => {
 
     const result = await executeAgentTurn({ db: prisma, workspaceId: ws.workspaceId, conversationId: conv.id, messageId: msg.id, provider, embeddingProvider: embedProvider, toolRegistry: new ToolRegistry() });
     
-    expect(result.retrievedChunkIds?.length ?? 0).toBe(0);
+    const turn = await prisma.aITurn.findUnique({ where: { id: result.turnId } });
+    expect(turn?.retrievedChunkIds.length).toBe(0);
     expect(result.replyText).toBe('I don\'t know.');
     expect(result.handoffTriggered).toBe(false); // Current behavior: does not trigger handoff
   });
