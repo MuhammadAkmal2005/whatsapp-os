@@ -10,6 +10,7 @@ import 'server-only';
 
 import { prisma, type Db } from '@/db/prisma';
 import { logger } from '@/lib/logger';
+import { triggerHumanHandoff } from './handoff.service';
 import { appendAuditLog } from '@/server/repositories/audit.repository';
 import {
   findAgentById,
@@ -424,7 +425,13 @@ export async function executeAgentTurn(
                 },
               };
               messages.push(toolResultMsg);
-              continue;
+              
+              handoffTriggered = true;
+              handoffReason = 'AI_ERROR';
+              status = 'FAILED';
+              errorMessage = `Repeated invocation limit reached for tool "${toolCall.name}"`;
+              errorCategory = 'RESOURCE_LIMIT_EXCEEDED';
+              break; // Break tool evaluation
             }
 
             // Authorize Tool Call
@@ -576,6 +583,15 @@ export async function executeAgentTurn(
                 category: classification.category,
                 message: classification.message,
               });
+              
+              if (classification.category === 'UNKNOWN_WRITE_OUTCOME' || classification.retryability === 'REQUIRES_MANUAL_REVIEW') {
+                handoffTriggered = true;
+                handoffReason = 'AI_ERROR';
+                status = 'FAILED';
+                errorMessage = `Tool execution failed with indeterminate outcome: ${toolCall.name}`;
+                errorCategory = classification.category === 'UNKNOWN_WRITE_OUTCOME' ? 'UNKNOWN_WRITE_OUTCOME' : 'TOOL_EXECUTION_FAILURE';
+                break; // Break tool evaluation
+              }
             } finally {
               if (toolTimeoutTimer) clearTimeout(toolTimeoutTimer);
             }
@@ -623,6 +639,11 @@ export async function executeAgentTurn(
         });
         break;
       }
+      
+      // If a tool resulted in handoff Triggered (e.g., repeated limit), break outer loop
+      if (handoffTriggered) {
+        break;
+      }
     }
 
     if (iteration >= maxIterations && !replyText && status === 'COMPLETED') {
@@ -635,6 +656,11 @@ export async function executeAgentTurn(
       status = 'FAILED';
       errorMessage = 'Maximum reasoning iterations exceeded';
       errorCategory = 'RESOURCE_LIMIT_EXCEEDED';
+    }
+    
+    if (status === 'FAILED' && errorCategory === 'UNKNOWN_WRITE_OUTCOME') {
+      handoffTriggered = true;
+      handoffReason = 'AI_ERROR';
     }
   }
 
@@ -739,6 +765,30 @@ export async function executeAgentTurn(
       workspaceId: aiContext.workspaceId,
       error: counterErr,
     });
+  }
+
+  if (handoffTriggered && handoffReason) {
+    try {
+      await triggerHumanHandoff(
+        db,
+        aiContext.workspaceId,
+        aiContext.conversationId,
+        handoffReason,
+        true // triggered by AI
+      );
+    } catch (err) {
+      logger.error('ai.agent.handoff_failed', { workspaceId: aiContext.workspaceId, error: err });
+      // We don't swallow the error because we must ensure the handoff transaction commits.
+      // If the handoff fails, the AI should be re-run or left in the queue.
+      // Since handoff updates the DB transactionally, if it fails, it didn't happen.
+      // We can map it to a RETRYABLE provider unavailable so the queue retries it.
+      const handoffFailClass = classifyAIError(err);
+      throw new AIAgentError('Failed to persist handoff state', {
+        category: handoffFailClass.category === 'PROVIDER_UNAVAILABLE' ? 'PROVIDER_UNAVAILABLE' : 'TOOL_EXECUTION_FAILURE',
+        retryability: 'RETRYABLE',
+        cause: err,
+      });
+    }
   }
 
   return {
