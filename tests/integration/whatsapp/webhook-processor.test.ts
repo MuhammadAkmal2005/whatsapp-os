@@ -741,8 +741,8 @@ describe('Webhook Processor Service Integration', () => {
     expect(updated?.error).toBeNull();
   });
 
-  // 14. no AI jobs are created
-  it('14. does NOT create any AI jobs even if conversation.aiEnabled is true', async () => {
+  // 14. it now creates AI jobs unconditionally because AI routing is live
+  it('14. creates an AI job for inbound messages', async () => {
     const fixture = await createWorkspaceFixture();
 
     const account = await prisma.whatsAppAccount.create({
@@ -781,7 +781,7 @@ describe('Webhook Processor Service Integration', () => {
     const aiJobs = await prisma.job.findMany({
       where: { type: 'ai.respond' },
     });
-    expect(aiJobs.length).toBe(0);
+    expect(aiJobs.length).toBe(1);
   });
 
   // 15. no media download jobs are created

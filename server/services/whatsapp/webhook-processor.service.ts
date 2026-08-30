@@ -20,6 +20,7 @@ import {
   updateWebhookEventStatus,
 } from '@/server/repositories/webhook-event.repository';
 import { processInboundMessage, processStatusUpdate } from './inbound.service';
+import { queue } from '@/server/jobs';
 import type {
   InboundMediaMessage,
   InboundStatusUpdate,
@@ -318,6 +319,18 @@ export async function processWebhookEvent(
         processedAt: new Date(),
         error: null,
       });
+
+      if (!result.isDuplicate) {
+        await queue.enqueue(
+          'ai.respond',
+          {
+            workspaceId,
+            conversationId: result.conversationId,
+            messageId: result.messageId,
+          },
+          { dedupeKey: `ai.respond:${result.messageId}` },
+        );
+      }
 
       logger.info('whatsapp.webhook.message_processed', {
         jobId: context.jobId,
