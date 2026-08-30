@@ -299,6 +299,32 @@ export async function findOrderByNumber(
   return (row as OrderRow | null) ?? null;
 }
 
+export async function findOrderByNumberForContact(
+  db: Db,
+  workspaceId: string,
+  orderNumber: string,
+  contactId: string,
+): Promise<OrderDetailRow | null> {
+  const row = await db.order.findFirst({
+    where: { workspaceId, orderNumber, contactId, deletedAt: null },
+    select: {
+      ...ORDER_SELECT,
+      contact: { select: { name: true } },
+      items: { select: ORDER_ITEM_SELECT },
+      events: { select: ORDER_EVENT_SELECT, orderBy: { createdAt: 'asc' } },
+    },
+  });
+  if (!row) return null;
+
+  const { contact, items, events, ...order } = row;
+  return {
+    ...(order as OrderRow),
+    contactName: contact?.name ?? null,
+    items: items as OrderItemRow[],
+    events: events as OrderEventRow[],
+  };
+}
+
 /**
  * Generates the next order number for the workspace.
  *

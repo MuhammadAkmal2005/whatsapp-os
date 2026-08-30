@@ -40,6 +40,7 @@ export const RUNTIME_DEFAULTS = {
   MAX_TOTAL_TOOL_CALLS: 10,
   MAX_REPEATED_TOOL_INVOCATIONS: 3,
   EXECUTION_TIMEOUT_MS: 45000,
+  TOOL_TIMEOUT_MS: 10000,
 };
 
 export type ExecuteAgentTurnParams = {
@@ -56,6 +57,7 @@ export type ExecuteAgentTurnParams = {
   maxTotalToolCalls?: number;
   maxRepeatedToolCalls?: number;
   timeoutMs?: number;
+  toolTimeoutMs?: number;
   customCapabilities?: Iterable<string>;
 };
 
@@ -439,11 +441,22 @@ export async function executeAgentTurn(
 
             // Execute Tool
             const toolStartTime = Date.now();
+            const toolTimeoutLimitMs = params.toolTimeoutMs ?? RUNTIME_DEFAULTS.TOOL_TIMEOUT_MS;
             let toolOutput: unknown;
             let isToolError = false;
 
+            let toolTimeoutTimer: NodeJS.Timeout | undefined;
+            const toolTimeoutPromise = new Promise<never>((_, reject) => {
+              toolTimeoutTimer = setTimeout(() => {
+                reject(new Error(`Tool execution timed out after ${toolTimeoutLimitMs}ms`));
+              }, toolTimeoutLimitMs);
+            });
+
             try {
-              toolOutput = await auth.tool.handler(aiContext, parseResult.data);
+              toolOutput = await Promise.race([
+                auth.tool.handler(aiContext, parseResult.data),
+                toolTimeoutPromise,
+              ]);
 
               // Audit logging for write tools
               if (auth.tool.auditRequired) {
@@ -474,6 +487,8 @@ export async function executeAgentTurn(
                 category: classification.category,
                 message: classification.message,
               });
+            } finally {
+              if (toolTimeoutTimer) clearTimeout(toolTimeoutTimer);
             }
 
             const toolDurationMs = Date.now() - toolStartTime;
