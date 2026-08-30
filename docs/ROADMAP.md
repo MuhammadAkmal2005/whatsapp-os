@@ -10,7 +10,7 @@ recorded is a decision; a gap that is not is a surprise for whoever hits it.
 
 ## Where the build is
 
-Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, and Phase 6 are complete:
+Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, and Phase 7 are complete:
 - **Phase 0–3**: Project scaffold, full Prisma schema, multi-tenant auth & sessions, RBAC, CRM, products/orders, inbox UI, mock simulator.
 - **Phase 4**: Meta WhatsApp Cloud API Provider (`MetaWhatsAppProvider`), signed webhook receiver, webhook processor job worker, account management UI, and master text acceptance suite.
 - **Phase 5**: AI agent runtime, prompt assembly, Gemini provider, Knowledge Base RAG grounding with vector similarity, tool registry, order creation write tool, human handoff, and master AI acceptance tests.
@@ -18,10 +18,14 @@ Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, and Phase 6 are complete:
   - **Unit 1 (`69b98d3`)**: Automation engine, trigger matching, action execution, wait/resume queue orchestration, and deduplication.
   - **Unit 2 (`217d8ea`, `3408a8b`)**: Automation builder UI, server actions, in-app notification center & bell, and conversation idle scanner.
   - **Unit 3 (`a2fe14c`)**: Master Phase 6 Acceptance Suite, background job handlers (`whatsapp.send_message`, `notification.deliver`), end-to-end handoff, wait-then-act resumption, and notification lifecycle.
+- **Phase 7**:
+  - **Unit 1 (`d535f40`)**: Analytics aggregation engine, usage metering per workspace, AI cost attribution, and daily rollups.
+  - **Unit 2 (`9b73360`)**: Analytics dashboard UI, metric KPI grids, Recharts visualization, and usage metering views.
+  - **Unit 3**: Master Phase 7 acceptance suite, RFC 4180 CSV/JSON export engine, and background daily rollup job integration.
 
-**Next Milestone:** Phase 7 (Analytics aggregation, usage metering per workspace, AI cost attribution, dashboard charts).
+**Next Milestone:** Phase 8 (Plans, subscriptions, trial, limit enforcement, graceful degradation at limits, billing UI).
 
-**The test and verification gate is active.** 55 test files with 653 passing tests (unit + database-backed integration), TypeScript strict typecheck, ESLint, and Next.js production build all pass locally.
+**The test and verification gate is active.** 61 test files with 691 passing tests (unit + database-backed integration), TypeScript strict typecheck, ESLint, and Next.js production build all pass locally.
 
 ---
 

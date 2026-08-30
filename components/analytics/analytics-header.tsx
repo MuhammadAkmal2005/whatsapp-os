@@ -1,8 +1,8 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Calendar, RefreshCw } from 'lucide-react';
-import { useTransition } from 'react';
+import { Calendar, Download, RefreshCw } from 'lucide-react';
+import { useState, useTransition } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { exportAnalyticsReportAction } from '@/server/actions/analytics.actions';
 
 const PRESETS = [
   { value: '7d', label: 'Last 7 Days' },
@@ -33,6 +34,7 @@ export function AnalyticsHeader({ currentRange, formattedRange }: AnalyticsHeade
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleRangeChange = (value: string) => {
     const params = new URLSearchParams(searchParams?.toString() ?? '');
@@ -50,6 +52,32 @@ export function AnalyticsHeader({ currentRange, formattedRange }: AnalyticsHeade
     startTransition(() => {
       router.refresh();
     });
+  };
+
+  const handleExport = async (format: 'csv' | 'json' = 'csv') => {
+    try {
+      setIsExporting(true);
+      const res = await exportAnalyticsReportAction({
+        reportType: 'overview',
+        format,
+      });
+
+      if (res.success && res.data) {
+        const blob = new Blob([res.data.content], { type: res.data.mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = res.data.filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch {
+      // Graceful error handling
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -75,6 +103,18 @@ export function AnalyticsHeader({ currentRange, formattedRange }: AnalyticsHeade
             ))}
           </SelectContent>
         </Select>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 gap-1.5"
+          onClick={() => handleExport('csv')}
+          disabled={isExporting || isPending}
+          title="Export CSV report"
+        >
+          <Download className={`h-4 w-4 ${isExporting ? 'animate-spin' : ''}`} />
+          <span>Export CSV</span>
+        </Button>
 
         <Button
           variant="outline"

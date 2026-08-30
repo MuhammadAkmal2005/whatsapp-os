@@ -69,4 +69,23 @@ export const rollupDailyInputSchema = z.object({
 
 export type RollupDailyInput = z.infer<typeof rollupDailyInputSchema>;
 
+export const exportAnalyticsReportSchema = z.object({
+  from: z
+    .string()
+    .datetime({ offset: true })
+    .or(z.string().date())
+    .or(z.date())
+    .optional()
+    .transform((val) => (val ? new Date(val) : undefined)),
+  to: z
+    .string()
+    .datetime({ offset: true })
+    .or(z.string().date())
+    .or(z.date())
+    .optional()
+    .transform((val) => (val ? new Date(val) : undefined)),
+  reportType: z.enum(['overview', 'ai_telemetry', 'usage', 'daily_rollups']).default('overview'),
+  format: z.enum(['csv', 'json']).default('csv'),
+});
 
+export type ExportAnalyticsReportInput = z.infer<typeof exportAnalyticsReportSchema>;

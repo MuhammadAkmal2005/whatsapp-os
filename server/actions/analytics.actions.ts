@@ -12,11 +12,13 @@ import { z } from 'zod';
 
 import { formErrorFrom } from '@/server/actions/action-helpers';
 import {
+  exportAnalyticsReport,
   getAITelemetry,
   getAnalyticsOverview,
   getWorkspaceUsageAndLimits,
   runDailyRollup,
   type AnalyticsOverview,
+  type ExportReportResult,
   type UsageLimitStatus,
 } from '@/server/services/analytics/analytics.service';
 import type { AITelemetryBreakdown } from '@/server/repositories/analytics.repository';
@@ -25,6 +27,7 @@ import { requireTenantContext } from '@/server/tenancy/resolve';
 import {
   aiTelemetryQuerySchema,
   dateRangeQuerySchema,
+  exportAnalyticsReportSchema,
   rollupDailyInputSchema,
   usageMeteringQuerySchema,
 } from '@/server/validation/analytics';
@@ -122,6 +125,31 @@ export async function triggerDailyRollupAction(
     });
 
     revalidatePath(ANALYTICS_PATH);
+    return { success: true, data: result };
+  } catch (err) {
+    const safe = formErrorFrom(err);
+    return { success: false, error: safe.message ?? 'An unexpected error occurred.' };
+  }
+}
+
+/**
+ * Exports analytics or telemetry reports in CSV or JSON format.
+ */
+export async function exportAnalyticsReportAction(
+  rawInput: z.input<typeof exportAnalyticsReportSchema> = {},
+): Promise<ActionResponse<ExportReportResult>> {
+  try {
+    const context = await requireTenantContext();
+    requirePermission(context, 'analytics:read');
+
+    const parsed = exportAnalyticsReportSchema.parse(rawInput);
+    const result = await exportAnalyticsReport(context, {
+      from: parsed.from,
+      to: parsed.to,
+      reportType: parsed.reportType,
+      format: parsed.format,
+    });
+
     return { success: true, data: result };
   } catch (err) {
     const safe = formErrorFrom(err);

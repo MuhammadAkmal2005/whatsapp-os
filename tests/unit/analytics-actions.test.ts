@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   aiTelemetryQuerySchema,
   dateRangeQuerySchema,
+  exportAnalyticsReportSchema,
   rollupDailyInputSchema,
   usageMeteringQuerySchema,
 } from '@/server/validation/analytics';
@@ -58,16 +59,27 @@ describe('Analytics Server Actions & Validation Unit Tests', () => {
     }
   });
 
-  it('validates daily rollup action input schemas', () => {
-    const valid = rollupDailyInputSchema.safeParse({
-      date: '2026-08-30',
-      workspaceId: '123e4567-e89b-12d3-a456-426614174000',
+  it('validates export analytics report input schemas', () => {
+    const valid = exportAnalyticsReportSchema.safeParse({
+      from: '2026-08-01',
+      to: '2026-08-31',
+      reportType: 'ai_telemetry',
+      format: 'csv',
     });
 
     expect(valid.success).toBe(true);
     if (valid.success) {
-      expect(valid.data.date).toBeInstanceOf(Date);
-      expect(valid.data.workspaceId).toBe('123e4567-e89b-12d3-a456-426614174000');
+      expect(valid.data.reportType).toBe('ai_telemetry');
+      expect(valid.data.format).toBe('csv');
+      expect(valid.data.from).toBeInstanceOf(Date);
+      expect(valid.data.to).toBeInstanceOf(Date);
+    }
+
+    const defaultParsed = exportAnalyticsReportSchema.safeParse({});
+    expect(defaultParsed.success).toBe(true);
+    if (defaultParsed.success) {
+      expect(defaultParsed.data.reportType).toBe('overview');
+      expect(defaultParsed.data.format).toBe('csv');
     }
   });
 });

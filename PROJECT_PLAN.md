@@ -242,9 +242,10 @@ production build all green.
 | 2026-08-28 | 4 (Unit 4) | **Complete & Committed** — WhatsApp Account Connection & Management UI (`app/(app)/(workspace)/settings/whatsapp/`) |
 | 2026-08-29 | 4 (Unit 5) | **Complete & Committed** — Final Meta WhatsApp Text Acceptance Suite |
 | 2026-08-29 | 5 | **Complete & Committed (`69a615a`, `0e3a909`)** — AI agent runtime, prompt assembly, Gemini provider, Knowledge Base RAG grounding, tool registry, order creation write tool, human handoff, and master AI acceptance tests |
-| 2026-08-30 | 6 (Unit 1) | **Complete & Committed (`69b98d3`)** — Automation engine, trigger matching, action execution, wait/resume queue orchestration, and deduplication |
-| 2026-08-30 | 6 (Unit 2) | **Complete & Committed (`217d8ea`, `3408a8b`)** — Automation builder UI, server actions, in-app notification center & bell, and conversation idle scanner |
-| 2026-08-30 | 6 (Unit 3) | **Complete & Committed (`a2fe14c`)** — Master Phase 6 Acceptance Suite, background job handlers, end-to-end handoff, wait-then-act resumption, and notification lifecycle |
-| 2026-08-30 | 7 | **Next** — Analytics aggregation, usage metering per workspace, AI cost attribution, dashboard charts |
-| 2026-08-30 | Deferred | Media download/storage, Campaigns, Voice, Billing, Multi-channel expansion |
+| 2026-08-30 | 7 (Unit 1) | **Complete & Committed (`d535f40`)** — Analytics aggregation engine, usage metering per workspace, AI cost attribution, and daily rollups |
+| 2026-08-30 | 7 (Unit 2) | **Complete & Committed (`9b73360`)** — Analytics dashboard UI, metric KPI grids, Recharts visualization, and usage metering views |
+| 2026-08-30 | 7 (Unit 3) | **Complete & Committed** — Master Phase 7 acceptance suite, RFC 4180 CSV/JSON export engine, and background daily rollup job integration |
+| 2026-08-30 | 8 | **Next** — Plans, subscriptions, trial, limit enforcement, graceful degradation at limits, billing UI |
+| 2026-08-30 | Deferred | Media download/storage, Campaigns, Voice, Multi-channel expansion |
+
 

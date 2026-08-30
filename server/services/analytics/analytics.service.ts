@@ -21,6 +21,8 @@ import {
 } from '@/server/repositories/analytics.repository';
 import { requirePermission, type TenantContext } from '@/server/tenancy/context';
 import { checkLimit, getPlan, type LimitCheck, type LimitName, type PlanKey } from '@/config/plans';
+import { serializeCsv } from '@/lib/csv';
+import { coerceCurrency, formatMoney, money } from '@/lib/money';
 
 const DEFAULT_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -192,3 +194,212 @@ export async function runDailyRollup(
 
   return { workspacesProcessed: workspaces.length, date: dateStr };
 }
+
+export type ExportReportResult = {
+  filename: string;
+  mimeType: string;
+  content: string;
+};
+
+/**
+ * Exports formatted analytics, AI telemetry, plan usage, or daily rollups as CSV or JSON.
+ */
+export async function exportAnalyticsReport(
+  context: TenantContext,
+  params: {
+    from?: Date;
+    to?: Date;
+    reportType?: 'overview' | 'ai_telemetry' | 'usage' | 'daily_rollups';
+    format?: 'csv' | 'json';
+  } = {},
+  db: Db = prisma,
+): Promise<ExportReportResult> {
+  requirePermission(context, 'analytics:read');
+
+  const reportType = params.reportType ?? 'overview';
+  const format = params.format ?? 'csv';
+  const now = new Date();
+  const to = params.to ?? now;
+  const from = params.from ?? new Date(now.getTime() - DEFAULT_DAYS * DAY_MS);
+  const fromStr = from.toISOString().split('T')[0];
+  const toStr = to.toISOString().split('T')[0];
+  const dateSuffix = `${fromStr}_to_${toStr}`;
+
+  if (reportType === 'ai_telemetry') {
+    const telemetry = await getAITelemetry(context, { from, to }, db);
+    const filename = `ai_telemetry_${dateSuffix}.${format}`;
+
+    if (format === 'json') {
+      return {
+        filename,
+        mimeType: 'application/json',
+        content: JSON.stringify(telemetry, null, 2),
+      };
+    }
+
+    const headers = [
+      'Model',
+      'Invocations',
+      'Input Tokens',
+      'Output Tokens',
+      'Total Tokens',
+      'Cost (Micros)',
+      'Cost (USD)',
+      'Avg Latency (ms)',
+      'Grounding Pass Rate (%)',
+      'Safety Blocked',
+      'Human Handoffs',
+    ];
+
+    const totalBlocked = Object.values(telemetry.byBlockedReason).reduce((a, b) => a + b, 0);
+    const totalHandoffs = Object.values(telemetry.byHandoffReason).reduce((a, b) => a + b, 0);
+
+    const rows = telemetry.byModel.map((m) => [
+      m.model,
+      m.requests,
+      m.inputTokens,
+      m.outputTokens,
+      m.totalTokens,
+      m.costMicros,
+      (m.costMicros / 1_000_000).toFixed(4),
+      Math.round(m.avgLatencyMs),
+      telemetry.groundingPassRate.toFixed(1),
+      totalBlocked,
+      totalHandoffs,
+    ]);
+
+    return {
+      filename,
+      mimeType: 'text/csv',
+      content: serializeCsv(headers, rows),
+    };
+  }
+
+  if (reportType === 'usage') {
+    requirePermission(context, 'usage:read');
+    const usage = await getWorkspaceUsageAndLimits(context, undefined, db);
+    const filename = `usage_metering_${usage.periodKey}.${format}`;
+
+    if (format === 'json') {
+      return {
+        filename,
+        mimeType: 'application/json',
+        content: JSON.stringify(usage, null, 2),
+      };
+    }
+
+    const headers = ['Resource / Limit', 'Current Usage', 'Plan Limit', 'Utilization (%)', 'Status'];
+    const rows = Object.entries(usage.limits).map(([name, check]) => [
+      name,
+      check.used,
+      check.limit === null ? 'Unlimited' : check.limit,
+      check.limit === null || check.limit === 0
+        ? '0%'
+        : `${Math.min(100, Math.round(check.ratio * 100))}%`,
+      !check.allowed ? 'EXCEEDED' : check.nearLimit ? 'NEAR_LIMIT' : 'OK',
+    ]);
+
+    return {
+      filename,
+      mimeType: 'text/csv',
+      content: serializeCsv(headers, rows),
+    };
+  }
+
+  if (reportType === 'daily_rollups') {
+    const rollups = await db.analyticsDaily.findMany({
+      where: {
+        workspaceId: context.workspaceId,
+        date: { gte: from, lte: to },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    const filename = `daily_rollups_${dateSuffix}.${format}`;
+
+    if (format === 'json') {
+      return {
+        filename,
+        mimeType: 'application/json',
+        content: JSON.stringify(rollups, null, 2),
+      };
+    }
+
+    const headers = [
+      'Date',
+      'Revenue Minor',
+      'Orders',
+      'Messages Inbound',
+      'Messages Outbound',
+      'New Conversations',
+      'Resolved Conversations',
+      'AI Handled',
+      'AI Requests',
+      'AI Cost Micros',
+    ];
+
+    const rows = rollups.map((r) => [
+      r.date.toISOString().split('T')[0],
+      r.revenueMinor,
+      r.ordersCount,
+      r.messagesIn,
+      r.messagesOut,
+      r.conversationsNew,
+      r.conversationsResolved,
+      r.aiHandledCount,
+      r.aiRequests,
+      r.aiCostMicros,
+    ]);
+
+    return {
+      filename,
+      mimeType: 'text/csv',
+      content: serializeCsv(headers, rows),
+    };
+  }
+
+  // Default: overview
+  const overview = await getAnalyticsOverview(context, { from, to }, db);
+  const filename = `analytics_overview_${dateSuffix}.${format}`;
+
+  if (format === 'json') {
+    return {
+      filename,
+      mimeType: 'application/json',
+      content: JSON.stringify(overview, null, 2),
+    };
+  }
+
+  const headers = [
+    'Date',
+    'Revenue (Minor)',
+    'Revenue (Formatted)',
+    'Currency',
+    'Total Orders',
+    'Messages Inbound',
+    'Messages Outbound',
+    'New Conversations',
+    'AI Requests',
+  ];
+
+  const currency = coerceCurrency(context.currency);
+
+  const rows = overview.timeSeries.map((ts) => [
+    ts.date,
+    ts.revenueMinor,
+    formatMoney(money(ts.revenueMinor, currency)),
+    currency,
+    ts.ordersCount,
+    ts.messagesIn,
+    ts.messagesOut,
+    ts.conversationsNew,
+    ts.aiRequests,
+  ]);
+
+  return {
+    filename,
+    mimeType: 'text/csv',
+    content: serializeCsv(headers, rows),
+  };
+}
+
