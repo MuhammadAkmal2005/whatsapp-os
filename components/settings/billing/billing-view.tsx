@@ -52,7 +52,13 @@ export function BillingView({ initialData }: BillingViewProps) {
         setError(res.error);
         return;
       }
-      setSuccess(`Plan successfully changed to ${res.data.plan.name}.`);
+
+      if (res.data?.redirectUrl) {
+        window.location.href = res.data.redirectUrl;
+        return;
+      }
+
+      setSuccess(`Plan successfully changed to ${planKey}.`);
       await refreshBillingData();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to update plan.');

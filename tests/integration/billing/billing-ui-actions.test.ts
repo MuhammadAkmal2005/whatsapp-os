@@ -6,6 +6,9 @@ import {
   fetchBillingOverviewAction,
   resumeSubscriptionAction,
 } from '@/server/actions/subscription.actions';
+import {
+  ensureWorkspaceSubscription,
+} from '@/server/services/subscription/subscription.service';
 import * as tenancyResolve from '@/server/tenancy/resolve';
 import {
   createMemberFixture,
@@ -112,15 +115,20 @@ describe('Phase 8 Unit 2: Billing UI & Server Actions Integration', () => {
     const adminChange = await changePlanAction({ planKey: 'pro' });
     expect(adminChange.success).toBe(false);
 
-    // OWNER switches to Starter plan -> succeeds
+    // OWNER switches to Starter plan -> succeeds (returns checkout URL)
     vi.spyOn(tenancyResolve, 'requireTenantContext').mockResolvedValue(ws.context);
     const ownerChange = await changePlanAction({ planKey: 'starter' });
     expect(ownerChange.success).toBe(true);
     if (ownerChange.success) {
-      expect(ownerChange.data.plan.key).toBe('starter');
-      expect(ownerChange.data.subscription.status).toBe('ACTIVE');
-      expect(ownerChange.data.subscription.isTrial).toBe(false);
+      expect(ownerChange.data.redirectUrl).toBeDefined();
     }
+    
+    // Simulate webhook completion for starter plan
+    await ensureWorkspaceSubscription(prisma, ws.workspaceId);
+    await prisma.subscription.update({
+      where: { workspaceId: ws.workspaceId },
+      data: { planKey: 'starter', status: 'ACTIVE' },
+    });
 
     // Verify DB update
     const dbSub = await prisma.subscription.findUnique({
@@ -136,8 +144,12 @@ describe('Phase 8 Unit 2: Billing UI & Server Actions Integration', () => {
 
     vi.spyOn(tenancyResolve, 'requireTenantContext').mockResolvedValue(ws.context);
 
-    // Set active starter plan
-    await changePlanAction({ planKey: 'starter' });
+    // Simulate webhook having activated starter plan
+    await ensureWorkspaceSubscription(prisma, ws.workspaceId);
+    await prisma.subscription.update({
+      where: { workspaceId: ws.workspaceId },
+      data: { planKey: 'starter', status: 'ACTIVE' },
+    });
 
     // Cancel subscription
     const cancelRes = await cancelSubscriptionAction();

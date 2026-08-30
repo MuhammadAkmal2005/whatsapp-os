@@ -95,6 +95,8 @@ export async function updateSubscriptionPlan(
     trialEndsAt?: Date | null;
     cancelAtPeriodEnd?: boolean;
     canceledAt?: Date | null;
+    provider?: string | null;
+    providerSubscriptionId?: string | null;
   },
 ): Promise<SubscriptionRecord> {
   return db.subscription.update({

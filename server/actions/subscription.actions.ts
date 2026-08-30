@@ -10,6 +10,7 @@ import {
   type WorkspaceBillingSummaryDTO,
   type WorkspaceSubscriptionOverviewDTO,
 } from '@/server/services/subscription/subscription.service';
+import { processCheckoutOrDowngrade } from '@/server/services/billing/checkout.service';
 import { requireTenantContext } from '@/server/tenancy/resolve';
 import { changePlanSchema, type ChangePlanInput } from '@/server/validation/subscription';
 
@@ -58,11 +59,11 @@ export async function fetchBillingOverviewAction(): Promise<
  */
 export async function changePlanAction(
   rawInput: ChangePlanInput,
-): Promise<ActionResponse<WorkspaceSubscriptionOverviewDTO>> {
+): Promise<ActionResponse<{ redirectUrl?: string }>> {
   try {
     const context = await requireTenantContext();
     const parsed = changePlanSchema.parse(rawInput);
-    const data = await changeSubscriptionPlan(context, parsed);
+    const data = await processCheckoutOrDowngrade(context, parsed.planKey);
     return { success: true, data };
   } catch (error) {
     const safe = formErrorFrom(error);
