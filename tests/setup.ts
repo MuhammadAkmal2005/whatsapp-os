@@ -22,11 +22,11 @@
 const TEST_AUTH_SECRET = 'test-only-auth-secret-do-not-deploy-0000';
 
 /**
- * The throwaway container on 5432 from local PostgreSQL, which uses tmpfs and
+ * The throwaway container on 5433 from `docker-compose.yml`, which uses tmpfs and
  * so has nothing worth preserving. Overridden by `TEST_DATABASE_URL` in CI.
  */
 const FALLBACK_TEST_DATABASE_URL =
-  'postgresql://whatsapp_os:whatsapp_os@localhost:5432/whatsapp_os_test?schema=public';
+  'postgresql://whatsapp_os:whatsapp_os@localhost:5433/whatsapp_os_test';
 
 /**
  * Values a test run needs but should never inherit from a developer's `.env`.
