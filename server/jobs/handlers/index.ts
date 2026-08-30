@@ -20,11 +20,8 @@ import { logger } from '@/lib/logger';
 import { JOB_TYPES, type JobType } from '../job-types';
 import { registerHandler, registeredTypes } from '../registry';
 import { aiRespondHandler } from './ai-turn.handler';
-import {
-  automationCheckIdleHandler,
-  automationResumeHandler,
-  automationRunHandler,
-} from './automation.handler';
+import { analyticsRollupDailyHandler } from './analytics.handler';
+import { automationCheckIdleHandler, automationResumeHandler, automationRunHandler } from './automation.handler';
 import { maintenanceSweep } from './maintenance.handler';
 import { notificationDeliverHandler } from './notification.handler';
 import { whatsappSendMessageHandler } from './whatsapp-send.handler';
@@ -39,6 +36,7 @@ export function registerAllHandlers(): void {
   registerHandler('automation.resume', automationResumeHandler);
   registerHandler('automation.check_idle', automationCheckIdleHandler);
   registerHandler('notification.deliver', notificationDeliverHandler);
+  registerHandler('analytics.rollup_daily', analyticsRollupDailyHandler);
 
   const registered = new Set<JobType>(registeredTypes());
   const pending = JOB_TYPES.filter((type) => !registered.has(type));
