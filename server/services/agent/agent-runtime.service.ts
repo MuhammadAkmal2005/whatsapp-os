@@ -34,6 +34,8 @@ import { createAITenantContext, type AITenantContext } from './context';
 import { loadConversationContext, type AIConversationContext } from './context-loader';
 import { classifyAIError, type AIErrorCategory } from './errors';
 import { defaultToolRegistry, ToolRegistry } from './tools/registry';
+import { retrieveGroundingContext, type GroundingContext } from './grounding.service';
+import type { EmbeddingProvider } from '@/services/ai/embedding-provider.interface';
 
 export const RUNTIME_DEFAULTS = {
   MAX_ITERATIONS: 5,
@@ -52,6 +54,7 @@ export type ExecuteAgentTurnParams = {
   agentId?: string;
   executionId?: string;
   provider: AIProvider;
+  embeddingProvider?: EmbeddingProvider;
   toolRegistry?: ToolRegistry;
   maxIterations?: number;
   maxTotalToolCalls?: number;
@@ -159,6 +162,21 @@ function buildSystemPrompt(
   }
 
   return parts.join('\n\n');
+}
+
+/**
+ * Builds the final system prompt combining base instructions with retrieved evidence.
+ */
+function buildSystemPromptWithEvidence(
+  agent: AIAgentWithInstructionsRow,
+  context: AIConversationContext,
+  formattedEvidence: string | null
+): string {
+  const basePrompt = buildSystemPrompt(agent, context);
+  if (!formattedEvidence) {
+    return basePrompt;
+  }
+  return `${basePrompt}\n\n${formattedEvidence}`;
 }
 
 /**
@@ -291,9 +309,39 @@ export async function executeAgentTurn(
     capabilities,
   });
 
+  // 5.5 Grounding Pipeline
+  const knowledgeBase = await db.knowledgeBase.findUnique({
+    where: { workspaceId: params.workspaceId },
+  });
+  
+  let groundingContext: GroundingContext | undefined;
+  
+  if (knowledgeBase && params.embeddingProvider && userText.trim().length > 0) {
+    try {
+      groundingContext = await retrieveGroundingContext(
+        db,
+        params.workspaceId,
+        userText,
+        params.embeddingProvider,
+        {
+          model: knowledgeBase.embeddingModel,
+          topK: 5,
+          threshold: 0.6, // Reasonable semantic threshold
+        }
+      );
+    } catch (groundingErr: any) {
+      // If it's a retryable embedding error, throw it so the background job can retry
+      if (groundingErr?.category === 'PROVIDER_UNAVAILABLE' || groundingErr?.retryability === 'RETRYABLE') {
+        throw groundingErr;
+      }
+      logger.error('ai.agent.grounding_failed', { workspaceId: params.workspaceId, error: groundingErr });
+    }
+  }
+
   // 6. Build Initial Message Payload
+  const systemPrompt = buildSystemPromptWithEvidence(agent, conversationContext, groundingContext?.formattedEvidence ?? null);
   const messages: AIMessage[] = [
-    { role: 'system', content: buildSystemPrompt(agent, conversationContext) },
+    { role: 'system', content: systemPrompt },
     ...conversationContext.recentMessages,
   ];
 
@@ -625,6 +673,8 @@ export async function executeAgentTurn(
       provider: params.provider.name,
       model: agent.model,
       toolCalls: recordedToolCalls.length > 0 ? recordedToolCalls : null,
+      retrievedChunkIds: groundingContext?.chunks.map(c => c.chunkId) ?? [],
+      retrievalTopScore: groundingContext?.topScore ?? null,
       groundingPassed: true,
       handoffTriggered,
       handoffReason,
@@ -644,6 +694,7 @@ export async function executeAgentTurn(
 
   // 10. Persist UsageRecord Metering
   try {
+    const embeddingTokens = groundingContext?.embeddingTokens ?? 0;
     await recordAIUsage(db, {
       workspaceId: aiContext.workspaceId,
       agentId: aiContext.agentId,
@@ -655,6 +706,21 @@ export async function executeAgentTurn(
       outputTokens: totalOutputTokens,
       costMicros,
     });
+    
+    // Meter embedding usage separately if it occurred
+    if (embeddingTokens > 0) {
+      await recordAIUsage(db, {
+        workspaceId: aiContext.workspaceId,
+        agentId: aiContext.agentId,
+        conversationId: aiContext.conversationId,
+        messageId: aiContext.messageId,
+        provider: params.embeddingProvider?.name ?? 'unknown',
+        model: knowledgeBase?.embeddingModel ?? 'unknown',
+        inputTokens: embeddingTokens,
+        outputTokens: 0,
+        costMicros: 0,
+      });
+    }
   } catch (usageErr) {
     logger.error('ai.agent.usage_persistence_failed', {
       workspaceId: aiContext.workspaceId,
