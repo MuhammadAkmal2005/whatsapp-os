@@ -1,0 +1,85 @@
+'use server';
+
+import { formErrorFrom } from '@/server/actions/action-helpers';
+import {
+  cancelSubscription,
+  changeSubscriptionPlan,
+  getSubscriptionOverview,
+  resumeSubscription,
+  type WorkspaceSubscriptionOverviewDTO,
+} from '@/server/services/subscription/subscription.service';
+import { requireTenantContext } from '@/server/tenancy/resolve';
+import { changePlanSchema, type ChangePlanInput } from '@/server/validation/subscription';
+
+export type ActionResponse<T> =
+  | { success: true; data: T }
+  | { success: false; error: string; code?: string };
+
+/**
+ * Fetches the current workspace subscription overview and plan details.
+ * Guarded by `subscription:read` (ADMIN, OWNER).
+ */
+export async function fetchSubscriptionAction(): Promise<
+  ActionResponse<WorkspaceSubscriptionOverviewDTO>
+> {
+  try {
+    const context = await requireTenantContext();
+    const data = await getSubscriptionOverview(context);
+    return { success: true, data };
+  } catch (error) {
+    const safe = formErrorFrom(error);
+    return { success: false, error: safe.message ?? 'Failed to fetch subscription.' };
+  }
+}
+
+/**
+ * Changes the active workspace plan (upgrade / downgrade / switch to free).
+ * Guarded by `subscription:manage` (OWNER only).
+ */
+export async function changePlanAction(
+  rawInput: ChangePlanInput,
+): Promise<ActionResponse<WorkspaceSubscriptionOverviewDTO>> {
+  try {
+    const context = await requireTenantContext();
+    const parsed = changePlanSchema.parse(rawInput);
+    const data = await changeSubscriptionPlan(context, parsed);
+    return { success: true, data };
+  } catch (error) {
+    const safe = formErrorFrom(error);
+    return { success: false, error: safe.message ?? 'Failed to change plan.' };
+  }
+}
+
+/**
+ * Schedules subscription cancellation at the end of current billing period.
+ * Guarded by `subscription:manage` (OWNER only).
+ */
+export async function cancelSubscriptionAction(): Promise<
+  ActionResponse<WorkspaceSubscriptionOverviewDTO>
+> {
+  try {
+    const context = await requireTenantContext();
+    const data = await cancelSubscription(context);
+    return { success: true, data };
+  } catch (error) {
+    const safe = formErrorFrom(error);
+    return { success: false, error: safe.message ?? 'Failed to cancel subscription.' };
+  }
+}
+
+/**
+ * Resumes a subscription scheduled for cancellation at period end.
+ * Guarded by `subscription:manage` (OWNER only).
+ */
+export async function resumeSubscriptionAction(): Promise<
+  ActionResponse<WorkspaceSubscriptionOverviewDTO>
+> {
+  try {
+    const context = await requireTenantContext();
+    const data = await resumeSubscription(context);
+    return { success: true, data };
+  } catch (error) {
+    const safe = formErrorFrom(error);
+    return { success: false, error: safe.message ?? 'Failed to resume subscription.' };
+  }
+}

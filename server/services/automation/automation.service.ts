@@ -21,6 +21,7 @@ import {
   listAutomationRuns as listAutomationRunsRepo,
   type CreateActionData,
 } from '@/server/repositories/automation.repository';
+import { assertWithinPlanLimit } from '@/server/services/billing/limit-guard.service';
 import { requirePermission, type TenantContext } from '@/server/tenancy/context';
 import type {
   CreateAutomationInput,
@@ -82,6 +83,8 @@ export async function createAutomation(
   db: Db = prisma,
 ) {
   requirePermission(ctx, 'automation:create');
+
+  await assertWithinPlanLimit(ctx, 'automations', 1, db);
 
   const actions: CreateActionData[] = input.actions.map((act, index) => ({
     position: act.position ?? index,

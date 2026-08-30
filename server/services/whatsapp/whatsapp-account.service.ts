@@ -22,6 +22,7 @@ import {
   type ChannelStatus,
   type WhatsAppAccountWithPhoneNumbersRow,
 } from '@/server/repositories/whatsapp-account.repository';
+import { assertWithinPlanLimit } from '@/server/services/billing/limit-guard.service';
 import { requirePermission, type TenantContext } from '@/server/tenancy/context';
 import type { ConnectWhatsAppInput } from '@/server/validation/whatsapp-account';
 
@@ -215,6 +216,9 @@ export async function connectWhatsAppAccount(
 
   // 4. Atomic upsert
   const isUpdate = Boolean(existingPhone && existingPhone.workspaceId === workspaceId);
+  if (!isUpdate) {
+    await assertWithinPlanLimit(ctx, 'whatsappNumbers', 1);
+  }
 
   const account = await upsertWhatsAppAccountWithPhoneNumber(prisma, workspaceId, {
     wabaId: input.wabaId,
