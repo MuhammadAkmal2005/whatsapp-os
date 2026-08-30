@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
-    let payload: any;
+    let payload: unknown;
     try {
       payload = JSON.parse(rawBody);
     } catch {
@@ -37,7 +37,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Basic structural validation
-    if (!payload || !payload.type || !payload.data || !payload.data.workspaceId) {
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      !('type' in payload) ||
+      !('data' in payload) ||
+      typeof (payload as Record<string, unknown>).data !== 'object' ||
+      !(payload as Record<string, unknown>).data ||
+      !('workspaceId' in ((payload as Record<string, unknown>).data as Record<string, unknown>))
+    ) {
       return NextResponse.json({ error: 'Invalid payload structure' }, { status: 400 });
     }
 

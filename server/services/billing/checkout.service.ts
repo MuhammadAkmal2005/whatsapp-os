@@ -1,14 +1,14 @@
 import 'server-only';
 
 import { env } from '@/config/env';
-import { getPlan } from '@/config/plans';
+import { getPlan, type PlanKey } from '@/config/plans';
 import { BusinessRuleError } from '@/server/errors';
 import { requirePermission, type TenantContext } from '@/server/tenancy/context';
 import { changeSubscriptionPlan } from '../subscription/subscription.service';
 
 export async function processCheckoutOrDowngrade(
   ctx: TenantContext,
-  planKey: string,
+  planKey: PlanKey,
 ): Promise<{ redirectUrl?: string }> {
   requirePermission(ctx, 'subscription:manage');
 
