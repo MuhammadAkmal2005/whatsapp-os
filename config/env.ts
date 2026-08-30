@@ -57,7 +57,7 @@ const schema = z
     DATABASE_URL: z.string().min(1),
     TEST_DATABASE_URL: z.string().optional(),
 
-    AI_PROVIDER: z.enum(['openai', 'mock']).default('mock'),
+    AI_PROVIDER: z.enum(['openai', 'mock', 'gemini']).default('mock'),
     AI_API_KEY: z.string().optional(),
     AI_BASE_URL: z.string().url().optional(),
     AI_MODEL: z.string().default('gpt-4o-mini'),
@@ -127,6 +127,10 @@ const schema = z
 
     if (value.AI_PROVIDER === 'openai' && !value.AI_API_KEY) {
       fail('AI_API_KEY', 'Required when AI_PROVIDER=openai. Use AI_PROVIDER=mock for offline work.');
+    }
+
+    if (value.AI_PROVIDER === 'gemini' && !value.AI_API_KEY) {
+      fail('AI_API_KEY', 'Required when AI_PROVIDER=gemini. Use AI_PROVIDER=mock for offline work.');
     }
 
     // The dangerous direction is a production deployment that silently answers
