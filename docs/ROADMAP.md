@@ -17,14 +17,13 @@ Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, and Phase 6 are complete:
 - **Phase 6**:
   - **Unit 1 (`69b98d3`)**: Automation engine, trigger matching, action execution, wait/resume queue orchestration, and deduplication.
   - **Unit 2 (`217d8ea`, `3408a8b`)**: Automation builder UI, server actions, in-app notification center & bell, and conversation idle scanner.
-  - **Unit 3**: Master Phase 6 Acceptance Suite, background job handlers (`whatsapp.send_message`, `notification.deliver`), end-to-end handoff, wait-then-act resumption, and notification lifecycle.
+  - **Unit 3 (`a2fe14c`)**: Master Phase 6 Acceptance Suite, background job handlers (`whatsapp.send_message`, `notification.deliver`), end-to-end handoff, wait-then-act resumption, and notification lifecycle.
 
 **Next Milestone:** Phase 7 (Analytics aggregation, usage metering per workspace, AI cost attribution, dashboard charts).
 
 **The test and verification gate is active.** 55 test files with 653 passing tests (unit + database-backed integration), TypeScript strict typecheck, ESLint, and Next.js production build all pass locally.
 
 ---
-
 
 ## Known gaps
 
@@ -99,8 +98,6 @@ An untested backup is a belief.
 These are choices, not omissions, and each buys something.
 
 **Media Download and Storage.** Inbound media attachment downloads (images/audio/documents) and S3 storage persistence are deliberately deferred from Phase 4 text-first Cloud API integration. Media processing arrives in a subsequent media-handling phase.
-
-**AI Agent & RAG System.** Vector embeddings (`pgvector`), knowledge base ingestion, prompt assembly, and RAG retrieval are deferred to Phase 5. The Phase 4 pipeline is text-first message and status update processing.
 
 **Redis.** `QUEUE_DRIVER=postgres` uses `FOR UPDATE SKIP LOCKED` and needs no broker — one fewer service to run,
 back up, monitor and pay for. At MVP volumes the throughput difference is irrelevant. Revisit when queue depth

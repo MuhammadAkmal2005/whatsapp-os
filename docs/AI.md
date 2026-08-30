@@ -7,11 +7,7 @@ The distinction that matters commercially: this is not a chatbot that talks abou
 that acts on the business's records. A chatbot invents a delivery time. An employee looks it up, and says "I don't
 know, let me get someone" when there is nothing to look up.
 
-> **Not built yet.** The agent lands in Phase 5. The data model is complete in `prisma/schema.prisma` —
-> `AIAgent`, `AIAgentInstruction`, `KnowledgeBase`, `KnowledgeDocument`, `KnowledgeChunk`, `AITurn`,
-> `UsageRecord` — and the model catalogue, cost table and thresholds are in `config/models.ts` and
-> `config/constants.ts`. `server/services/agent/` does not exist. This document is the design those files were
-> shaped for, and the rules it states are requirements on the implementation rather than descriptions of it.
+> **Implementation Status.** Phase 5 is **Complete & Released (`69a615a`, `0e3a909`)**: Gemini AI runtime, prompt assembly, Knowledge Base RAG grounding (`pgvector`), tool registry (including `create_order`), human handoff orchestration, and master AI acceptance test suite. Phase 6 added AI pause/resume state management and background automation orchestration.
 
 ---
 
@@ -244,14 +240,9 @@ SaaS margin knowable per tenant, and it is why usage metering is MVP scope rathe
 
 ## Provider abstraction
 
-`AIProvider` is an interface. OpenAI is the first implementation; a deterministic offline mock is the default in
-development and tests, priced at zero in the catalogue as `mock-model` and `mock-embedding`.
+`AIProvider` is an interface (`server/services/agent/ai-provider.interface.ts`). The primary live implementation is `GeminiProvider` (`server/services/agent/gemini-provider.ts`) powered by the official `@google/genai` SDK using Gemini models (e.g. `gemini-2.5-flash`), with vector embeddings generated via `text-embedding-004`. A deterministic offline `MockAIProvider` is the default in development and tests, priced at zero in the catalogue as `mock-model` and `mock-embedding`.
 
-The mock is a real implementation of the interface, not a stub that returns a fixed string — it has to exercise
-the same tool-calling and grounding paths, or the paths that matter are only ever tested against a service that
-costs money to call.
-
-`AI_BASE_URL` allows any OpenAI-compatible gateway. Nothing outside `services/ai/providers/` names a provider.
+The mock is a real implementation of the interface, not a stub that returns a fixed string — it has to exercise the same tool-calling and grounding paths, or the paths that matter are only ever tested against a service that costs money to call.
 
 ---
 

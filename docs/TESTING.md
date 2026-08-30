@@ -270,13 +270,13 @@ The exact file and import counts are deliberately not written down here. They mo
 went stale three times in a week, which taught the wrong lesson twice: that the document was unreliable, and that
 the numbers mattered. Run the command — it prints them, and its output is never out of date.
 
-**Full Local Verification Gate.** The full test suite runs locally against a Postgres test database. The current verified result is **34 test files, 527 passing tests**, 0 TypeScript errors (`tsc --noEmit`), and 0 ESLint errors/warnings (`next lint`).
+**Full Local Verification Gate.** The full test suite runs locally against a Postgres test database. The current verified result is **55 test files, 653 passing tests**, 0 TypeScript errors (`tsc --noEmit`), 0 ESLint errors/warnings (`next lint`), and Next.js production build passing.
 
 ---
 
 ## Current Status & Remaining Gaps
 
-- **Integration & Unit Suites**: Fully active and verified across 34 test files covering auth, tenancy, permissions, order totals, webhook HMAC verification, Meta provider, logical event parsing, background job processor, and WhatsApp account management integration.
+- **Integration & Unit Suites**: Fully active and verified across 55 test files covering auth, tenancy, permissions, order totals, webhook HMAC verification, Meta WhatsApp provider, logical event parsing, background job processor, WhatsApp account management, Gemini AI runtime, Knowledge Base RAG grounding (`pgvector`), tool registry (including `create_order`), human handoff orchestration, automation engine, triggers & multi-step actions, wait/delayed resumption, conversation idle scanner, in-app notification lifecycle, and master end-to-end acceptance suites.
 - **Migrations & Seed**: `prisma/migrations/` and `db/seed.ts` are generated, active, and verified.
 - **CI Pipeline**: No GitHub Actions / CI configuration yet — `npm run verify` is run locally before phase gates. Planned for Phase 9.
 - **End-to-End Browser Tests**: `@playwright/test` is installed, but `playwright.config.ts` and `tests/e2e/` are planned for post-MVP.

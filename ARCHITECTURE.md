@@ -268,32 +268,45 @@ last unit. Available stock can never go negative; the attempt throws a domain er
 
 ---
 
-## 12. Automation engine
+## 12. Automation engine & notification system
 
-Automations are data, not code: an `Automation` owns a trigger and an ordered list of actions. Triggers are
-events the system already emits — message received, order created, order status changed, conversation idle,
-appointment approaching. Actions include sending a message, waiting a duration, tagging, assigning, changing
-status, and notifying.
+Automations are data, not code: an `Automation` owns a trigger (`TriggerType` and optional `triggerConfig`) and an ordered list of `AutomationAction` rows.
 
-Waiting is implemented by scheduling the next action as a delayed job rather than by holding a process open.
-Execution is idempotent per automation-and-subject pair so that a retried job cannot double-send, and every run
-is recorded so a business owner can see what fired and why.
+### Triggers & Evaluation
+Triggers are domain events emitted during webhook processing, database mutations, or periodic scans:
+- `MESSAGE_RECEIVED` & `MESSAGE_CONTAINS`: Evaluates inbound messages against keyword lists with configurable `matchMode` (`ANY`, `ALL`, `EXACT`) and case-sensitivity.
+- `ORDER_STATUS_CHANGED` & `LEAD_STAGE_CHANGED`: Evaluates transition state pairs (`fromStatus`/`toStatus`, `fromStage`/`toStage`).
+- `LOW_STOCK`: Triggers when inventory falls at or below a configured threshold.
+- `CONVERSATION_IDLE`: Triggered by `scanIdleConversations` / `automation.check_idle` background scanner when customer conversations remain inactive beyond a configured threshold (e.g. 60 minutes).
+- `HANDOFF_REQUESTED`: Triggered when human takeover or AI escalation occurs.
+
+### Execution & Resumption
+- **Sequential Execution**: Actions are sorted by `position`. When a direct action runs (`SEND_MESSAGE`, `ADD_TAG`, `ASSIGN_CONVERSATION`, `SET_LEAD_STAGE`, `PAUSE_AI`, `RESUME_AI`, `NOTIFY_TEAM`, etc.), execution updates `AutomationRun.currentActionPosition` and advances immediately.
+- **WAIT / Delayed Resumption**: When a `WAIT` action is encountered, the run transitions to `status = 'WAITING'`, advances position to `action.position + 1`, and enqueues a delayed background job (`automation.resume`) with `runAt = now + duration`. The worker resumes execution at `resumePosition` without re-executing earlier actions.
+- **Deduplication & Idempotency**: Runs carry a deterministic dedupe key `auto:<automationId>:<subjectType>:<subjectId>:<eventKey>` backed by a database unique constraint. Retries or duplicated trigger events reuse existing runs without duplicate message dispatches or state mutations.
+- **AI Safety & Handoff Coordination**: Automations invoking `PAUSE_AI` atomically toggle `conversation.aiEnabled = false` with timestamps and handoff reasons. The AI runtime checks `aiEnabled` at the start of every turn and suppresses automated turns when human control is active.
+
+### In-App Notification Center
+Notifications (`Notification` model) are scoped to `workspaceId` and optional `memberId`. In-app notification bell UI displays live unread counts, grouped notification items, and provides server actions (`markNotificationRead`, `markAllNotificationsRead`). Asynchronous notification delivery is fulfilled via `notification.deliver` background jobs.
 
 ---
 
-## 13. Background jobs
+## 13. Background jobs & worker runtime
 
-Jobs live in PostgreSQL. The worker claims work with `SELECT ... FOR UPDATE SKIP LOCKED` inside a transaction,
-which gives correct competition between multiple workers without a broker. Each job has a type, a payload, an
-attempt count, a `runAfter` timestamp, and exponential backoff with a dead-letter state after a bounded number
-of failures.
+Jobs live in PostgreSQL. The worker claims work with `SELECT ... FOR UPDATE SKIP LOCKED` inside a transaction, which gives correct competition between multiple workers without a broker. Each job has a type, a payload, an attempt count, a `runAfter` timestamp, and exponential backoff with a dead-letter state after a bounded number of failures.
 
-Redis is not a hard dependency. At the volumes this product will see for a long time, a Postgres queue is both
-sufficient and one fewer thing to operate, back up, and pay for. `JobQueue` is an interface, so a Redis or
-managed driver can replace the default without touching a handler.
+### Registered Handlers
+All handlers are explicitly registered in `server/jobs/handlers/index.ts`:
+- `maintenance.sweep`: Periodic database cleanup and expired session purging.
+- `whatsapp.process_webhook`: Ingests, verifies, and routes incoming WhatsApp messages and status callbacks.
+- `whatsapp.send_message`: Asynchronous outbound WhatsApp message dispatching via `dispatchOutboundMessage`.
+- `ai.respond`: Orchestrates AI agent turns, RAG retrieval, tool execution, and grounded replies.
+- `automation.run`: Asynchronous background automation execution.
+- `automation.resume`: Resumes delayed wait-then-act automation workflows at exact action indices.
+- `automation.check_idle`: Scans for idle customer conversations and triggers follow-up automations.
+- `notification.deliver`: Asynchronous delivery and dispatching of in-app and channel notifications.
 
-Handlers cover webhook processing, AI turns, document ingestion and embedding, scheduled follow-ups, reminders,
-campaign batches, media download, and analytics rollups.
+Redis is not a hard dependency. At the volumes this product will see for a long time, a Postgres queue is both sufficient and one fewer thing to operate, back up, and pay for. `JobQueue` is an interface, so a Redis or managed driver can replace the default without touching a handler.
 
 ---
 

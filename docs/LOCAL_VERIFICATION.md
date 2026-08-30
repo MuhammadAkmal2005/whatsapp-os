@@ -140,12 +140,7 @@ Remove-Item Env:DATABASE_URL   # clear the override so nothing else uses it
 npm test
 ```
 
-Success: the unit suite passes (300+ tests across permissions, member-rules, tenant-isolation,
-order-totals, phone, password, webhook-signature, and the product suites), including the two
-`zod` files that only run under Vitest. The integration test
-`tests/integration/contact/contact-isolation.test.ts` will **execute for the first time ever**
-here — if it fails, treat it as expected first-run friction (a `TRUNCATE` table name, a column
-default, or a cursor edge case), not as a mistake in your setup.
+Success: all 55 test files pass (653 tests across unit and integration suites covering permissions, tenant-isolation, order-totals, phone, password, webhooks, AI runtime, RAG grounding, tools, handoff, automations, and notifications).
 
 To run only the fast, no-database checks instead: `npm run test:sandbox`.
 
@@ -165,11 +160,9 @@ Success: all four stages complete with exit 0.
 
 ## Known to fail today — skip these
 
-These are wired but their targets are not built yet, so they will error. That is expected, not a
-setup problem:
+These are wired but their targets are not built yet, so they will error. That is expected, not a setup problem:
 
-- `npm run db:seed` — `db/seed.ts` does not exist yet.
-- `npm run test:e2e` — no `playwright.config.ts` or `tests/e2e/` yet.
+- `npm run test:e2e` — no `playwright.config.ts` or `tests/e2e/` yet (planned for post-MVP).
 
 ---
 

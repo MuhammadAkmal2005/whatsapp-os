@@ -12,7 +12,7 @@ Both are **thin adapters**. They authenticate, validate, delegate to a service, 
 rules and authorization live in `server/services` so that an action, a route and a background job all enforce the
 identical rule. When the same rule is written twice it drifts, and the wrong copy is the one in production.
 
-> **Active API & Actions Status.** `app/api/webhooks/whatsapp` is active and built (`GET` verification handshake & `POST` HMAC-signed ingestion). Server actions in `server/actions/` cover authentication, workspaces, members, contacts, products, orders, and WhatsApp account connection (`whatsapp-account.actions.ts`).
+> **Active API & Actions Status.** `app/api/webhooks/whatsapp` is active and built (`GET` verification handshake & `POST` HMAC-signed ingestion). Server actions in `server/actions/` cover authentication, workspaces, members, contacts, products, orders, WhatsApp account connection (`whatsapp-account.actions.ts`), automations (`automation.actions.ts`), notifications (`notification.actions.ts`), and human handoff (`handoff.actions.ts`).
 
 ---
 
@@ -111,7 +111,7 @@ Every action follows the same order, and the order is the security property:
 5. Catch `AppError` and map it to `FormState`; revalidate affected paths.
 
 `server/actions/action-helpers.ts` holds the shared wrapper so this cannot be assembled differently each time.
-Existing actions: `auth.actions.ts`, `workspace.actions.ts`, `member.actions.ts`.
+Existing actions: `auth.actions.ts`, `workspace.actions.ts`, `member.actions.ts`, `contact.actions.ts`, `product.actions.ts`, `order.actions.ts`, `whatsapp-account.actions.ts`, `automation.actions.ts`, `notification.actions.ts`, `handoff.actions.ts`.
 
 ---
 

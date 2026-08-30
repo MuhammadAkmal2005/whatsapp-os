@@ -13,18 +13,18 @@ The user is a shop owner, not an engineer. That constraint shapes most of the pr
 
 ## Status
 
-Under active development. Phases 0–3 are built and committed; Phase 4 Units 1–3 are built and committed; Phase 4 Unit 4 is implemented and verified locally (uncommitted). Details in [`PROJECT_PLAN.md`](PROJECT_PLAN.md).
+Under active development. Phases 0–6 are fully built, tested, and committed; Phase 7 (Analytics & Usage Metering) is the active next milestone. Details in [`PROJECT_PLAN.md`](PROJECT_PLAN.md).
 
 | Phase | Scope | State |
 | --- | --- | --- |
-| 0 | Planning, environment, Prisma schema (52 models), error/logging/config foundation, job queue | Built & Committed |
-| 1 | Authentication, workspaces, roles and permissions, team management, dashboard shell, marketing pages | Built & Committed |
-| 2 | Contacts, products with variants & inventory, orders with server-side totals, seed data | Built & Committed |
-| 3 | Conversation inbox (3-column responsive), messages backend, mock WhatsApp provider, e2e simulator | Built & Committed |
-| 4 | WhatsApp Cloud API integration (Meta provider, webhooks, processor, account UI) | Units 1–3 Built & Committed (`75360a5`), Unit 4 Implemented & Verified (Uncommitted), Unit 5 Next |
-| 5 | AI agent, knowledge base, RAG, tools | Planned |
-| 6 | Human handoff, automation, notifications | Planned |
-| 7 | Analytics, usage metering, AI cost tracking | Planned |
+| 0 | Planning, environment, Prisma schema (52 models), error/logging/config foundation, job queue | Built & Committed (`6b696e5`) |
+| 1 | Authentication, workspaces, roles and permissions, team management, dashboard shell, marketing pages | Built & Committed (`462719a`) |
+| 2 | Contacts, products with variants & inventory, orders with server-side totals, seed data | Built & Committed (`3833d7b`) |
+| 3 | Conversation inbox (3-column responsive), messages backend, mock WhatsApp provider, e2e simulator | Built & Committed (`c341cb8`) |
+| 4 | WhatsApp Cloud API integration (Meta provider, webhooks, processor, account UI, text acceptance) | Complete & Released (`a823b83`, `8b857df`, `75360a5`, `9f28ecb`, `96efc21`) |
+| 5 | AI agent runtime, prompt assembly, Gemini provider, Knowledge Base RAG, tools, human handoff | Complete & Released (`69a615a`, `0e3a909`) |
+| 6 | Automation engine, trigger matching, workflow builder, WAIT/resume, notifications, idle scanner | Complete & Released (`69b98d3`, `217d8ea`, `3408a8b`, `a2fe14c`) |
+| 7 | Analytics aggregation, usage metering per workspace, AI cost tracking, dashboard charts | **Next Milestone** |
 | 8 | Billing, plans, subscriptions | Planned |
 | 9 | Security hardening, full test pass, performance | Planned |
 | 10 | Production deployment | Planned |
