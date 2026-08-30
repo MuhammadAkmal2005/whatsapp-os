@@ -5,7 +5,9 @@ import {
   cancelSubscription,
   changeSubscriptionPlan,
   getSubscriptionOverview,
+  getWorkspaceBillingSummary,
   resumeSubscription,
+  type WorkspaceBillingSummaryDTO,
   type WorkspaceSubscriptionOverviewDTO,
 } from '@/server/services/subscription/subscription.service';
 import { requireTenantContext } from '@/server/tenancy/resolve';
@@ -29,6 +31,24 @@ export async function fetchSubscriptionAction(): Promise<
   } catch (error) {
     const safe = formErrorFrom(error);
     return { success: false, error: safe.message ?? 'Failed to fetch subscription.' };
+  }
+}
+
+/**
+ * Fetches the complete billing overview including active subscription, full plan catalogue,
+ * quota metrics usage, and caller permissions for the billing dashboard UI.
+ * Guarded by `subscription:read` (ADMIN, OWNER).
+ */
+export async function fetchBillingOverviewAction(): Promise<
+  ActionResponse<WorkspaceBillingSummaryDTO>
+> {
+  try {
+    const context = await requireTenantContext();
+    const data = await getWorkspaceBillingSummary(context);
+    return { success: true, data };
+  } catch (error) {
+    const safe = formErrorFrom(error);
+    return { success: false, error: safe.message ?? 'Failed to fetch billing overview.' };
   }
 }
 

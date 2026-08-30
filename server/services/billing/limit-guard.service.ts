@@ -223,3 +223,55 @@ export async function assertPlanHasFeature(
     );
   }
 }
+
+export type QuotaMetricUsage = {
+  metric: LimitName;
+  label: string;
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+  ratio: number;
+  nearLimit: boolean;
+  isUnmetered: boolean;
+};
+
+/**
+ * Computes the real-time usage and limits for all 10 quota metrics in the workspace.
+ */
+export async function getAllQuotaUsage(
+  ctx: TenantContext,
+  db: Db = prisma,
+): Promise<QuotaMetricUsage[]> {
+  const plan = await getEffectivePlan(ctx, db);
+  const metrics: { name: LimitName; label: string }[] = [
+    { name: 'whatsappNumbers', label: 'WhatsApp Numbers' },
+    { name: 'teamMembers', label: 'Team Members' },
+    { name: 'contacts', label: 'Contacts' },
+    { name: 'products', label: 'Products' },
+    { name: 'automations', label: 'Automations' },
+    { name: 'aiRequestsPerMonth', label: 'AI Requests (mo)' },
+    { name: 'messagesPerMonth', label: 'Messages Sent (mo)' },
+    { name: 'knowledgeDocuments', label: 'Knowledge Documents' },
+    { name: 'storageMegabytes', label: 'Storage (MB)' },
+    { name: 'campaignsPerMonth', label: 'Campaigns (mo)' },
+  ];
+
+  const results = await Promise.all(
+    metrics.map(async (m) => {
+      const used = await getCurrentLimitUsage(ctx, m.name, db);
+      const check = checkLimit(plan.key, m.name, used, 0);
+      return {
+        metric: m.name,
+        label: m.label,
+        used,
+        limit: check.limit,
+        remaining: check.remaining,
+        ratio: check.ratio,
+        nearLimit: check.nearLimit,
+        isUnmetered: check.limit === null,
+      };
+    }),
+  );
+
+  return results;
+}

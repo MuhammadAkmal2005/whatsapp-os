@@ -7,7 +7,7 @@
 
 import 'server-only';
 
-import { DEFAULT_TRIAL_PLAN_KEY, getPlan, isPlanKey, type Plan, type PlanKey } from '@/config/plans';
+import { DEFAULT_TRIAL_PLAN_KEY, getPlan, isPlanKey, ORDERED_PLANS, type Plan, type PlanKey } from '@/config/plans';
 import { type Db, prisma } from '@/db/prisma';
 import { BusinessRuleError } from '@/server/errors';
 import { appendAuditLog } from '@/server/repositories/audit.repository';
@@ -22,7 +22,8 @@ import {
   type SubscriptionStatus,
   updateSubscriptionPlan,
 } from '@/server/repositories/subscription.repository';
-import { requirePermission, type TenantContext } from '@/server/tenancy/context';
+import { getAllQuotaUsage, type QuotaMetricUsage } from '@/server/services/billing/limit-guard.service';
+import { can, requirePermission, type TenantContext } from '@/server/tenancy/context';
 import type { ChangePlanInput } from '@/server/validation/subscription';
 
 export type WorkspaceSubscriptionOverviewDTO = {
@@ -42,6 +43,15 @@ export type WorkspaceSubscriptionOverviewDTO = {
   };
   plan: Plan;
   configuredPlan: Plan;
+};
+
+export type WorkspaceBillingSummaryDTO = {
+  subscription: WorkspaceSubscriptionOverviewDTO['subscription'];
+  plan: Plan;
+  configuredPlan: Plan;
+  allPlans: Plan[];
+  quotaUsage: QuotaMetricUsage[];
+  canManage: boolean;
 };
 
 /**
@@ -247,4 +257,27 @@ export async function resumeSubscription(
   });
 
   return getSubscriptionOverview(ctx, db);
+}
+
+/**
+ * Returns comprehensive billing summary including active subscription, full plan catalogue,
+ * quota metrics usage, and caller permissions for the billing dashboard UI.
+ * Requires `subscription:read` (ADMIN, OWNER).
+ */
+export async function getWorkspaceBillingSummary(
+  ctx: TenantContext,
+  db: Db = prisma,
+): Promise<WorkspaceBillingSummaryDTO> {
+  requirePermission(ctx, 'subscription:read');
+
+  const overview = await getSubscriptionOverview(ctx, db);
+  const quotaUsage = await getAllQuotaUsage(ctx, db);
+  const canManage = can(ctx, 'subscription:manage');
+
+  return {
+    ...overview,
+    allPlans: ORDERED_PLANS,
+    quotaUsage,
+    canManage,
+  };
 }

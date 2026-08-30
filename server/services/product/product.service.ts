@@ -28,6 +28,7 @@ import { isUniqueConstraintViolation, prisma } from '@/db/prisma';
 import { slugify, slugSuffix } from '@/lib/ids';
 import { ConflictError, LimitExceededError, NotFoundError } from '@/server/errors';
 import { ensureStockRow } from '@/server/repositories/inventory.repository';
+import { assertWithinPlanLimit } from '@/server/services/billing/limit-guard.service';
 import {
   countProducts,
   countProductsByStatus,
@@ -309,17 +310,7 @@ export async function createProduct(
 ): Promise<ProductDetail> {
   requirePermission(ctx, 'product:create');
 
-  const limit = getPlan(ctx.planKey).limits.products;
-  if (limit !== null) {
-    const used = await countProducts(prisma, ctx.workspaceId);
-    if (used >= limit) {
-      throw new LimitExceededError(
-        'products',
-        limit,
-        `Your plan includes ${limit} products and you have ${used}. Upgrade to add more.`,
-      );
-    }
-  }
+  await assertWithinPlanLimit(ctx, 'products', 1, prisma);
 
   await assertSkuFree(ctx.workspaceId, input.sku);
   const slug = await resolveSlug(ctx.workspaceId, input.name);

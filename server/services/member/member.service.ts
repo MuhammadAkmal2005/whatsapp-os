@@ -30,6 +30,7 @@ import { sha256 } from '@/lib/crypto';
 import { logger } from '@/lib/logger';
 import { expiryFrom, generateSingleUseToken, INVITE_TTL_MS } from '@/server/auth/session-token';
 import { ASSIGNABLE_ROLES, canAssignRole, type WorkspaceRole } from '@/server/authz/permissions';
+import { assertWithinPlanLimit, getEffectivePlan } from '@/server/services/billing/limit-guard.service';
 import {
   canAcceptInvite,
   canAddSeat,
@@ -175,12 +176,13 @@ function toPendingInvite(row: InviteRow): PendingInvite {
 export async function getTeam(ctx: TenantContext): Promise<TeamOverview> {
   requirePermission(ctx, 'member:read');
 
-  const [members, invites] = await Promise.all([
+  const [members, invites, plan] = await Promise.all([
     listMembers(prisma, ctx.workspaceId),
     listPendingInvites(prisma, ctx.workspaceId),
+    getEffectivePlan(ctx, prisma),
   ]);
 
-  const limit = getPlan(ctx.planKey).limits.teamMembers;
+  const limit = plan.limits.teamMembers;
   const now = new Date();
   const pendingCount = invites.filter((invite) => invite.expiresAt > now).length;
 
@@ -240,17 +242,7 @@ export async function inviteMember(
     }
   }
 
-  const limit = getPlan(ctx.planKey).limits.teamMembers;
-  const [memberCount, pendingInviteCount] = await Promise.all([
-    countMembers(prisma, ctx.workspaceId),
-    countPendingInvites(prisma, ctx.workspaceId),
-  ]);
-
-  const seat = canAddSeat({ memberCount, pendingInviteCount, maxSeats: limit });
-  if (!seat.allowed) {
-    // Its own error type so the UI offers an upgrade rather than an apology.
-    throw new LimitExceededError('teamMembers', limit ?? 0, seat.reason);
-  }
+  await assertWithinPlanLimit(ctx, 'teamMembers', 1, prisma);
 
   const token = generateSingleUseToken();
   const expiresAt = expiryFrom(INVITE_TTL_MS);

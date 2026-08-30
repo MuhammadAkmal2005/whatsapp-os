@@ -245,8 +245,9 @@ production build all green.
 | 2026-08-30 | 7 (Unit 1) | **Complete & Committed (`d535f40`)** — Analytics aggregation engine, usage metering per workspace, AI cost attribution, and daily rollups |
 | 2026-08-30 | 7 (Unit 2) | **Complete & Committed (`9b73360`)** — Analytics dashboard UI, metric KPI grids, Recharts visualization, and usage metering views |
 | 2026-08-30 | 7 (Unit 3) | **Complete & Committed (`3587f7e`)** — Master Phase 7 acceptance suite, RFC 4180 CSV/JSON export engine, and background daily rollup job integration |
-| 2026-08-31 | 8 (Unit 1) | **Complete** — Subscription lifecycle, trial expiration fallback, plan changes, cancel/resume operations, and centralized quota limit & entitlement enforcement engine |
-| 2026-08-31 | 8 (Unit 2) | **Next Milestone** — Billing management UI, plan comparison, and settings billing integration |
+| 2026-08-31 | 8 (Unit 1) | **Complete & Committed (`ce77f59`)** — Subscription lifecycle, trial expiration fallback, plan changes, cancel/resume operations, and centralized quota limit & entitlement enforcement engine |
+| 2026-08-31 | 8 (Unit 2) | **Complete** — Billing management UI (`/settings/billing`), plan comparison, quota usage metering visualization, and write-path enforcement (products, contacts, team members) |
+| 2026-08-31 | 8 (Unit 3) | **Next Milestone** — Payment provider integration (Stripe/mock checkout & webhook handling) and Master Phase 8 acceptance suite |
 | 2026-08-30 | Deferred | Media download/storage, Campaigns, Voice, Multi-channel expansion |
 
 

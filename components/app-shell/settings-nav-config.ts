@@ -115,8 +115,7 @@ export const SETTINGS_NAV: readonly SettingsNavItem[] = [
     icon: CreditCard,
     description: 'Your plan, usage and invoices.',
     permission: 'subscription:read',
-    available: false,
-    reason: IN_PROGRESS,
+    available: true,
   },
   {
     label: 'Security',

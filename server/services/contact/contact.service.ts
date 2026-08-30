@@ -31,6 +31,7 @@ import { logger } from '@/lib/logger';
 import { maskPhone, normalisePhone } from '@/lib/phone';
 import { BusinessRuleError, ConflictError, LimitExceededError, NotFoundError } from '@/server/errors';
 import { appendAuditLog } from '@/server/repositories/audit.repository';
+import { assertWithinPlanLimit } from '@/server/services/billing/limit-guard.service';
 import {
   countContacts,
   countContactsByStatus,
@@ -318,17 +319,7 @@ export async function createContact(
     );
   }
 
-  const limit = getPlan(ctx.planKey).limits.contacts;
-  if (limit !== null) {
-    const used = await countContacts(prisma, ctx.workspaceId);
-    if (used >= limit) {
-      throw new LimitExceededError(
-        'contacts',
-        limit,
-        `Your plan includes ${limit} customers and you have ${used}. Upgrade to add more.`,
-      );
-    }
-  }
+  await assertWithinPlanLimit(ctx, 'contacts', 1, prisma);
 
   const assignedToMemberId = await resolveAssignee(ctx, input.assignedToMemberId);
   const fields = writeFields(input, assignedToMemberId);

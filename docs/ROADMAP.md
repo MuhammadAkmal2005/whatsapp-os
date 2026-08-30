@@ -23,11 +23,12 @@ Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, and Phase 7 are c
   - **Unit 2 (`9b73360`)**: Analytics dashboard UI, metric KPI grids, Recharts visualization, and usage metering views.
   - **Unit 3 (`3587f7e`)**: Master Phase 7 acceptance suite, RFC 4180 CSV/JSON export engine, and background daily rollup job integration.
 - **Phase 8**:
-  - **Unit 1**: Subscription lifecycle, trial expiration fallback, plan changes, cancel/resume operations, and centralized quota limit & entitlement enforcement engine.
+  - **Unit 1 (`ce77f59`)**: Subscription lifecycle, trial expiration fallback, plan changes, cancel/resume operations, and centralized quota limit & entitlement enforcement engine.
+  - **Unit 2**: Billing management UI (`/settings/billing`), plan comparison, quota usage metering visualization, and write-path enforcement (products, contacts, team members).
 
-**Next Milestone:** Phase 8 Unit 2 (Billing management UI, plan comparison, and settings billing integration).
+**Next Milestone:** Phase 8 Unit 3 (Payment provider integration and master acceptance suite).
 
-**The test and verification gate is active.** 64 test files with 705 passing tests (unit + database-backed integration), TypeScript strict typecheck, ESLint, and Next.js production build all pass locally.
+**The test and verification gate is active.** 66 test files with 712 passing tests (unit + database-backed integration), TypeScript strict typecheck, ESLint, and Next.js production build all pass locally.
 
 ---
 
