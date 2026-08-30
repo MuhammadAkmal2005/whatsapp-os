@@ -22,11 +22,11 @@
 const TEST_AUTH_SECRET = 'test-only-auth-secret-do-not-deploy-0000';
 
 /**
- * The throwaway container on 5433 from `docker-compose.yml`, which uses tmpfs and
+ * The throwaway container on 5432 from local PostgreSQL, which uses tmpfs and
  * so has nothing worth preserving. Overridden by `TEST_DATABASE_URL` in CI.
  */
 const FALLBACK_TEST_DATABASE_URL =
-  'postgresql://whatsapp_os:whatsapp_os@localhost:5433/whatsapp_os_test';
+  'postgresql://whatsapp_os:whatsapp_os@localhost:5432/whatsapp_os_test?schema=public';
 
 /**
  * Values a test run needs but should never inherit from a developer's `.env`.
@@ -36,16 +36,18 @@ const FALLBACK_TEST_DATABASE_URL =
 const forced: Record<string, string> = {
   NODE_ENV: 'test',
   AUTH_SECRET: process.env.AUTH_SECRET ?? TEST_AUTH_SECRET,
-  DATABASE_URL: process.env.TEST_DATABASE_URL ?? FALLBACK_TEST_DATABASE_URL,
+  DATABASE_URL: (process.env.TEST_DATABASE_URL && process.env.TEST_DATABASE_URL.trim().length > 0)
+    ? process.env.TEST_DATABASE_URL
+    : FALLBACK_TEST_DATABASE_URL,
   AI_PROVIDER: 'mock',
   MOCK_WHATSAPP: 'true',
   PAYMENT_PROVIDER: 'mock',
   EMAIL_PROVIDER: 'console',
   STORAGE_PROVIDER: 'local',
   QUEUE_DRIVER: 'postgres',
-  WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN ?? 'test-verify-token',
-  META_APP_SECRET: process.env.META_APP_SECRET ?? 'test-meta-app-secret-32-chars-long',
-  AI_API_KEY: process.env.AI_API_KEY ?? 'test-only-ai-api-key-do-not-deploy',
+  WHATSAPP_VERIFY_TOKEN: 'test-verify-token',
+  META_APP_SECRET: 'test-meta-app-secret-32-chars-long',
+  AI_API_KEY: 'test-only-ai-api-key-do-not-deploy',
   // Deterministic assertions: a limiter that is disabled in someone's .env would
   // turn the rate-limit tests into silent no-ops that still report as passing.
   RATE_LIMIT_ENABLED: 'true',

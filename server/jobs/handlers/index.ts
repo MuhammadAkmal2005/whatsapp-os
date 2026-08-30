@@ -21,6 +21,7 @@ import { JOB_TYPES, type JobType } from '../job-types';
 import { registerHandler, registeredTypes } from '../registry';
 import { aiRespondHandler } from './ai-turn.handler';
 import {
+  automationCheckIdleHandler,
   automationResumeHandler,
   automationRunHandler,
 } from './automation.handler';
@@ -33,6 +34,7 @@ export function registerAllHandlers(): void {
   registerHandler('ai.respond', aiRespondHandler);
   registerHandler('automation.run', automationRunHandler);
   registerHandler('automation.resume', automationResumeHandler);
+  registerHandler('automation.check_idle', automationCheckIdleHandler);
 
   const registered = new Set<JobType>(registeredTypes());
   const pending = JOB_TYPES.filter((type) => !registered.has(type));

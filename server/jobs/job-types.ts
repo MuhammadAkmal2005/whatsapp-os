@@ -69,6 +69,12 @@ export const JOB_PAYLOAD_SCHEMAS = {
   /** The delayed half of a wait-then-act automation. */
   'automation.resume': tenantScoped.extend({ runId: uuid, actionIndex: z.number().int().min(0) }),
 
+  /** Scan for idle conversations and trigger matching automations. */
+  'automation.check_idle': z.object({
+    workspaceId: uuid.optional(),
+    idleMinutes: z.number().int().min(1).optional(),
+  }),
+
   /** Fan a campaign out into per-recipient sends. Gated by ENABLE_CAMPAIGNS. */
   'campaign.dispatch': tenantScoped.extend({ campaignId: uuid }),
   'campaign.send_recipient': tenantScoped.extend({ recipientId: uuid }),

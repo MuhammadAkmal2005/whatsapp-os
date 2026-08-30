@@ -135,8 +135,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: '/automations',
         icon: Zap,
         permission: 'automation:read',
-        available: false,
-        reason: IN_PROGRESS,
+        available: true,
       },
       {
         label: 'Campaigns',

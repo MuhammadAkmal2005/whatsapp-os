@@ -5,6 +5,7 @@ import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { NotificationBell } from '@/components/app-shell/notification-bell';
 import { SidebarNav } from '@/components/app-shell/sidebar-nav';
 import { ThemeToggle } from '@/components/app-shell/theme-toggle';
 import { UserMenu } from '@/components/app-shell/user-menu';
@@ -88,6 +89,7 @@ export function AppShell({ user, role, current, workspaces, children }: AppShell
             </Link>
 
             <div className="ml-auto flex items-center gap-1.5">
+              <NotificationBell />
               <ThemeToggle />
               <UserMenu user={user} />
             </div>

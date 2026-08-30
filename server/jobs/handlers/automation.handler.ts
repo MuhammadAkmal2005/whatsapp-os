@@ -121,3 +121,36 @@ export const automationResumeHandler: JobHandler<'automation.resume'> = async (
     status: result.status,
   });
 };
+
+/**
+ * Handles 'automation.check_idle' background jobs.
+ */
+export const automationCheckIdleHandler: JobHandler<'automation.check_idle'> = async (
+  payload,
+  ctx: JobContext,
+) => {
+  const { workspaceId, idleMinutes } = payload;
+
+  logger.info('automation.job_check_idle_started', {
+    jobId: ctx.jobId,
+    workspaceId,
+    idleMinutes,
+  });
+
+  const { scanAndTriggerIdleConversations } = await import(
+    '@/server/services/automation/conversation-idle.service'
+  );
+
+  const result = await scanAndTriggerIdleConversations(
+    prisma,
+    workspaceId,
+    idleMinutes ?? 60,
+  );
+
+  logger.info('automation.job_check_idle_finished', {
+    jobId: ctx.jobId,
+    conversationsScanned: result.conversationsScanned,
+    automationsTriggered: result.automationsTriggered,
+  });
+};
+

@@ -2,8 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GET, POST } from '@/app/api/webhooks/whatsapp/route';
+import { RATE_LIMITS } from '@/config/constants';
 import { env } from '@/config/env';
 import { prisma } from '@/db/prisma';
+import { windowEnd } from '@/server/ratelimit/window';
 import { signWebhookBody } from '@/services/whatsapp/signature';
 import { resetDatabase } from '../fixtures';
 
@@ -465,7 +467,7 @@ describe('Phase 4 Unit 2: Meta Webhook Route', () => {
     it('returns 429 Too Many Requests when rate limit bucket is exhausted', async () => {
       const clientIp = '198.51.100.99';
       // Pre-fill the rate limit bucket for this IP in rate_limit_buckets table
-      const resetAt = new Date(Date.now() + 60_000);
+      const resetAt = new Date(Date.now() + 300_000);
       await prisma.rateLimitBucket.create({
         data: {
           key: `webhook:ip:${clientIp}`,

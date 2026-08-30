@@ -331,3 +331,42 @@ export async function incrementAutomationRunCount(
     },
   });
 }
+
+export async function getAutomationMetrics(
+  db: Db,
+  workspaceId: string,
+): Promise<{
+  activeCount: number;
+  totalRuns: number;
+  recentRunsCount: number;
+}> {
+  const [activeCount, totalRuns, recentRunsCount] = await Promise.all([
+    db.automation.count({
+      where: { workspaceId, isActive: true },
+    }),
+    db.automationRun.count({
+      where: { workspaceId },
+    }),
+    db.automationRun.count({
+      where: {
+        workspaceId,
+        startedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      },
+    }),
+  ]);
+
+  return { activeCount, totalRuns, recentRunsCount };
+}
+
+export async function listAutomationRuns(
+  db: Db,
+  workspaceId: string,
+  automationId: string,
+  limit = 30,
+) {
+  return db.automationRun.findMany({
+    where: { workspaceId, automationId },
+    orderBy: { startedAt: 'desc' },
+    take: limit,
+  });
+}

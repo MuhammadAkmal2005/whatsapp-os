@@ -17,6 +17,8 @@ import {
   findAutomationById,
   listAutomations as listAutomationsRows,
   updateAutomation as updateAutomationRow,
+  getAutomationMetrics as getAutomationMetricsRepo,
+  listAutomationRuns as listAutomationRunsRepo,
   type CreateActionData,
 } from '@/server/repositories/automation.repository';
 import { requirePermission, type TenantContext } from '@/server/tenancy/context';
@@ -222,4 +224,22 @@ export async function deleteAutomation(
       name: existing.name,
     },
   });
+}
+
+export async function getAutomationMetrics(
+  ctx: TenantContext,
+  db: Db = prisma,
+) {
+  requirePermission(ctx, 'automation:read');
+  return getAutomationMetricsRepo(db, ctx.workspaceId);
+}
+
+export async function listAutomationRuns(
+  ctx: TenantContext,
+  automationId: string,
+  limit = 30,
+  db: Db = prisma,
+) {
+  requirePermission(ctx, 'automation:read');
+  return listAutomationRunsRepo(db, ctx.workspaceId, automationId, limit);
 }
