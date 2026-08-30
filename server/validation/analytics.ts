@@ -48,6 +48,15 @@ export const aiTelemetryQuerySchema = z.object({
 
 export type AITelemetryQueryInput = z.infer<typeof aiTelemetryQuerySchema>;
 
+export const usageMeteringQuerySchema = z.object({
+  periodKey: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/, 'Invalid period format (YYYY-MM)')
+    .optional(),
+});
+
+export type UsageMeteringQueryInput = z.infer<typeof usageMeteringQuerySchema>;
+
 export const rollupDailyInputSchema = z.object({
   date: z
     .string()
@@ -59,3 +68,5 @@ export const rollupDailyInputSchema = z.object({
 });
 
 export type RollupDailyInput = z.infer<typeof rollupDailyInputSchema>;
+
+
