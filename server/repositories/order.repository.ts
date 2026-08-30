@@ -54,6 +54,7 @@ export type OrderRow = {
   createdByMemberId: string | null;
   createdByAi: boolean;
   aiAgentId: string | null;
+  idempotencyKey: string | null;
   placedAt: Date;
   confirmedAt: Date | null;
   shippedAt: Date | null;
@@ -93,6 +94,7 @@ const ORDER_SELECT = {
   createdByMemberId: true,
   createdByAi: true,
   aiAgentId: true,
+  idempotencyKey: true,
   placedAt: true,
   confirmedAt: true,
   shippedAt: true,
@@ -397,6 +399,7 @@ export type OrderWriteFields = {
   createdByMemberId: string | null;
   createdByAi: boolean;
   aiAgentId: string | null;
+  idempotencyKey: string | null;
 };
 
 export type OrderItemWriteFields = {

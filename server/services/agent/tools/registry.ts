@@ -109,8 +109,9 @@ export class ToolRegistry {
   }
 }
 
-import { registerBusinessReadTools } from './impl';
+import { registerBusinessReadTools, registerBusinessWriteTools } from './impl';
 
 /** Global default singleton tool registry */
 export const defaultToolRegistry = new ToolRegistry();
 registerBusinessReadTools(defaultToolRegistry);
+registerBusinessWriteTools(defaultToolRegistry);

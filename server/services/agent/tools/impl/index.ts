@@ -6,6 +6,7 @@ import { getCurrentCustomerTool } from './get-current-customer.tool';
 import { getOrderTool } from './get-order.tool';
 import { getProductTool } from './get-product.tool';
 import { searchProductsTool } from './search-products.tool';
+import { createOrderTool } from './create-order.tool';
 
 export {
   checkInventoryTool,
@@ -13,6 +14,7 @@ export {
   getOrderTool,
   getProductTool,
   searchProductsTool,
+  createOrderTool,
 };
 
 export const allBusinessReadTools = [
@@ -28,6 +30,22 @@ export const allBusinessReadTools = [
  */
 export function registerBusinessReadTools(registry: ToolRegistry): ToolRegistry {
   for (const tool of allBusinessReadTools) {
+    if (!registry.has(tool.name)) {
+      registry.register(tool);
+    }
+  }
+  return registry;
+}
+
+export const allBusinessWriteTools = [
+  createOrderTool,
+] as const;
+
+/**
+ * Registers all business write tools into a target ToolRegistry.
+ */
+export function registerBusinessWriteTools(registry: ToolRegistry): ToolRegistry {
+  for (const tool of allBusinessWriteTools) {
     if (!registry.has(tool.name)) {
       registry.register(tool);
     }

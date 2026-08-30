@@ -876,6 +876,7 @@ model Order {
   /// the AI actually did, and so analytics can attribute outcomes honestly.
   createdByAi       Boolean @default(false)
   aiAgentId         String? @db.Uuid
+  idempotencyKey    String? @unique
 
   placedAt     DateTime  @default(now())
   confirmedAt  DateTime?
@@ -901,6 +902,7 @@ model Order {
   events   OrderEvent[]
 
   @@unique([workspaceId, orderNumber])
+  @@unique([workspaceId, idempotencyKey])
   @@index([workspaceId, status, createdAt(sort: Desc)])
   @@index([workspaceId, contactId])
   @@index([workspaceId, createdAt(sort: Desc)])

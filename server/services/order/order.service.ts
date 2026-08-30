@@ -140,6 +140,7 @@ function toOrderMoney(row: {
 export async function createOrder(
   ctx: TenantContext,
   input: CreateOrderInput,
+  options?: { createdByAi?: boolean; aiAgentId?: string },
 ): Promise<OrderRow> {
   requirePermission(ctx, 'order:create');
 
@@ -291,8 +292,9 @@ export async function createOrder(
       country: input.country,
       notes: input.notes ?? null,
       createdByMemberId: ctx.membershipId,
-      createdByAi: false,
-      aiAgentId: null,
+      createdByAi: options?.createdByAi ?? false,
+      aiAgentId: options?.aiAgentId ?? null,
+      idempotencyKey: input.idempotencyKey ?? null,
     };
 
     const order = await createOrderRow(
@@ -334,7 +336,7 @@ export async function createOrder(
       fromStatus: null,
       toStatus: 'PENDING',
       actorMemberId: ctx.membershipId,
-      byAi: false,
+      byAi: options?.createdByAi ?? false,
       note: null,
     });
 

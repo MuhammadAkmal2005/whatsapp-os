@@ -126,6 +126,8 @@ export const createOrderSchema = z.object({
   discountMinor: z.number().int().min(0).optional(),
   deliveryFeeMinor: z.number().int().min(0).optional(),
   taxMinor: z.number().int().min(0).optional(),
+
+  idempotencyKey: z.string().optional(),
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
