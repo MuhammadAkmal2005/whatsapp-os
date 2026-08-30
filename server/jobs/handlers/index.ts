@@ -26,15 +26,19 @@ import {
   automationRunHandler,
 } from './automation.handler';
 import { maintenanceSweep } from './maintenance.handler';
+import { notificationDeliverHandler } from './notification.handler';
+import { whatsappSendMessageHandler } from './whatsapp-send.handler';
 import { whatsappWebhookHandler } from './whatsapp-webhook.handler';
 
 export function registerAllHandlers(): void {
   registerHandler('maintenance.sweep', maintenanceSweep);
   registerHandler('whatsapp.process_webhook', whatsappWebhookHandler);
+  registerHandler('whatsapp.send_message', whatsappSendMessageHandler);
   registerHandler('ai.respond', aiRespondHandler);
   registerHandler('automation.run', automationRunHandler);
   registerHandler('automation.resume', automationResumeHandler);
   registerHandler('automation.check_idle', automationCheckIdleHandler);
+  registerHandler('notification.deliver', notificationDeliverHandler);
 
   const registered = new Set<JobType>(registeredTypes());
   const pending = JOB_TYPES.filter((type) => !registered.has(type));

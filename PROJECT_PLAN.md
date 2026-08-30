@@ -239,6 +239,12 @@ production build all green.
 | 2026-08-28 | 4 (Unit 1) | **Complete & Committed (`a823b83`)** — Meta WhatsApp Cloud API Provider adapter (`MetaWhatsAppProvider`) |
 | 2026-08-28 | 4 (Unit 2) | **Complete & Committed (`8b857df`)** — Meta WhatsApp Webhook Receiver route (`/api/webhooks/whatsapp`) with HMAC verification & deduplication |
 | 2026-08-28 | 4 (Unit 3) | **Complete & Committed (`75360a5`)** — WhatsApp Webhook Processor service & background job handlers |
-| 2026-08-28 | 4 (Unit 4) | **Implemented & Verified (Uncommitted)** — WhatsApp Account Connection & Management UI (`app/(app)/(workspace)/settings/whatsapp/`) |
-| 2026-08-29 | 4 (Unit 5) | **Next** — Final Integration / Acceptance Suite |
-| 2026-08-29 | Deferred | Media download/storage, AI/RAG, Campaigns, Voice, Billing, Multi-channel expansion |
+| 2026-08-28 | 4 (Unit 4) | **Complete & Committed** — WhatsApp Account Connection & Management UI (`app/(app)/(workspace)/settings/whatsapp/`) |
+| 2026-08-29 | 4 (Unit 5) | **Complete & Committed** — Final Meta WhatsApp Text Acceptance Suite |
+| 2026-08-29 | 5 | **Complete & Committed (`69a615a`, `0e3a909`)** — AI agent runtime, prompt assembly, Gemini provider, Knowledge Base RAG grounding, tool registry, order creation write tool, human handoff, and master AI acceptance tests |
+| 2026-08-30 | 6 (Unit 1) | **Complete & Committed (`69b98d3`)** — Automation engine, trigger matching, action execution, wait/resume queue orchestration, and deduplication |
+| 2026-08-30 | 6 (Unit 2) | **Complete & Committed (`217d8ea`, `3408a8b`)** — Automation builder UI, server actions, in-app notification center & bell, and conversation idle scanner |
+| 2026-08-30 | 6 (Unit 3) | **Complete** — Master Phase 6 Acceptance Suite, background job handlers, end-to-end handoff, wait-then-act resumption, and notification lifecycle |
+| 2026-08-30 | 7 | **Next** — Analytics aggregation, usage metering per workspace, AI cost attribution, dashboard charts |
+| 2026-08-30 | Deferred | Media download/storage, Campaigns, Voice, Billing, Multi-channel expansion |
+

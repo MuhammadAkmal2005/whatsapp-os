@@ -10,18 +10,21 @@ recorded is a decision; a gap that is not is a surprise for whoever hits it.
 
 ## Where the build is
 
-Phase 0, Phase 1, Phase 2, and Phase 3 are complete: configuration, feature flags, plan config, full Prisma schema and migrations, job queue, authentication, workspaces, roles/permissions, authorization layer, tenant context, rate limiting, audit logging, API envelope, dashboard shell, contacts/CRM, products with variants and inventory, orders with server-side totals, seed data, conversation inbox UI, message lifecycle, and mock WhatsApp simulation.
+Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, and Phase 6 are complete:
+- **Phase 0–3**: Project scaffold, full Prisma schema, multi-tenant auth & sessions, RBAC, CRM, products/orders, inbox UI, mock simulator.
+- **Phase 4**: Meta WhatsApp Cloud API Provider (`MetaWhatsAppProvider`), signed webhook receiver, webhook processor job worker, account management UI, and master text acceptance suite.
+- **Phase 5**: AI agent runtime, prompt assembly, Gemini provider, Knowledge Base RAG grounding with vector similarity, tool registry, order creation write tool, human handoff, and master AI acceptance tests.
+- **Phase 6**:
+  - **Unit 1 (`69b98d3`)**: Automation engine, trigger matching, action execution, wait/resume queue orchestration, and deduplication.
+  - **Unit 2 (`217d8ea`, `3408a8b`)**: Automation builder UI, server actions, in-app notification center & bell, and conversation idle scanner.
+  - **Unit 3**: Master Phase 6 Acceptance Suite, background job handlers (`whatsapp.send_message`, `notification.deliver`), end-to-end handoff, wait-then-act resumption, and notification lifecycle.
 
-Phase 4 (Meta WhatsApp Integration) is in progress:
-- **Unit 1 — Meta WhatsApp Provider (`a823b83`)**: Complete and committed. Official Meta Graph API Cloud API driver (`MetaWhatsAppProvider`), text/template sending, graph API error handling.
-- **Unit 2 — Meta WhatsApp Webhook Receiver (`8b857df`)**: Complete and committed. Verification endpoint `GET /api/webhooks/whatsapp` and receiver endpoint `POST /api/webhooks/whatsapp` with HMAC `X-Hub-Signature-256` verification, payload parsing, raw body integrity, and idempotent `WebhookEvent` database insertion.
-- **Unit 3 — WhatsApp Webhook Processor (`75360a5`)**: Complete and committed. Webhook processing service, job worker handler `whatsapp.process_webhook`, tenant phone number routing, monotonic status transitions, and automatic contact/conversation/message creation.
-- **Unit 4 — WhatsApp Account Connection & Management UI**: Implemented and verified locally, but **currently uncommitted**. Settings UI (`/settings/whatsapp`), encrypted credentials storage (`accessTokenEncrypted`), tenant-scoped account repository and actions.
-- **Unit 5 — Final Integration / Acceptance Suite**: Next.
+**Next Milestone:** Phase 7 (Analytics aggregation, usage metering per workspace, AI cost attribution, dashboard charts).
 
-**The test and verification gate is active.** 34 test files with 527 passing tests (unit + database-backed integration), TypeScript strict typecheck, and ESLint all pass locally.
+**The test and verification gate is active.** 55 test files with 653 passing tests (unit + database-backed integration), TypeScript strict typecheck, ESLint, and Next.js production build all pass locally.
 
 ---
+
 
 ## Known gaps
 
