@@ -133,9 +133,13 @@ const schema = z
       fail('AI_API_KEY', 'Required when AI_PROVIDER=gemini. Use AI_PROVIDER=mock for offline work.');
     }
 
+    const isBuildPhase =
+      process.env.NEXT_PHASE === 'phase-production-build' ||
+      process.env.npm_lifecycle_event === 'build';
+
     // The dangerous direction is a production deployment that silently answers
     // customers from a mock. Refuse to start rather than pretend.
-    if (value.NODE_ENV === 'production' && value.MOCK_WHATSAPP) {
+    if (value.NODE_ENV === 'production' && !isBuildPhase && value.MOCK_WHATSAPP) {
       fail('MOCK_WHATSAPP', 'Must be false in production. A live deployment must not run the mock WhatsApp driver.');
     }
 
@@ -169,7 +173,7 @@ const schema = z
       fail('PAYMENT_SECRET', 'Required when PAYMENT_PROVIDER=stripe.');
     }
 
-    if (value.NODE_ENV === 'production' && value.STORAGE_PROVIDER === 'local') {
+    if (value.NODE_ENV === 'production' && !isBuildPhase && value.STORAGE_PROVIDER === 'local') {
       fail('STORAGE_PROVIDER', 'The local disk driver is for development only. Use s3 in production.');
     }
   });

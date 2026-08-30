@@ -21,6 +21,7 @@ import {
 } from '@/server/repositories/webhook-event.repository';
 import { processInboundMessage, processStatusUpdate } from './inbound.service';
 import { queue } from '@/server/jobs';
+import { triggerAutomations } from '@/server/services/automation/automation-engine.service';
 import type {
   InboundMediaMessage,
   InboundStatusUpdate,
@@ -330,6 +331,35 @@ export async function processWebhookEvent(
           },
           { dedupeKey: `ai.respond:${result.messageId}` },
         );
+
+        // Trigger automations for inbound message
+        const messageBody =
+          domainEvent.message.type === 'TEXT'
+            ? domainEvent.message.body
+            : domainEvent.message.caption || '';
+        try {
+          await triggerAutomations(prisma, workspaceId, {
+            triggerType: 'MESSAGE_RECEIVED',
+            subjectType: 'Conversation',
+            subjectId: result.conversationId,
+            eventKey: result.messageId,
+            data: { messageId: result.messageId, body: messageBody },
+          });
+
+          await triggerAutomations(prisma, workspaceId, {
+            triggerType: 'MESSAGE_CONTAINS',
+            subjectType: 'Conversation',
+            subjectId: result.conversationId,
+            eventKey: result.messageId,
+            data: { messageId: result.messageId, body: messageBody },
+          });
+        } catch (autoErr) {
+          logger.error('whatsapp.webhook.automation_trigger_failed', {
+            workspaceId,
+            messageId: result.messageId,
+            error: autoErr,
+          });
+        }
       }
 
       logger.info('whatsapp.webhook.message_processed', {

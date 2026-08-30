@@ -69,4 +69,18 @@ export async function triggerHumanHandoff(
   } else {
     await run(db);
   }
+
+  // Trigger HANDOFF_REQUESTED automations (best-effort, non-blocking)
+  try {
+    const { triggerAutomations } = await import('@/server/services/automation/automation-engine.service');
+    await triggerAutomations(db, workspaceId, {
+      triggerType: 'HANDOFF_REQUESTED',
+      subjectType: 'Conversation',
+      subjectId: conversationId,
+      eventKey: `${conversationId}:handoff:${Date.now()}`,
+      data: { reason, triggeredByAi },
+    });
+  } catch {
+    // Non-blocking for handoff execution
+  }
 }
