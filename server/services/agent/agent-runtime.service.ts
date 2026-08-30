@@ -439,6 +439,47 @@ export async function executeAgentTurn(
               continue;
             }
 
+            // Human Takeover Race Condition Guard for Sensitive Write Tools
+            if (auth.tool.classification === 'WRITE') {
+              const currentConv = await db.conversation.findFirst({
+                where: {
+                  id: aiContext.conversationId,
+                  workspaceId: aiContext.workspaceId,
+                },
+                select: { aiEnabled: true },
+              });
+
+              if (!currentConv || !currentConv.aiEnabled) {
+                logger.info('ai.agent.aborted_human_takeover_before_write', {
+                  workspaceId: aiContext.workspaceId,
+                  conversationId: aiContext.conversationId,
+                  toolName: toolCall.name,
+                });
+
+                const toolResultMsg: AIMessage = {
+                  role: 'tool',
+                  content: 'Error: Human takeover active. Tool execution aborted.',
+                  toolResult: {
+                    toolCallId: toolCall.id,
+                    name: toolCall.name,
+                    result: { error: 'HUMAN_TAKEOVER_ACTIVE', message: 'A human agent has taken over this conversation.' },
+                    isError: true,
+                  },
+                };
+                messages.push(toolResultMsg);
+
+                recordedToolCalls.push({
+                  name: toolCall.name,
+                  arguments: (toolCall.arguments ?? {}) as Record<string, unknown>,
+                  result: { error: 'HUMAN_TAKEOVER_ACTIVE' },
+                  isError: true,
+                  durationMs: 0,
+                });
+
+                continue;
+              }
+            }
+
             // Execute Tool
             const toolStartTime = Date.now();
             const toolTimeoutLimitMs = params.toolTimeoutMs ?? RUNTIME_DEFAULTS.TOOL_TIMEOUT_MS;

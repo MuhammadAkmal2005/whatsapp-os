@@ -6,7 +6,7 @@
  * counter updates, authorization, and takeover safety.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { executeAgentTurn } from '@/server/services/agent/agent-runtime.service';
@@ -405,5 +405,159 @@ describe('AI Agent Runtime Integration', () => {
     expect(result.handoffTriggered).toBe(true);
     expect(result.handoffReason).toBe('CUSTOMER_REQUESTED');
     expect(provider.callHistory.length).toBe(0); // Bypassed model generation
+  });
+
+  describe('Human Takeover Race Condition Guards', () => {
+    it('aborts WRITE tool execution if human takes over during LLM generation', async () => {
+      const { workspaceId } = await createWorkspaceFixture();
+      await setupAgentFixture(workspaceId);
+      const contact = await createContactFixture(workspaceId);
+      const conversation = await createConversationRow(workspaceId, contact.id);
+      const message = await createMessageRow(workspaceId, conversation.id, {
+        direction: 'INBOUND',
+        body: 'Place an order for a scarf.',
+      });
+
+      // Register a mock WRITE tool
+      const mockWriteHandler = vi.fn().mockResolvedValue({ success: true });
+      const mockWriteTool: AITool = {
+        name: 'test_write_tool',
+        description: 'Test write tool',
+        classification: 'WRITE',
+        sideEffect: 'MUTATION',
+        capabilityRequired: 'orders:create',
+        idempotency: 'REQUIRES_IDEMPOTENCY_KEY',
+        auditRequired: true,
+        riskLevel: 'HIGH',
+        inputSchema: z.record(z.unknown()),
+        handler: mockWriteHandler,
+      };
+
+      const customRegistry = new ToolRegistry();
+      customRegistry.register(mockWriteTool);
+
+      const provider = new MockAIProvider();
+
+      // The provider will return a tool call for `test_write_tool`.
+      // Right before returning it, we simulate the human taking over the conversation.
+      let callCount = 0;
+      vi.spyOn(provider, 'generate').mockImplementation(async () => {
+        callCount++;
+        if (callCount === 1) {
+          // Simulate human clicking "Take Over" while AI is thinking
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { aiEnabled: false },
+          });
+          
+          return {
+            message: {
+              role: 'assistant',
+              content: '',
+              toolCalls: [{ id: 'tc1', name: 'test_write_tool', arguments: {} }],
+            },
+            finishReason: 'tool_calls',
+            usage: { inputTokens: 10, outputTokens: 10 },
+            latencyMs: 50,
+          };
+        }
+        
+        return {
+          message: { role: 'assistant', content: 'Stopping after error' },
+          finishReason: 'stop',
+          usage: { inputTokens: 10, outputTokens: 10 },
+          latencyMs: 50,
+        };
+      });
+
+      const result = await executeAgentTurn({
+        db: prisma,
+        workspaceId,
+        conversationId: conversation.id,
+        messageId: message.id,
+        provider,
+        toolRegistry: customRegistry,
+      });
+
+      // Verify the tool handler was NOT called
+      expect(mockWriteHandler).not.toHaveBeenCalled();
+
+      // The result should indicate it was aborted
+      expect(result.toolCalls).toHaveLength(1);
+      expect(result.toolCalls?.[0]?.isError).toBe(true);
+      expect(result.toolCalls?.[0]?.result).toEqual({ error: 'HUMAN_TAKEOVER_ACTIVE' });
+    });
+
+    it('allows READ tools to execute even if human takes over during generation (maintains current behavior)', async () => {
+      const { workspaceId } = await createWorkspaceFixture();
+      await setupAgentFixture(workspaceId);
+      const contact = await createContactFixture(workspaceId);
+      const conversation = await createConversationRow(workspaceId, contact.id);
+      const message = await createMessageRow(workspaceId, conversation.id, {
+        direction: 'INBOUND',
+        body: 'Check price.',
+      });
+
+      const mockReadHandler = vi.fn().mockResolvedValue({ success: true, price: 100 });
+      const mockReadTool: AITool = {
+        name: 'test_read_tool',
+        description: 'Test read tool',
+        classification: 'READ',
+        sideEffect: 'NONE',
+        capabilityRequired: 'products:read',
+        idempotency: 'SAFE_TO_RETRY',
+        auditRequired: false,
+        riskLevel: 'LOW',
+        inputSchema: z.record(z.unknown()),
+        handler: mockReadHandler,
+      };
+
+      const customRegistry = new ToolRegistry();
+      customRegistry.register(mockReadTool);
+
+      const provider = new MockAIProvider();
+
+      let readCallCount = 0;
+      vi.spyOn(provider, 'generate').mockImplementation(async () => {
+        readCallCount++;
+        if (readCallCount === 1) {
+          // Human takes over
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { aiEnabled: false },
+          });
+          
+          return {
+            message: {
+              role: 'assistant',
+              content: '',
+              toolCalls: [{ id: 'tc2', name: 'test_read_tool', arguments: {} }],
+            },
+            finishReason: 'tool_calls',
+            usage: { inputTokens: 10, outputTokens: 10 },
+            latencyMs: 50,
+          };
+        }
+
+        return {
+          message: { role: 'assistant', content: 'Price is 100.' },
+          finishReason: 'stop',
+          usage: { inputTokens: 10, outputTokens: 10 },
+          latencyMs: 50,
+        };
+      });
+
+      await executeAgentTurn({
+        db: prisma,
+        workspaceId,
+        conversationId: conversation.id,
+        messageId: message.id,
+        provider,
+        toolRegistry: customRegistry,
+      });
+
+      // READ tool should still execute
+      expect(mockReadHandler).toHaveBeenCalled();
+    });
   });
 });

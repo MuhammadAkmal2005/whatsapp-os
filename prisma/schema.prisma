@@ -1,20 +1,3 @@
-// WhatsApp OS — data model
-//
-// Reading guide
-// -------------
-// * `workspaceId` is the tenant key. Every tenant-owned model carries it as a
-//   non-nullable column. The handful of models that legitimately have no
-//   workspace are marked "CROSS-TENANT" in a comment above them, and there are
-//   only five of them.
-// * Money is always an integer in minor units (paisa for PKR, cents for USD)
-//   alongside an explicit currency. Floating point never touches a price.
-// * Soft deletion (`deletedAt`) is used only where a business owner would
-//   reasonably expect a record to survive removal — products referenced by past
-//   orders, contacts with history. Operational rows are hard-deleted.
-// * Indexes lead with `workspaceId` because every real query filters on it
-//   first, so a composite index starting there serves both the scope and the
-//   sort.
-
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
@@ -23,17 +6,13 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
-  extensions = [vector, pg_trgm]
+  extensions = [pg_trgm, vector]
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// IDENTITY
-// ═══════════════════════════════════════════════════════════════════════════
 
 /// CROSS-TENANT. A person, who may belong to several workspaces.
 model User {
-  id              String    @id @default(uuid()) @db.Uuid
-  email           String    @unique
+  id              String            @id @default(uuid()) @db.Uuid
+  email           String            @unique
   emailVerifiedAt DateTime?
   name            String
   /// Versioned scrypt encoding: "scrypt$N$r$p$salt$hash". Carrying the
@@ -41,20 +20,19 @@ model User {
   /// existing passwords.
   passwordHash    String
   avatarUrl       String?
-  locale          String    @default("en")
-  timezone        String    @default("Asia/Karachi")
+  locale          String            @default("en")
+  timezone        String            @default("Asia/Karachi")
   lastLoginAt     DateTime?
   /// Platform staff. Grants access to the admin surface only, never to any
   /// workspace's data.
-  isPlatformAdmin Boolean   @default(false)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  isPlatformAdmin Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
   deletedAt       DateTime?
-
-  sessions     Session[]
-  memberships  WorkspaceMember[]
-  auditLogs    AuditLog[]
-  sentInvites  WorkspaceInvite[] @relation("InviteCreator")
+  auditLogs       AuditLog[]
+  sessions        Session[]
+  sentInvites     WorkspaceInvite[] @relation("InviteCreator")
+  memberships     WorkspaceMember[]
 
   @@index([deletedAt])
   @@map("users")
@@ -71,8 +49,7 @@ model Session {
   userAgent  String?
   createdAt  DateTime @default(now())
   lastUsedAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -94,122 +71,1328 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
-enum VerificationPurpose {
-  EMAIL_VERIFICATION
-  PASSWORD_RESET
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TENANCY
-// ═══════════════════════════════════════════════════════════════════════════
-
 /// The tenant boundary. Everything below hangs off this.
 model Workspace {
-  id             String          @id @default(uuid()) @db.Uuid
-  slug           String          @unique
-  name           String
-  category       String?
-  currency       String          @default("PKR")
-  timezone       String          @default("Asia/Karachi")
-  locale         String          @default("en")
-  status          WorkspaceStatus @default(ACTIVE)
+  id                       String                @id @default(uuid()) @db.Uuid
+  slug                     String                @unique
+  name                     String
+  category                 String?
+  currency                 String                @default("PKR")
+  timezone                 String                @default("Asia/Karachi")
+  locale                   String                @default("en")
+  status                   WorkspaceStatus       @default(ACTIVE)
   /// Drives the onboarding checklist. Stored rather than derived so a business
   /// owner can dismiss a step they do not need.
-  onboardingCompletedSteps String[] @default([])
+  onboardingCompletedSteps String[]              @default([])
   onboardingCompletedAt    DateTime?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  deletedAt      DateTime?
-
-  members          WorkspaceMember[]
-  invites          WorkspaceInvite[]
-  businessProfile  BusinessProfile?
-  whatsappAccounts WhatsAppAccount[]
-  phoneNumbers     WhatsAppPhoneNumber[]
-  conversations    Conversation[]
-  messages         Message[]
-  attachments      MessageAttachment[]
-  contacts         Contact[]
-  tags             Tag[]
-  contactNotes     ContactNote[]
-  categories       Category[]
-  products         Product[]
-  productImages    ProductImage[]
-  variants         ProductVariant[]
-  inventory        InventoryItem[]
-  orders           Order[]
-  orderItems       OrderItem[]
-  orderEvents      OrderEvent[]
-  payments         Payment[]
-  services         Service[]
-  appointments     Appointment[]
-  agents           AIAgent[]
-  agentInstructions AIAgentInstruction[]
-  knowledgeBase    KnowledgeBase?
-  knowledgeDocs    KnowledgeDocument[]
-  knowledgeChunks  KnowledgeChunk[]
-  aiTurns          AITurn[]
-  automations      Automation[]
-  automationActions AutomationAction[]
-  automationRuns   AutomationRun[]
-  templates        MessageTemplate[]
-  campaigns        Campaign[]
-  campaignRecipients CampaignRecipient[]
-  integrations     Integration[]
-  subscription     Subscription?
-  usageRecords     UsageRecord[]
-  usageCounters    UsageCounter[]
-  notifications    Notification[]
-  auditLogs        AuditLog[]
-  productEvents    ProductEvent[]
-  dailyStats       AnalyticsDaily[]
-  webhookEvents    WebhookEvent[]
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  deletedAt                DateTime?
+  agentInstructions        AIAgentInstruction[]
+  agents                   AIAgent[]
+  aiTurns                  AITurn[]
+  dailyStats               AnalyticsDaily[]
+  appointments             Appointment[]
+  auditLogs                AuditLog[]
+  automationActions        AutomationAction[]
+  automationRuns           AutomationRun[]
+  automations              Automation[]
+  businessProfile          BusinessProfile?
+  campaignRecipients       CampaignRecipient[]
+  campaigns                Campaign[]
+  categories               Category[]
+  contactNotes             ContactNote[]
+  contacts                 Contact[]
+  conversations            Conversation[]
+  integrations             Integration[]
+  inventory                InventoryItem[]
+  knowledgeBase            KnowledgeBase?
+  knowledgeChunks          KnowledgeChunk[]
+  knowledgeDocs            KnowledgeDocument[]
+  attachments              MessageAttachment[]
+  templates                MessageTemplate[]
+  messages                 Message[]
+  notifications            Notification[]
+  orderEvents              OrderEvent[]
+  orderItems               OrderItem[]
+  orders                   Order[]
+  payments                 Payment[]
+  productEvents            ProductEvent[]
+  productImages            ProductImage[]
+  variants                 ProductVariant[]
+  products                 Product[]
+  services                 Service[]
+  subscription             Subscription?
+  tags                     Tag[]
+  usageCounters            UsageCounter[]
+  usageRecords             UsageRecord[]
+  webhookEvents            WebhookEvent[]
+  whatsappAccounts         WhatsAppAccount[]
+  phoneNumbers             WhatsAppPhoneNumber[]
+  invites                  WorkspaceInvite[]
+  members                  WorkspaceMember[]
 
   @@index([deletedAt])
   @@map("workspaces")
+}
+
+/// Links a user to a workspace and carries their role there.
+model WorkspaceMember {
+  id                         String                    @id @default(uuid()) @db.Uuid
+  workspaceId                String                    @db.Uuid
+  userId                     String                    @db.Uuid
+  role                       WorkspaceRole
+  status                     MembershipStatus          @default(ACTIVE)
+  invitedByUserId            String?                   @db.Uuid
+  joinedAt                   DateTime                  @default(now())
+  lastActiveAt               DateTime?
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
+  assignedAppointments       Appointment[]
+  auditLogs                  AuditLog[]
+  createdAutomations         Automation[]
+  createdCampaigns           Campaign[]
+  authoredNotes              ContactNote[]
+  assignedContacts           Contact[]                 @relation("ContactAssignee")
+  conversationParticipations ConversationParticipant[]
+  assignedConversations      Conversation[]            @relation("ConversationAssignee")
+  connectedIntegrations      Integration[]
+  sentMessages               Message[]                 @relation("MessageSenderMember")
+  notifications              Notification[]
+  orderEvents                OrderEvent[]
+  createdOrders              Order[]                   @relation("OrderCreator")
+  verifiedPayments           Payment[]
+  user                       User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace                  Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId, role])
+  @@index([userId])
+  @@map("workspace_members")
+}
+
+model WorkspaceInvite {
+  id              String        @id @default(uuid()) @db.Uuid
+  workspaceId     String        @db.Uuid
+  email           String
+  role            WorkspaceRole
+  tokenHash       String        @unique
+  invitedByUserId String        @db.Uuid
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  invitedBy       User          @relation("InviteCreator", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  workspace       Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, email])
+  @@index([workspaceId])
+  @@map("workspace_invites")
+}
+
+/// The business facts the AI is allowed to state. Anything not here, and not in
+/// the knowledge base, the agent must refuse to invent.
+model BusinessProfile {
+  id                         String    @id @default(uuid()) @db.Uuid
+  workspaceId                String    @unique @db.Uuid
+  legalName                  String?
+  description                String?
+  category                   String?
+  supportPhone               String?
+  supportEmail               String?
+  website                    String?
+  addressLine1               String?
+  addressLine2               String?
+  city                       String?
+  country                    String    @default("PK")
+  logoStorageKey             String?
+  /// [BusinessHoursConfig] — seven day entries, each open/closed with times.
+  businessHours              Json?
+  shippingPolicy             String?
+  returnPolicy               String?
+  privacyPolicy              String?
+  paymentMethods             String[]  @default([])
+  deliveryFeeMinor           Int       @default(0)
+  /// Null means "no free-delivery threshold", which is different from zero.
+  freeDeliveryThresholdMinor Int?
+  /// Basis points, so 17% VAT is 1700. Integer arithmetic throughout.
+  taxRateBps                 Int       @default(0)
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+  workspace                  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("business_profiles")
+}
+
+model WhatsAppAccount {
+  id                   String                @id @default(uuid()) @db.Uuid
+  workspaceId          String                @db.Uuid
+  /// Meta WhatsApp Business Account id.
+  wabaId               String
+  displayName          String?
+  /// Encrypted at rest with a key derived from AUTH_SECRET. Never returned to
+  /// the browser under any circumstance.
+  accessTokenEncrypted String?
+  status               ChannelStatus         @default(DISCONNECTED)
+  /// True while MOCK_WHATSAPP is driving this account, so the UI can say so
+  /// plainly instead of implying a live connection.
+  isMock               Boolean               @default(false)
+  connectedAt          DateTime?
+  lastErrorAt          DateTime?
+  lastErrorMessage     String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  workspace            Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  phoneNumbers         WhatsAppPhoneNumber[]
+
+  @@unique([workspaceId, wabaId])
+  @@index([workspaceId])
+  @@map("whatsapp_accounts")
+}
+
+/// The inbound routing table. A webhook arrives carrying a `phone_number_id`,
+/// and this is the single place where that becomes a workspace.
+model WhatsAppPhoneNumber {
+  id                 String          @id @default(uuid()) @db.Uuid
+  workspaceId        String          @db.Uuid
+  accountId          String          @db.Uuid
+  /// Meta's phone number id. Globally unique, which is what makes routing a
+  /// single indexed lookup.
+  phoneNumberId      String          @unique
+  displayPhoneNumber String
+  verifiedName       String?
+  qualityRating      String?
+  status             ChannelStatus   @default(PENDING)
+  isDefault          Boolean         @default(false)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  conversations      Conversation[]
+  account            WhatsAppAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  workspace          Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("whatsapp_phone_numbers")
+}
+
+model Conversation {
+  id                         String                    @id @default(uuid()) @db.Uuid
+  workspaceId                String                    @db.Uuid
+  channel                    Channel                   @default(WHATSAPP)
+  contactId                  String                    @db.Uuid
+  phoneNumberId              String?                   @db.Uuid
+  status                     ConversationStatus        @default(OPEN)
+  priority                   Priority                  @default(NORMAL)
+  assignedToMemberId         String?                   @db.Uuid
+  /// When false the agent stays silent. Human takeover flips this, and the
+  /// reason is kept so the inbox can explain why.
+  aiEnabled                  Boolean                   @default(true)
+  aiPausedAt                 DateTime?
+  aiPausedByMemberId         String?                   @db.Uuid
+  handoffReason              HandoffReason?
+  handoffAt                  DateTime?
+  /// Rolling summary of everything older than the recent-message window. This
+  /// is what keeps the model context bounded and cheap.
+  summary                    String?
+  summarisedThroughMessageId String?                   @db.Uuid
+  lastMessageAt              DateTime?
+  lastInboundAt              DateTime?
+  lastOutboundAt             DateTime?
+  unreadCount                Int                       @default(0)
+  messageCount               Int                       @default(0)
+  firstResponseAt            DateTime?
+  resolvedAt                 DateTime?
+  closedAt                   DateTime?
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
+  aiTurns                    AITurn[]
+  participants               ConversationParticipant[]
+  assignedTo                 WorkspaceMember?          @relation("ConversationAssignee", fields: [assignedToMemberId], references: [id])
+  contact                    Contact                   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  phoneNumber                WhatsAppPhoneNumber?      @relation(fields: [phoneNumberId], references: [id])
+  workspace                  Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  messages                   Message[]
+  orders                     Order[]
+  usageRecords               UsageRecord[]
+
+  @@index([workspaceId, status, lastMessageAt(sort: Desc)])
+  @@index([workspaceId, assignedToMemberId, status])
+  @@index([workspaceId, contactId])
+  @@index([workspaceId, lastMessageAt(sort: Desc)])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String           @id @default(uuid()) @db.Uuid
+  conversationId String           @db.Uuid
+  memberId       String?          @db.Uuid
+  contactId      String?          @db.Uuid
+  joinedAt       DateTime         @default(now())
+  leftAt         DateTime?
+  contact        Contact?         @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  member         WorkspaceMember? @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, memberId])
+  @@unique([conversationId, contactId])
+  @@index([conversationId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id                       String              @id @default(uuid()) @db.Uuid
+  workspaceId              String              @db.Uuid
+  conversationId           String              @db.Uuid
+  direction                MessageDirection
+  type                     MessageType         @default(TEXT)
+  status                   MessageStatus       @default(QUEUED)
+  body                     String?
+  /// The provider's message id. Unique so a replayed webhook cannot insert the
+  /// same inbound message twice — the constraint is the idempotency mechanism,
+  /// not an application-level check that could race.
+  providerMessageId        String?             @unique
+  replyToProviderMessageId String?
+  senderMemberId           String?             @db.Uuid
+  senderContactId          String?             @db.Uuid
+  sentByAi                 Boolean             @default(false)
+  aiAgentId                String?             @db.Uuid
+  /// Populated for TEMPLATE and INTERACTIVE types only.
+  templateName             String?
+  templateLanguage         String?
+  payload                  Json?
+  errorCode                String?
+  errorMessage             String?
+  createdAt                DateTime            @default(now())
+  /// Provider-reported timestamp, which can differ from createdAt by seconds.
+  occurredAt               DateTime            @default(now())
+  sentAt                   DateTime?
+  deliveredAt              DateTime?
+  readAt                   DateTime?
+  failedAt                 DateTime?
+  aiTurn                   AITurn?
+  campaignRecipients       CampaignRecipient[]
+  attachments              MessageAttachment[]
+  agent                    AIAgent?            @relation(fields: [aiAgentId], references: [id])
+  conversation             Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderContact            Contact?            @relation(fields: [senderContactId], references: [id])
+  senderMember             WorkspaceMember?    @relation("MessageSenderMember", fields: [senderMemberId], references: [id])
+  workspace                Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  usageRecords             UsageRecord[]
+
+  @@index([workspaceId, conversationId, createdAt(sort: Desc)])
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+  @@map("messages")
+}
+
+model MessageAttachment {
+  id              String      @id @default(uuid()) @db.Uuid
+  workspaceId     String      @db.Uuid
+  messageId       String      @db.Uuid
+  kind            MessageType
+  /// Key in private object storage. The browser only ever receives a
+  /// short-lived signed URL derived from this.
+  storageKey      String?
+  providerMediaId String?
+  mimeType        String
+  fileName        String?
+  byteSize        Int?
+  width           Int?
+  height          Int?
+  durationMs      Int?
+  caption         String?
+  /// Populated by the voice pipeline when it is enabled.
+  transcript      String?
+  downloadedAt    DateTime?
+  createdAt       DateTime    @default(now())
+  message         Message     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  workspace       Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, messageId])
+  @@map("message_attachments")
+}
+
+model Contact {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  workspaceId        String                    @db.Uuid
+  /// E.164, digits only with a leading +. Normalised on write so that the same
+  /// human is never two contacts.
+  phoneE164          String
+  name               String?
+  /// The name WhatsApp reports, kept separately because the business may
+  /// correct `name` and we should not overwrite their edit on the next message.
+  waProfileName      String?
+  email              String?
+  status             ContactStatus             @default(LEAD)
+  leadStage          LeadStage                 @default(NEW)
+  source             String?
+  language           String?
+  assignedToMemberId String?                   @db.Uuid
+  city               String?
+  addressLine1       String?
+  addressLine2       String?
+  postalCode         String?
+  /// Denormalised aggregates. Recomputed inside the order transaction, so they
+  /// cannot drift from the order rows.
+  totalOrders        Int                       @default(0)
+  totalSpentMinor    Int                       @default(0)
+  lastOrderAt        DateTime?
+  lastInteractionAt  DateTime?
+  /// Set when the customer asks to stop receiving campaign messages. Honoured
+  /// unconditionally by the campaign sender.
+  optedOutAt         DateTime?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  deletedAt          DateTime?
+  appointments       Appointment[]
+  campaignRecipients CampaignRecipient[]
+  notes              ContactNote[]
+  tags               ContactTag[]
+  assignedTo         WorkspaceMember?          @relation("ContactAssignee", fields: [assignedToMemberId], references: [id])
+  workspace          Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  participations     ConversationParticipant[]
+  conversations      Conversation[]
+  messages           Message[]
+  orders             Order[]
+  payments           Payment[]
+
+  @@unique([workspaceId, phoneE164])
+  @@index([workspaceId, status])
+  @@index([workspaceId, leadStage])
+  @@index([workspaceId, lastInteractionAt(sort: Desc)])
+  @@index([workspaceId, deletedAt])
+  @@map("contacts")
+}
+
+model Tag {
+  id          String       @id @default(uuid()) @db.Uuid
+  workspaceId String       @db.Uuid
+  name        String
+  color       String       @default("slate")
+  createdAt   DateTime     @default(now())
+  contacts    ContactTag[]
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@map("tags")
+}
+
+model ContactTag {
+  contactId String   @db.Uuid
+  tagId     String   @db.Uuid
+  createdAt DateTime @default(now())
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, tagId])
+  @@index([tagId])
+  @@map("contact_tags")
+}
+
+model ContactNote {
+  id             String           @id @default(uuid()) @db.Uuid
+  workspaceId    String           @db.Uuid
+  contactId      String           @db.Uuid
+  authorMemberId String?          @db.Uuid
+  body           String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  author         WorkspaceMember? @relation(fields: [authorMemberId], references: [id])
+  contact        Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, contactId, createdAt(sort: Desc)])
+  @@map("contact_notes")
+}
+
+model Category {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @db.Uuid
+  name        String
+  slug        String
+  position    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  products    Product[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
+  @@map("categories")
+}
+
+model Product {
+  id             String           @id @default(uuid()) @db.Uuid
+  workspaceId    String           @db.Uuid
+  name           String
+  slug           String
+  sku            String?
+  description    String?
+  categoryId     String?          @db.Uuid
+  status         ProductStatus    @default(ACTIVE)
+  /// Base price. A variant may override it; when the variant's price is null
+  /// this one applies.
+  priceMinor     Int
+  /// Active sale price, or null. Never below zero, never above priceMinor —
+  /// enforced in the service, not just the UI.
+  salePriceMinor Int?
+  currency       String           @default("PKR")
+  trackInventory Boolean          @default(true)
+  weightGrams    Int?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+  inventory      InventoryItem[]
+  orderItems     OrderItem[]
+  images         ProductImage[]
+  variants       ProductVariant[]
+  category       Category?        @relation(fields: [categoryId], references: [id])
+  workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, slug])
+  @@unique([workspaceId, sku])
+  @@index([workspaceId, status])
+  @@index([workspaceId, categoryId])
+  @@index([workspaceId, deletedAt])
+  @@map("products")
+}
+
+model ProductImage {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @db.Uuid
+  productId   String    @db.Uuid
+  storageKey  String
+  alt         String?
+  position    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, productId])
+  @@map("product_images")
+}
+
+/// Size and colour are first-class columns rather than entries in a generic
+/// option bag, because the agent's most common question is literally "black
+/// kurta in XL?" and that has to be an indexed lookup, not a JSON scan.
+/// `optionValues` carries anything else a business needs.
+model ProductVariant {
+  id             String         @id @default(uuid()) @db.Uuid
+  workspaceId    String         @db.Uuid
+  productId      String         @db.Uuid
+  sku            String?
+  name           String?
+  size           String?
+  color          String?
+  optionValues   Json?
+  priceMinor     Int?
+  salePriceMinor Int?
+  status         ProductStatus  @default(ACTIVE)
+  position       Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  inventory      InventoryItem?
+  orderItems     OrderItem[]
+  product        Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, sku])
+  @@index([workspaceId, productId])
+  @@index([workspaceId, size, color])
+  @@map("product_variants")
+}
+
+/// One row per sellable unit — a variant if the product has variants, otherwise
+/// the product itself. `available` is the only number the agent may quote.
+model InventoryItem {
+  id                String          @id @default(uuid()) @db.Uuid
+  workspaceId       String          @db.Uuid
+  productId         String          @db.Uuid
+  variantId         String?         @unique @db.Uuid
+  available         Int             @default(0)
+  /// Held by unconfirmed orders. Released on cancellation, converted to `sold`
+  /// on fulfilment.
+  reserved          Int             @default(0)
+  sold              Int             @default(0)
+  lowStockThreshold Int             @default(3)
+  updatedAt         DateTime        @updatedAt
+  product           Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant           ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, productId])
+  @@index([workspaceId, available])
+  @@map("inventory_items")
+}
+
+model Order {
+  id                String            @id @default(uuid()) @db.Uuid
+  workspaceId       String            @db.Uuid
+  /// Human-facing, sequential per workspace. Customers read this out loud, so
+  /// it must be short and unambiguous.
+  orderNumber       String
+  contactId         String            @db.Uuid
+  conversationId    String?           @db.Uuid
+  status            OrderStatus       @default(PENDING)
+  paymentStatus     PaymentStatus     @default(UNPAID)
+  fulfillmentStatus FulfillmentStatus @default(UNFULFILLED)
+  currency          String            @default("PKR")
+  /// Every one of these is computed server-side from database prices. A total
+  /// supplied by a client or proposed by a model is discarded.
+  subtotalMinor     Int
+  discountMinor     Int               @default(0)
+  deliveryFeeMinor  Int               @default(0)
+  taxMinor          Int               @default(0)
+  totalMinor        Int
+  paymentMethod     PaymentMethod     @default(COD)
+  customerName      String
+  phoneE164         String
+  addressLine1      String?
+  addressLine2      String?
+  city              String?
+  postalCode        String?
+  country           String            @default("PK")
+  notes             String?
+  createdByMemberId String?           @db.Uuid
+  /// True when the agent built this order. Kept so the business can audit what
+  /// the AI actually did, and so analytics can attribute outcomes honestly.
+  createdByAi       Boolean           @default(false)
+  aiAgentId         String?           @db.Uuid
+  placedAt          DateTime          @default(now())
+  confirmedAt       DateTime?
+  shippedAt         DateTime?
+  deliveredAt       DateTime?
+  cancelledAt       DateTime?
+  cancelReason      String?
+  courierName       String?
+  trackingNumber    String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime?
+  idempotencyKey    String?
+  events            OrderEvent[]
+  items             OrderItem[]
+  agent             AIAgent?          @relation(fields: [aiAgentId], references: [id])
+  contact           Contact           @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation      Conversation?     @relation(fields: [conversationId], references: [id])
+  createdBy         WorkspaceMember?  @relation("OrderCreator", fields: [createdByMemberId], references: [id])
+  workspace         Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  payments          Payment[]
+
+  @@unique([workspaceId, orderNumber])
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, status, createdAt(sort: Desc)])
+  @@index([workspaceId, contactId])
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([workspaceId, deletedAt])
+  @@map("orders")
+}
+
+/// Product name, SKU and unit price are snapshotted. A later price change must
+/// not retroactively rewrite what a customer already agreed to pay.
+model OrderItem {
+  id                String          @id @default(uuid()) @db.Uuid
+  workspaceId       String          @db.Uuid
+  orderId           String          @db.Uuid
+  productId         String?         @db.Uuid
+  variantId         String?         @db.Uuid
+  nameSnapshot      String
+  skuSnapshot       String?
+  variantSnapshot   String?
+  unitPriceMinor    Int
+  quantity          Int
+  lineSubtotalMinor Int
+  createdAt         DateTime        @default(now())
+  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product           Product?        @relation(fields: [productId], references: [id])
+  variant           ProductVariant? @relation(fields: [variantId], references: [id])
+  workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, orderId])
+  @@index([workspaceId, productId])
+  @@map("order_items")
+}
+
+model OrderEvent {
+  id            String           @id @default(uuid()) @db.Uuid
+  workspaceId   String           @db.Uuid
+  orderId       String           @db.Uuid
+  type          String
+  fromStatus    OrderStatus?
+  toStatus      OrderStatus?
+  actorMemberId String?          @db.Uuid
+  byAi          Boolean          @default(false)
+  note          String?
+  createdAt     DateTime         @default(now())
+  actor         WorkspaceMember? @relation(fields: [actorMemberId], references: [id])
+  order         Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, orderId, createdAt])
+  @@map("order_events")
+}
+
+/// Records a payment attempt or receipt. Raw card data is never stored — the
+/// provider holds it and we keep only their reference.
+model Payment {
+  id                 String           @id @default(uuid()) @db.Uuid
+  workspaceId        String           @db.Uuid
+  orderId            String?          @db.Uuid
+  contactId          String?          @db.Uuid
+  provider           String
+  providerPaymentId  String?
+  status             PaymentStatus    @default(PENDING)
+  method             PaymentMethod
+  amountMinor        Int
+  currency           String           @default("PKR")
+  reference          String?
+  /// Pakistani customers commonly send a bank-transfer screenshot. It is stored
+  /// privately and a human verifies it — the agent never confirms a payment.
+  proofStorageKey    String?
+  verifiedByMemberId String?          @db.Uuid
+  verifiedAt         DateTime?
+  failureReason      String?
+  metadata           Json?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  contact            Contact?         @relation(fields: [contactId], references: [id])
+  order              Order?           @relation(fields: [orderId], references: [id])
+  verifiedBy         WorkspaceMember? @relation(fields: [verifiedByMemberId], references: [id])
+  workspace          Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerPaymentId])
+  @@index([workspaceId, status])
+  @@index([workspaceId, orderId])
+  @@map("payments")
+}
+
+model Service {
+  id              String        @id @default(uuid()) @db.Uuid
+  workspaceId     String        @db.Uuid
+  name            String
+  description     String?
+  durationMinutes Int
+  bufferMinutes   Int           @default(0)
+  priceMinor      Int?
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  appointments    Appointment[]
+  workspace       Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, isActive])
+  @@map("services")
+}
+
+model Appointment {
+  id                 String            @id @default(uuid()) @db.Uuid
+  workspaceId        String            @db.Uuid
+  contactId          String            @db.Uuid
+  serviceId          String?           @db.Uuid
+  assignedToMemberId String?           @db.Uuid
+  status             AppointmentStatus @default(SCHEDULED)
+  startsAt           DateTime
+  endsAt             DateTime
+  notes              String?
+  remindedAt         DateTime?
+  createdByAi        Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  assignedTo         WorkspaceMember?  @relation(fields: [assignedToMemberId], references: [id])
+  contact            Contact           @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  service            Service?          @relation(fields: [serviceId], references: [id])
+  workspace          Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, startsAt])
+  @@index([workspaceId, status, startsAt])
+  @@map("appointments")
+}
+
+/// A collection rather than a singleton on Workspace, so "multiple AI
+/// employees" later is a UI change and not a migration.
+model AIAgent {
+  id                   String               @id @default(uuid()) @db.Uuid
+  workspaceId          String               @db.Uuid
+  name                 String
+  role                 AgentRole            @default(SALES_SUPPORT)
+  isActive             Boolean              @default(false)
+  isDefault            Boolean              @default(true)
+  tone                 AgentTone            @default(FRIENDLY)
+  /// e.g. ["en", "ur", "roman-ur"]. The agent replies in the language the
+  /// customer used, including mixed Roman Urdu.
+  languages            String[]             @default(["en", "roman-ur"])
+  greeting             String?
+  persona              String?
+  /// Owner-authored free text, appended to the composed system prompt. It can
+  /// add instructions but cannot override the safety and grounding rules.
+  customInstructions   String?
+  model                String               @default("gpt-4o-mini")
+  temperature          Float                @default(0.3)
+  maxOutputTokens      Int                  @default(600)
+  /// Below this evidence-derived score the turn is handed to a human instead of
+  /// answered. See server/services/agent/confidence.ts.
+  confidenceFloor      Float                @default(0.45)
+  businessHoursOnly    Boolean              @default(false)
+  handoffKeywords      String[]             @default([])
+  /// [EscalationRules]
+  escalationRules      Json?
+  /// Denormalised counters for the "Your AI employee" panel.
+  conversationsHandled Int                  @default(0)
+  handoffCount         Int                  @default(0)
+  ordersCreated        Int                  @default(0)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  instructions         AIAgentInstruction[]
+  workspace            Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  turns                AITurn[]
+  messages             Message[]
+  orders               Order[]
+  usageRecords         UsageRecord[]
+
+  @@index([workspaceId, isActive])
+  @@map("ai_agents")
+}
+
+model AIAgentInstruction {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @db.Uuid
+  agentId     String    @db.Uuid
+  title       String
+  content     String
+  position    Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  agent       AIAgent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, agentId, position])
+  @@map("ai_agent_instructions")
+}
+
+model KnowledgeBase {
+  id             String              @id @default(uuid()) @db.Uuid
+  workspaceId    String              @unique @db.Uuid
+  embeddingModel String              @default("text-embedding-3-small")
+  embeddingDims  Int                 @default(1536)
+  chunkSize      Int                 @default(900)
+  chunkOverlap   Int                 @default(150)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  workspace      Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  documents      KnowledgeDocument[]
+
+  @@map("knowledge_bases")
+}
+
+model KnowledgeDocument {
+  id              String           @id @default(uuid()) @db.Uuid
+  workspaceId     String           @db.Uuid
+  knowledgeBaseId String           @db.Uuid
+  type            KnowledgeType
+  title           String
+  /// Present for TEXT and FAQ. File-backed types keep their text in chunks
+  /// only, so a large PDF is not duplicated in the row.
+  content         String?
+  question        String?
+  answer          String?
+  sourceUrl       String?
+  storageKey      String?
+  mimeType        String?
+  byteSize        Int?
+  status          IngestStatus     @default(PENDING)
+  errorMessage    String?
+  chunkCount      Int              @default(0)
+  ingestedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  chunks          KnowledgeChunk[]
+  knowledgeBase   KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, type])
+  @@map("knowledge_documents")
+}
+
+model KnowledgeChunk {
+  id          String                 @id @default(uuid()) @db.Uuid
+  workspaceId String                 @db.Uuid
+  documentId  String                 @db.Uuid
+  content     String
+  position    Int
+  tokenCount  Int                    @default(0)
+  /// pgvector column. Prisma has no native vector type, so it is Unsupported
+  /// here and queried through raw SQL in the retrieval repository. The HNSW
+  /// index is created in the migration.
+  embedding   Unsupported("vector")?
+  metadata    Json?
+  createdAt   DateTime               @default(now())
+  document    KnowledgeDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  workspace   Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([workspaceId, documentId, position])
+  @@map("knowledge_chunks")
+}
+
+/// One agent turn. This is the audit trail for AI behaviour: what it retrieved,
+/// which tools it called, what the evidence-derived confidence was, and whether
+/// the grounding check let the reply through.
+model AITurn {
+  id                String          @id @default(uuid()) @db.Uuid
+  workspaceId       String          @db.Uuid
+  conversationId    String?         @db.Uuid
+  /// Null for playground turns, which never touch a real conversation.
+  messageId         String?         @unique @db.Uuid
+  agentId           String          @db.Uuid
+  source            TurnSource      @default(CONVERSATION)
+  inputText         String
+  outputText        String?
+  intent            String?
+  provider          String
+  model             String
+  confidence        Float?
+  confidenceBand    ConfidenceBand?
+  retrievedChunkIds String[]        @default([])
+  retrievalTopScore Float?
+  /// [ToolCallRecord[]] — name, arguments, result summary, duration.
+  toolCalls         Json?
+  groundingPassed   Boolean         @default(true)
+  /// Set when the grounding layer replaced the model's reply. This is the
+  /// metric that tells us whether the agent is trying to hallucinate.
+  blockedReason     String?
+  handoffTriggered  Boolean         @default(false)
+  handoffReason     HandoffReason?
+  inputTokens       Int             @default(0)
+  outputTokens      Int             @default(0)
+  /// Cost in millionths of a currency unit, integer. Sub-cent AI costs would
+  /// vanish in minor units.
+  costMicros        Int             @default(0)
+  latencyMs         Int             @default(0)
+  errorMessage      String?
+  createdAt         DateTime        @default(now())
+  agent             AIAgent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  conversation      Conversation?   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message           Message?        @relation(fields: [messageId], references: [id])
+  workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([workspaceId, conversationId])
+  @@index([workspaceId, groundingPassed])
+  @@map("ai_turns")
+}
+
+/// Automations are data, not code. A trigger plus an ordered action list, so a
+/// new automation is a row rather than a deploy.
+model Automation {
+  id                String             @id @default(uuid()) @db.Uuid
+  workspaceId       String             @db.Uuid
+  name              String
+  description       String?
+  isActive          Boolean            @default(false)
+  triggerType       TriggerType
+  /// [TriggerConfig] — keywords, status transitions, idle duration, and so on.
+  triggerConfig     Json?
+  runCount          Int                @default(0)
+  lastRunAt         DateTime?
+  createdByMemberId String?            @db.Uuid
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  actions           AutomationAction[]
+  runs              AutomationRun[]
+  createdBy         WorkspaceMember?   @relation(fields: [createdByMemberId], references: [id])
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, isActive, triggerType])
+  @@map("automations")
+}
+
+model AutomationAction {
+  id           String     @id @default(uuid()) @db.Uuid
+  workspaceId  String     @db.Uuid
+  automationId String     @db.Uuid
+  position     Int
+  type         ActionType
+  /// [ActionConfig] — message body, wait duration, tag name, assignee, etc.
+  config       Json
+  createdAt    DateTime   @default(now())
+  automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  workspace    Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([automationId, position])
+  @@index([workspaceId, automationId])
+  @@map("automation_actions")
+}
+
+/// `dedupeKey` is what makes a retried job safe: the unique constraint means a
+/// second attempt for the same automation and subject cannot double-send.
+model AutomationRun {
+  id                    String     @id @default(uuid()) @db.Uuid
+  workspaceId           String     @db.Uuid
+  automationId          String     @db.Uuid
+  subjectType           String
+  subjectId             String
+  dedupeKey             String     @unique
+  status                RunStatus  @default(RUNNING)
+  currentActionPosition Int        @default(0)
+  startedAt             DateTime   @default(now())
+  finishedAt            DateTime?
+  error                 String?
+  automation            Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  workspace             Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, automationId, startedAt(sort: Desc)])
+  @@map("automation_runs")
+}
+
+/// Approval status mirrors Meta's, and is never set optimistically. A template
+/// is usable only once Meta says APPROVED.
+model MessageTemplate {
+  id                 String           @id @default(uuid()) @db.Uuid
+  workspaceId        String           @db.Uuid
+  name               String
+  language           String           @default("en")
+  category           TemplateCategory
+  bodyText           String
+  headerText         String?
+  footerText         String?
+  /// [TemplateVariable[]] — positional placeholders and example values.
+  variables          Json?
+  providerTemplateId String?
+  approvalStatus     TemplateApproval @default(DRAFT)
+  rejectionReason    String?
+  submittedAt        DateTime?
+  approvedAt         DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  campaigns          Campaign[]
+  workspace          Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, name, language])
+  @@index([workspaceId, approvalStatus])
+  @@map("message_templates")
+}
+
+model Campaign {
+  id                String              @id @default(uuid()) @db.Uuid
+  workspaceId       String              @db.Uuid
+  name              String
+  templateId        String?             @db.Uuid
+  status            CampaignStatus      @default(DRAFT)
+  /// [AudienceFilter] — tags, lead stage, purchase history, city.
+  audienceFilter    Json?
+  scheduledAt       DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  recipientCount    Int                 @default(0)
+  sentCount         Int                 @default(0)
+  failedCount       Int                 @default(0)
+  createdByMemberId String?             @db.Uuid
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  recipients        CampaignRecipient[]
+  createdBy         WorkspaceMember?    @relation(fields: [createdByMemberId], references: [id])
+  template          MessageTemplate?    @relation(fields: [templateId], references: [id])
+  workspace         Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@map("campaigns")
+}
+
+model CampaignRecipient {
+  id          String          @id @default(uuid()) @db.Uuid
+  workspaceId String          @db.Uuid
+  campaignId  String          @db.Uuid
+  contactId   String          @db.Uuid
+  status      RecipientStatus @default(PENDING)
+  messageId   String?         @db.Uuid
+  error       String?
+  sentAt      DateTime?
+  createdAt   DateTime        @default(now())
+  campaign    Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact     Contact         @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  message     Message?        @relation(fields: [messageId], references: [id])
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, contactId])
+  @@index([workspaceId, campaignId, status])
+  @@map("campaign_recipients")
+}
+
+/// CROSS-TENANT at insert time. An inbound webhook has no workspace until the
+/// receiving phone number is resolved, which is precisely why `workspaceId` is
+/// nullable here and nowhere else in the message path.
+model WebhookEvent {
+  id              String        @id @default(uuid()) @db.Uuid
+  provider        String        @default("whatsapp")
+  /// Meta's event/message id. The unique constraint is the deduplication
+  /// mechanism — a replayed delivery conflicts and is answered 200 immediately.
+  providerEventId String
+  workspaceId     String?       @db.Uuid
+  phoneNumberId   String?
+  eventType       String
+  payload         Json
+  signatureValid  Boolean
+  status          WebhookStatus @default(RECEIVED)
+  attempts        Int           @default(0)
+  processedAt     DateTime?
+  error           String?
+  receivedAt      DateTime      @default(now())
+  workspace       Workspace?    @relation(fields: [workspaceId], references: [id])
+
+  @@unique([provider, providerEventId])
+  @@index([status, receivedAt])
+  @@index([workspaceId, receivedAt(sort: Desc)])
+  @@map("webhook_events")
+}
+
+/// CROSS-TENANT. The background queue. Claimed with FOR UPDATE SKIP LOCKED,
+/// which gives correct competition between workers without a broker.
+model Job {
+  id          String    @id @default(uuid()) @db.Uuid
+  type        String
+  payload     Json
+  workspaceId String?   @db.Uuid
+  status      JobStatus @default(PENDING)
+  priority    Int       @default(0)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  runAfter    DateTime  @default(now())
+  lockedAt    DateTime?
+  lockedBy    String?
+  lastError   String?
+  /// Optional. When set, enqueueing the same key twice is a no-op.
+  dedupeKey   String?   @unique
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  @@index([status, runAfter, priority(sort: Desc)])
+  @@index([type, status])
+  @@map("jobs")
+}
+
+model Integration {
+  id                  String           @id @default(uuid()) @db.Uuid
+  workspaceId         String           @db.Uuid
+  provider            String
+  status              ChannelStatus    @default(DISCONNECTED)
+  config              Json?
+  /// Encrypted blob. Never selected into any response that reaches a browser.
+  secretsEncrypted    String?
+  connectedAt         DateTime?
+  connectedByMemberId String?          @db.Uuid
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  connectedBy         WorkspaceMember? @relation(fields: [connectedByMemberId], references: [id])
+  workspace           Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, provider])
+  @@map("integrations")
+}
+
+/// CROSS-TENANT. Mirrors config/plans.ts into the database so a subscription
+/// row can reference a plan by foreign key and historical plans survive a
+/// pricing change. config/plans.ts remains the source of truth; a seed step
+/// syncs it here.
+model Plan {
+  key           String         @id
+  name          String
+  description   String?
+  priceMinor    Int
+  currency      String         @default("PKR")
+  interval      String         @default("month")
+  trialDays     Int            @default(14)
+  /// [PlanLimits]
+  limits        Json
+  features      String[]       @default([])
+  isPublic      Boolean        @default(true)
+  position      Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                     String             @id @default(uuid()) @db.Uuid
+  workspaceId            String             @unique @db.Uuid
+  planKey                String
+  status                 SubscriptionStatus @default(TRIAL)
+  provider               String?
+  providerSubscriptionId String?
+  currentPeriodStart     DateTime           @default(now())
+  currentPeriodEnd       DateTime
+  trialEndsAt            DateTime?
+  cancelAtPeriodEnd      Boolean            @default(false)
+  canceledAt             DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  plan                   Plan               @relation(fields: [planKey], references: [key])
+  workspace              Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("subscriptions")
+}
+
+/// Append-only ledger. Every AI call, outbound message and stored byte lands
+/// here attributed to whatever caused it, which is what makes the unit
+/// economics knowable rather than guessed.
+model UsageRecord {
+  id             String        @id @default(uuid()) @db.Uuid
+  workspaceId    String        @db.Uuid
+  metric         UsageMetric
+  quantity       Int
+  agentId        String?       @db.Uuid
+  conversationId String?       @db.Uuid
+  messageId      String?       @db.Uuid
+  provider       String?
+  model          String?
+  costMicros     Int           @default(0)
+  metadata       Json?
+  occurredAt     DateTime      @default(now())
+  agent          AIAgent?      @relation(fields: [agentId], references: [id])
+  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+  message        Message?      @relation(fields: [messageId], references: [id])
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, metric, occurredAt])
+  @@index([workspaceId, occurredAt(sort: Desc)])
+  @@map("usage_records")
+}
+
+/// Pre-aggregated counters keyed by billing period. Checking a plan limit on
+/// every inbound message must not scan the ledger.
+model UsageCounter {
+  id          String      @id @default(uuid()) @db.Uuid
+  workspaceId String      @db.Uuid
+  metric      UsageMetric
+  /// "2026-08" for monthly metrics, "total" for cumulative ones like contacts.
+  periodKey   String
+  quantity    Int         @default(0)
+  updatedAt   DateTime    @updatedAt
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, metric, periodKey])
+  @@map("usage_counters")
+}
+
+model Notification {
+  id           String            @id @default(uuid()) @db.Uuid
+  workspaceId  String            @db.Uuid
+  /// Null means "everyone in the workspace who can see this kind of thing".
+  memberId     String?           @db.Uuid
+  type         NotificationType
+  level        NotificationLevel @default(INFO)
+  title        String
+  body         String?
+  resourceType String?
+  resourceId   String?
+  readAt       DateTime?
+  createdAt    DateTime          @default(now())
+  member       WorkspaceMember?  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, memberId, readAt])
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+/// `workspaceId` is nullable because some auditable actions — a login, an
+/// account deletion — happen outside any workspace.
+model AuditLog {
+  id            String           @id @default(uuid()) @db.Uuid
+  workspaceId   String?          @db.Uuid
+  actorUserId   String?          @db.Uuid
+  actorMemberId String?          @db.Uuid
+  actorType     ActorType        @default(USER)
+  action        String
+  resourceType  String?
+  resourceId    String?
+  ipAddress     String?
+  userAgent     String?
+  metadata      Json?
+  createdAt     DateTime         @default(now())
+  actorMember   WorkspaceMember? @relation(fields: [actorMemberId], references: [id])
+  actorUser     User?            @relation(fields: [actorUserId], references: [id])
+  workspace     Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([workspaceId, resourceType, resourceId])
+  @@index([actorUserId, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+/// CROSS-TENANT rate limiting store. Used when no Redis is configured, which is
+/// the default. `key` encodes the scope, e.g. "login:ip:1.2.3.4".
+model RateLimitBucket {
+  key       String   @id
+  count     Int      @default(0)
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([resetAt])
+  @@map("rate_limit_buckets")
+}
+
+/// Activation and retention funnel events. Deliberately separate from AuditLog:
+/// audit answers "who changed what", this answers "did onboarding work".
+model ProductEvent {
+  id          String     @id @default(uuid()) @db.Uuid
+  workspaceId String?    @db.Uuid
+  userId      String?    @db.Uuid
+  name        String
+  properties  Json?
+  createdAt   DateTime   @default(now())
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([name, createdAt])
+  @@index([workspaceId, createdAt])
+  @@map("product_events")
+}
+
+/// Nightly rollup so the dashboard reads one row per day instead of aggregating
+/// the whole message table on every page load.
+model AnalyticsDaily {
+  id                    String    @id @default(uuid()) @db.Uuid
+  workspaceId           String    @db.Uuid
+  date                  DateTime  @db.Date
+  messagesIn            Int       @default(0)
+  messagesOut           Int       @default(0)
+  conversationsNew      Int       @default(0)
+  conversationsResolved Int       @default(0)
+  aiHandledCount        Int       @default(0)
+  handoffCount          Int       @default(0)
+  contactsNew           Int       @default(0)
+  leadsNew              Int       @default(0)
+  ordersCount           Int       @default(0)
+  revenueMinor          Int       @default(0)
+  aiRequests            Int       @default(0)
+  aiCostMicros          Int       @default(0)
+  /// Milliseconds. Null when there were no responses that day, which is
+  /// meaningfully different from zero.
+  avgFirstResponseMs    Int?
+  avgResolutionMs       Int?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, date])
+  @@index([workspaceId, date(sort: Desc)])
+  @@map("analytics_daily")
+}
+
+enum VerificationPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
 }
 
 enum WorkspaceStatus {
   ACTIVE
   SUSPENDED
   ARCHIVED
-}
-
-/// Links a user to a workspace and carries their role there.
-model WorkspaceMember {
-  id             String                @id @default(uuid()) @db.Uuid
-  workspaceId    String                @db.Uuid
-  userId         String                @db.Uuid
-  role           WorkspaceRole
-  status         MembershipStatus      @default(ACTIVE)
-  invitedByUserId String?              @db.Uuid
-  joinedAt       DateTime              @default(now())
-  lastActiveAt   DateTime?
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  assignedConversations Conversation[]         @relation("ConversationAssignee")
-  conversationParticipations ConversationParticipant[]
-  sentMessages          Message[]              @relation("MessageSenderMember")
-  authoredNotes         ContactNote[]
-  assignedContacts      Contact[]              @relation("ContactAssignee")
-  createdOrders         Order[]                @relation("OrderCreator")
-  orderEvents           OrderEvent[]
-  verifiedPayments      Payment[]
-  assignedAppointments  Appointment[]
-  createdAutomations    Automation[]
-  createdCampaigns      Campaign[]
-  connectedIntegrations Integration[]
-  notifications         Notification[]
-  auditLogs             AuditLog[]
-
-  @@unique([workspaceId, userId])
-  @@index([workspaceId, role])
-  @@index([userId])
-  @@map("workspace_members")
 }
 
 enum WorkspaceRole {
@@ -225,180 +1408,11 @@ enum MembershipStatus {
   SUSPENDED
 }
 
-model WorkspaceInvite {
-  id              String        @id @default(uuid()) @db.Uuid
-  workspaceId     String        @db.Uuid
-  email           String
-  role            WorkspaceRole
-  tokenHash       String        @unique
-  invitedByUserId String        @db.Uuid
-  expiresAt       DateTime
-  acceptedAt      DateTime?
-  revokedAt       DateTime?
-  createdAt       DateTime      @default(now())
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  invitedBy User      @relation("InviteCreator", fields: [invitedByUserId], references: [id], onDelete: Cascade)
-
-  @@unique([workspaceId, email])
-  @@index([workspaceId])
-  @@map("workspace_invites")
-}
-
-/// The business facts the AI is allowed to state. Anything not here, and not in
-/// the knowledge base, the agent must refuse to invent.
-model BusinessProfile {
-  id                       String   @id @default(uuid()) @db.Uuid
-  workspaceId              String   @unique @db.Uuid
-  legalName                String?
-  description              String?
-  category                 String?
-  supportPhone             String?
-  supportEmail             String?
-  website                  String?
-  addressLine1             String?
-  addressLine2             String?
-  city                     String?
-  country                  String   @default("PK")
-  logoStorageKey           String?
-  /// [BusinessHoursConfig] — seven day entries, each open/closed with times.
-  businessHours            Json?
-  shippingPolicy           String?
-  returnPolicy             String?
-  privacyPolicy            String?
-  paymentMethods           String[] @default([])
-  deliveryFeeMinor         Int      @default(0)
-  /// Null means "no free-delivery threshold", which is different from zero.
-  freeDeliveryThresholdMinor Int?
-  /// Basis points, so 17% VAT is 1700. Integer arithmetic throughout.
-  taxRateBps               Int      @default(0)
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@map("business_profiles")
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// WHATSAPP CHANNEL
-// ═══════════════════════════════════════════════════════════════════════════
-
-model WhatsAppAccount {
-  id                   String        @id @default(uuid()) @db.Uuid
-  workspaceId          String        @db.Uuid
-  /// Meta WhatsApp Business Account id.
-  wabaId               String
-  displayName          String?
-  /// Encrypted at rest with a key derived from AUTH_SECRET. Never returned to
-  /// the browser under any circumstance.
-  accessTokenEncrypted String?
-  status               ChannelStatus @default(DISCONNECTED)
-  /// True while MOCK_WHATSAPP is driving this account, so the UI can say so
-  /// plainly instead of implying a live connection.
-  isMock               Boolean       @default(false)
-  connectedAt          DateTime?
-  lastErrorAt          DateTime?
-  lastErrorMessage     String?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-
-  workspace    Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  phoneNumbers WhatsAppPhoneNumber[]
-
-  @@unique([workspaceId, wabaId])
-  @@index([workspaceId])
-  @@map("whatsapp_accounts")
-}
-
 enum ChannelStatus {
   DISCONNECTED
   PENDING
   CONNECTED
   ERROR
-}
-
-/// The inbound routing table. A webhook arrives carrying a `phone_number_id`,
-/// and this is the single place where that becomes a workspace.
-model WhatsAppPhoneNumber {
-  id                 String        @id @default(uuid()) @db.Uuid
-  workspaceId        String        @db.Uuid
-  accountId          String        @db.Uuid
-  /// Meta's phone number id. Globally unique, which is what makes routing a
-  /// single indexed lookup.
-  phoneNumberId      String        @unique
-  displayPhoneNumber String
-  verifiedName       String?
-  qualityRating      String?
-  status             ChannelStatus @default(PENDING)
-  isDefault          Boolean       @default(false)
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-
-  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  account       WhatsAppAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  conversations Conversation[]
-
-  @@index([workspaceId])
-  @@map("whatsapp_phone_numbers")
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CONVERSATIONS
-// ═══════════════════════════════════════════════════════════════════════════
-
-model Conversation {
-  id            String             @id @default(uuid()) @db.Uuid
-  workspaceId   String             @db.Uuid
-  channel       Channel            @default(WHATSAPP)
-  contactId     String             @db.Uuid
-  phoneNumberId String?            @db.Uuid
-  status        ConversationStatus @default(OPEN)
-  priority      Priority           @default(NORMAL)
-  assignedToMemberId String?       @db.Uuid
-
-  /// When false the agent stays silent. Human takeover flips this, and the
-  /// reason is kept so the inbox can explain why.
-  aiEnabled     Boolean            @default(true)
-  aiPausedAt    DateTime?
-  aiPausedByMemberId String?       @db.Uuid
-  handoffReason HandoffReason?
-  handoffAt     DateTime?
-
-  /// Rolling summary of everything older than the recent-message window. This
-  /// is what keeps the model context bounded and cheap.
-  summary               String?
-  summarisedThroughMessageId String? @db.Uuid
-
-  lastMessageAt   DateTime?
-  lastInboundAt   DateTime?
-  lastOutboundAt  DateTime?
-  unreadCount     Int      @default(0)
-  messageCount    Int      @default(0)
-  firstResponseAt DateTime?
-  resolvedAt      DateTime?
-  closedAt        DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  workspace   Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  contact     Contact              @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  phoneNumber WhatsAppPhoneNumber? @relation(fields: [phoneNumberId], references: [id], onDelete: SetNull)
-  assignedTo  WorkspaceMember?     @relation("ConversationAssignee", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
-
-  messages     Message[]
-  participants ConversationParticipant[]
-  orders       Order[]
-  aiTurns      AITurn[]
-  usageRecords UsageRecord[]
-
-  // The inbox default sort is "most recent activity first" within a status
-  // filter, so these composites cover the hot queries exactly.
-  @@index([workspaceId, status, lastMessageAt(sort: Desc)])
-  @@index([workspaceId, assignedToMemberId, status])
-  @@index([workspaceId, contactId])
-  @@index([workspaceId, lastMessageAt(sort: Desc)])
-  @@map("conversations")
 }
 
 enum Channel {
@@ -439,78 +1453,6 @@ enum HandoffReason {
   MANUAL_TAKEOVER
 }
 
-model ConversationParticipant {
-  id             String   @id @default(uuid()) @db.Uuid
-  conversationId String   @db.Uuid
-  memberId       String?  @db.Uuid
-  contactId      String?  @db.Uuid
-  joinedAt       DateTime @default(now())
-  leftAt         DateTime?
-
-  conversation Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  member       WorkspaceMember? @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  contact      Contact?         @relation(fields: [contactId], references: [id], onDelete: Cascade)
-
-  @@unique([conversationId, memberId])
-  @@unique([conversationId, contactId])
-  @@index([conversationId])
-  @@map("conversation_participants")
-}
-
-model Message {
-  id             String        @id @default(uuid()) @db.Uuid
-  workspaceId    String        @db.Uuid
-  conversationId String        @db.Uuid
-  direction      MessageDirection
-  type           MessageType   @default(TEXT)
-  status         MessageStatus @default(QUEUED)
-  body           String?
-
-  /// The provider's message id. Unique so a replayed webhook cannot insert the
-  /// same inbound message twice — the constraint is the idempotency mechanism,
-  /// not an application-level check that could race.
-  providerMessageId String?    @unique
-  replyToProviderMessageId String?
-
-  senderMemberId  String? @db.Uuid
-  senderContactId String? @db.Uuid
-  sentByAi        Boolean @default(false)
-  aiAgentId       String? @db.Uuid
-
-  /// Populated for TEMPLATE and INTERACTIVE types only.
-  templateName      String?
-  templateLanguage  String?
-  payload           Json?
-
-  errorCode    String?
-  errorMessage String?
-
-  createdAt   DateTime  @default(now())
-  /// Provider-reported timestamp, which can differ from createdAt by seconds.
-  occurredAt  DateTime  @default(now())
-  sentAt      DateTime?
-  deliveredAt DateTime?
-  readAt      DateTime?
-  failedAt    DateTime?
-
-  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  conversation Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  senderMember WorkspaceMember? @relation("MessageSenderMember", fields: [senderMemberId], references: [id], onDelete: SetNull)
-  senderContact Contact?        @relation(fields: [senderContactId], references: [id], onDelete: SetNull)
-  agent        AIAgent?         @relation(fields: [aiAgentId], references: [id], onDelete: SetNull)
-
-  attachments        MessageAttachment[]
-  aiTurn             AITurn?
-  usageRecords       UsageRecord[]
-  campaignRecipients CampaignRecipient[]
-
-  // Cursor pagination on a thread reads (conversationId, createdAt) descending.
-  @@index([workspaceId, conversationId, createdAt(sort: Desc)])
-  @@index([workspaceId, status])
-  @@index([workspaceId, createdAt])
-  @@map("messages")
-}
-
 enum MessageDirection {
   INBOUND
   OUTBOUND
@@ -542,94 +1484,6 @@ enum MessageStatus {
   RECEIVED
 }
 
-model MessageAttachment {
-  id              String     @id @default(uuid()) @db.Uuid
-  workspaceId     String     @db.Uuid
-  messageId       String     @db.Uuid
-  kind            MessageType
-  /// Key in private object storage. The browser only ever receives a
-  /// short-lived signed URL derived from this.
-  storageKey      String?
-  providerMediaId String?
-  mimeType        String
-  fileName        String?
-  byteSize        Int?
-  width           Int?
-  height          Int?
-  durationMs      Int?
-  caption         String?
-  /// Populated by the voice pipeline when it is enabled.
-  transcript      String?
-  downloadedAt    DateTime?
-  createdAt       DateTime   @default(now())
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  message   Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, messageId])
-  @@map("message_attachments")
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CRM
-// ═══════════════════════════════════════════════════════════════════════════
-
-model Contact {
-  id             String        @id @default(uuid()) @db.Uuid
-  workspaceId    String        @db.Uuid
-  /// E.164, digits only with a leading +. Normalised on write so that the same
-  /// human is never two contacts.
-  phoneE164      String
-  name           String?
-  /// The name WhatsApp reports, kept separately because the business may
-  /// correct `name` and we should not overwrite their edit on the next message.
-  waProfileName  String?
-  email          String?
-  status         ContactStatus @default(LEAD)
-  leadStage      LeadStage     @default(NEW)
-  source         String?
-  language       String?
-  assignedToMemberId String?   @db.Uuid
-  city           String?
-  addressLine1   String?
-  addressLine2   String?
-  postalCode     String?
-
-  /// Denormalised aggregates. Recomputed inside the order transaction, so they
-  /// cannot drift from the order rows.
-  totalOrders    Int      @default(0)
-  totalSpentMinor Int     @default(0)
-  lastOrderAt    DateTime?
-  lastInteractionAt DateTime?
-
-  /// Set when the customer asks to stop receiving campaign messages. Honoured
-  /// unconditionally by the campaign sender.
-  optedOutAt     DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  deletedAt      DateTime?
-
-  workspace  Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  assignedTo WorkspaceMember? @relation("ContactAssignee", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
-
-  conversations      Conversation[]
-  participations     ConversationParticipant[]
-  messages           Message[]
-  notes              ContactNote[]
-  tags               ContactTag[]
-  orders             Order[]
-  payments           Payment[]
-  appointments       Appointment[]
-  campaignRecipients CampaignRecipient[]
-
-  @@unique([workspaceId, phoneE164])
-  @@index([workspaceId, status])
-  @@index([workspaceId, leadStage])
-  @@index([workspaceId, lastInteractionAt(sort: Desc)])
-  @@index([workspaceId, deletedAt])
-  @@map("contacts")
-}
-
 enum ContactStatus {
   LEAD
   NEW
@@ -650,264 +1504,10 @@ enum LeadStage {
   LOST
 }
 
-model Tag {
-  id          String   @id @default(uuid()) @db.Uuid
-  workspaceId String   @db.Uuid
-  name        String
-  color       String   @default("slate")
-  createdAt   DateTime @default(now())
-
-  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  contacts  ContactTag[]
-
-  @@unique([workspaceId, name])
-  @@index([workspaceId])
-  @@map("tags")
-}
-
-model ContactTag {
-  contactId String   @db.Uuid
-  tagId     String   @db.Uuid
-  createdAt DateTime @default(now())
-
-  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@id([contactId, tagId])
-  @@index([tagId])
-  @@map("contact_tags")
-}
-
-model ContactNote {
-  id             String   @id @default(uuid()) @db.Uuid
-  workspaceId    String   @db.Uuid
-  contactId      String   @db.Uuid
-  authorMemberId String?  @db.Uuid
-  body           String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  contact   Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  author    WorkspaceMember? @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
-
-  @@index([workspaceId, contactId, createdAt(sort: Desc)])
-  @@map("contact_notes")
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CATALOGUE
-// ═══════════════════════════════════════════════════════════════════════════
-
-model Category {
-  id          String   @id @default(uuid()) @db.Uuid
-  workspaceId String   @db.Uuid
-  name        String
-  slug        String
-  position    Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  products  Product[]
-
-  @@unique([workspaceId, slug])
-  @@index([workspaceId])
-  @@map("categories")
-}
-
-model Product {
-  id             String        @id @default(uuid()) @db.Uuid
-  workspaceId    String        @db.Uuid
-  name           String
-  slug           String
-  sku            String?
-  description    String?
-  categoryId     String?       @db.Uuid
-  status         ProductStatus @default(ACTIVE)
-
-  /// Base price. A variant may override it; when the variant's price is null
-  /// this one applies.
-  priceMinor     Int
-  /// Active sale price, or null. Never below zero, never above priceMinor —
-  /// enforced in the service, not just the UI.
-  salePriceMinor Int?
-  currency       String        @default("PKR")
-
-  trackInventory Boolean       @default(true)
-  weightGrams    Int?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  deletedAt      DateTime?
-
-  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  category  Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-
-  images     ProductImage[]
-  variants   ProductVariant[]
-  inventory  InventoryItem[]
-  orderItems OrderItem[]
-
-  @@unique([workspaceId, slug])
-  @@unique([workspaceId, sku])
-  @@index([workspaceId, status])
-  @@index([workspaceId, categoryId])
-  @@index([workspaceId, deletedAt])
-  @@map("products")
-}
-
 enum ProductStatus {
   DRAFT
   ACTIVE
   ARCHIVED
-}
-
-model ProductImage {
-  id          String   @id @default(uuid()) @db.Uuid
-  workspaceId String   @db.Uuid
-  productId   String   @db.Uuid
-  storageKey  String
-  alt         String?
-  position    Int      @default(0)
-  createdAt   DateTime @default(now())
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, productId])
-  @@map("product_images")
-}
-
-/// Size and colour are first-class columns rather than entries in a generic
-/// option bag, because the agent's most common question is literally "black
-/// kurta in XL?" and that has to be an indexed lookup, not a JSON scan.
-/// `optionValues` carries anything else a business needs.
-model ProductVariant {
-  id             String        @id @default(uuid()) @db.Uuid
-  workspaceId    String        @db.Uuid
-  productId      String        @db.Uuid
-  sku            String?
-  name           String?
-  size           String?
-  color          String?
-  optionValues   Json?
-  priceMinor     Int?
-  salePriceMinor Int?
-  status         ProductStatus @default(ACTIVE)
-  position       Int           @default(0)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  inventory  InventoryItem?
-  orderItems OrderItem[]
-
-  @@unique([workspaceId, sku])
-  @@index([workspaceId, productId])
-  @@index([workspaceId, size, color])
-  @@map("product_variants")
-}
-
-/// One row per sellable unit — a variant if the product has variants, otherwise
-/// the product itself. `available` is the only number the agent may quote.
-model InventoryItem {
-  id                String   @id @default(uuid()) @db.Uuid
-  workspaceId       String   @db.Uuid
-  productId         String   @db.Uuid
-  variantId         String?  @unique @db.Uuid
-  available         Int      @default(0)
-  /// Held by unconfirmed orders. Released on cancellation, converted to `sold`
-  /// on fulfilment.
-  reserved          Int      @default(0)
-  sold              Int      @default(0)
-  lowStockThreshold Int      @default(3)
-  updatedAt         DateTime @updatedAt
-
-  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, productId])
-  @@index([workspaceId, available])
-  @@map("inventory_items")
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ORDERS
-// ═══════════════════════════════════════════════════════════════════════════
-
-model Order {
-  id             String        @id @default(uuid()) @db.Uuid
-  workspaceId    String        @db.Uuid
-  /// Human-facing, sequential per workspace. Customers read this out loud, so
-  /// it must be short and unambiguous.
-  orderNumber    String
-  contactId      String        @db.Uuid
-  conversationId String?       @db.Uuid
-
-  status            OrderStatus       @default(PENDING)
-  paymentStatus     PaymentStatus     @default(UNPAID)
-  fulfillmentStatus FulfillmentStatus @default(UNFULFILLED)
-
-  currency         String @default("PKR")
-  /// Every one of these is computed server-side from database prices. A total
-  /// supplied by a client or proposed by a model is discarded.
-  subtotalMinor    Int
-  discountMinor    Int    @default(0)
-  deliveryFeeMinor Int    @default(0)
-  taxMinor         Int    @default(0)
-  totalMinor       Int
-
-  paymentMethod PaymentMethod @default(COD)
-
-  customerName String
-  phoneE164    String
-  addressLine1 String?
-  addressLine2 String?
-  city         String?
-  postalCode   String?
-  country      String  @default("PK")
-  notes        String?
-
-  createdByMemberId String? @db.Uuid
-  /// True when the agent built this order. Kept so the business can audit what
-  /// the AI actually did, and so analytics can attribute outcomes honestly.
-  createdByAi       Boolean @default(false)
-  aiAgentId         String? @db.Uuid
-  idempotencyKey    String? @unique
-
-  placedAt     DateTime  @default(now())
-  confirmedAt  DateTime?
-  shippedAt    DateTime?
-  deliveredAt  DateTime?
-  cancelledAt  DateTime?
-  cancelReason String?
-  courierName    String?
-  trackingNumber String?
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
-  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  contact      Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  conversation Conversation?    @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-  createdBy    WorkspaceMember? @relation("OrderCreator", fields: [createdByMemberId], references: [id], onDelete: SetNull)
-  agent        AIAgent?         @relation(fields: [aiAgentId], references: [id], onDelete: SetNull)
-
-  items    OrderItem[]
-  payments Payment[]
-  events   OrderEvent[]
-
-  @@unique([workspaceId, orderNumber])
-  @@unique([workspaceId, idempotencyKey])
-  @@index([workspaceId, status, createdAt(sort: Desc)])
-  @@index([workspaceId, contactId])
-  @@index([workspaceId, createdAt(sort: Desc)])
-  @@index([workspaceId, deletedAt])
-  @@map("orders")
 }
 
 enum OrderStatus {
@@ -947,197 +1547,12 @@ enum PaymentMethod {
   OTHER
 }
 
-/// Product name, SKU and unit price are snapshotted. A later price change must
-/// not retroactively rewrite what a customer already agreed to pay.
-model OrderItem {
-  id                String @id @default(uuid()) @db.Uuid
-  workspaceId       String @db.Uuid
-  orderId           String @db.Uuid
-  productId         String? @db.Uuid
-  variantId         String? @db.Uuid
-  nameSnapshot      String
-  skuSnapshot       String?
-  variantSnapshot   String?
-  unitPriceMinor    Int
-  quantity          Int
-  lineSubtotalMinor Int
-  createdAt         DateTime @default(now())
-
-  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product   Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
-  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
-
-  @@index([workspaceId, orderId])
-  @@index([workspaceId, productId])
-  @@map("order_items")
-}
-
-model OrderEvent {
-  id            String       @id @default(uuid()) @db.Uuid
-  workspaceId   String       @db.Uuid
-  orderId       String       @db.Uuid
-  type          String
-  fromStatus    OrderStatus?
-  toStatus      OrderStatus?
-  actorMemberId String?      @db.Uuid
-  byAi          Boolean      @default(false)
-  note          String?
-  createdAt     DateTime     @default(now())
-
-  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  order     Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  actor     WorkspaceMember? @relation(fields: [actorMemberId], references: [id], onDelete: SetNull)
-
-  @@index([workspaceId, orderId, createdAt])
-  @@map("order_events")
-}
-
-/// Records a payment attempt or receipt. Raw card data is never stored — the
-/// provider holds it and we keep only their reference.
-model Payment {
-  id                String        @id @default(uuid()) @db.Uuid
-  workspaceId       String        @db.Uuid
-  orderId           String?       @db.Uuid
-  contactId         String?       @db.Uuid
-  provider          String
-  providerPaymentId String?
-  status            PaymentStatus @default(PENDING)
-  method            PaymentMethod
-  amountMinor       Int
-  currency          String        @default("PKR")
-  reference         String?
-  /// Pakistani customers commonly send a bank-transfer screenshot. It is stored
-  /// privately and a human verifies it — the agent never confirms a payment.
-  proofStorageKey   String?
-  verifiedByMemberId String?      @db.Uuid
-  verifiedAt        DateTime?
-  failureReason     String?
-  metadata          Json?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-
-  workspace  Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  order      Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  contact    Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  verifiedBy WorkspaceMember? @relation(fields: [verifiedByMemberId], references: [id], onDelete: SetNull)
-
-  @@unique([provider, providerPaymentId])
-  @@index([workspaceId, status])
-  @@index([workspaceId, orderId])
-  @@map("payments")
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// APPOINTMENTS  (schema present from the start; UI behind ENABLE_APPOINTMENTS)
-// ═══════════════════════════════════════════════════════════════════════════
-
-model Service {
-  id              String   @id @default(uuid()) @db.Uuid
-  workspaceId     String   @db.Uuid
-  name            String
-  description     String?
-  durationMinutes Int
-  bufferMinutes   Int      @default(0)
-  priceMinor      Int?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  appointments Appointment[]
-
-  @@index([workspaceId, isActive])
-  @@map("services")
-}
-
-model Appointment {
-  id                 String            @id @default(uuid()) @db.Uuid
-  workspaceId        String            @db.Uuid
-  contactId          String            @db.Uuid
-  serviceId          String?           @db.Uuid
-  assignedToMemberId String?           @db.Uuid
-  status             AppointmentStatus @default(SCHEDULED)
-  startsAt           DateTime
-  endsAt             DateTime
-  notes              String?
-  remindedAt         DateTime?
-  createdByAi        Boolean           @default(false)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-
-  workspace  Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  contact    Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  service    Service?         @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-  assignedTo WorkspaceMember? @relation(fields: [assignedToMemberId], references: [id], onDelete: SetNull)
-
-  @@index([workspaceId, startsAt])
-  @@index([workspaceId, status, startsAt])
-  @@map("appointments")
-}
-
 enum AppointmentStatus {
   SCHEDULED
   CONFIRMED
   COMPLETED
   CANCELLED
   NO_SHOW
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// AI
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// A collection rather than a singleton on Workspace, so "multiple AI
-/// employees" later is a UI change and not a migration.
-model AIAgent {
-  id          String    @id @default(uuid()) @db.Uuid
-  workspaceId String    @db.Uuid
-  name        String
-  role        AgentRole @default(SALES_SUPPORT)
-  isActive    Boolean   @default(false)
-  isDefault   Boolean   @default(true)
-
-  tone      AgentTone @default(FRIENDLY)
-  /// e.g. ["en", "ur", "roman-ur"]. The agent replies in the language the
-  /// customer used, including mixed Roman Urdu.
-  languages String[]  @default(["en", "roman-ur"])
-  greeting  String?
-  persona   String?
-  /// Owner-authored free text, appended to the composed system prompt. It can
-  /// add instructions but cannot override the safety and grounding rules.
-  customInstructions String?
-
-  model            String  @default("gpt-4o-mini")
-  temperature      Float   @default(0.3)
-  maxOutputTokens  Int     @default(600)
-  /// Below this evidence-derived score the turn is handed to a human instead of
-  /// answered. See server/services/agent/confidence.ts.
-  confidenceFloor  Float   @default(0.45)
-
-  businessHoursOnly Boolean  @default(false)
-  handoffKeywords   String[] @default([])
-  /// [EscalationRules]
-  escalationRules   Json?
-
-  /// Denormalised counters for the "Your AI employee" panel.
-  conversationsHandled Int @default(0)
-  handoffCount         Int @default(0)
-  ordersCreated        Int @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  instructions AIAgentInstruction[]
-  messages     Message[]
-  orders       Order[]
-  turns        AITurn[]
-  usageRecords UsageRecord[]
-
-  @@index([workspaceId, isActive])
-  @@map("ai_agents")
 }
 
 enum AgentRole {
@@ -1158,71 +1573,6 @@ enum AgentTone {
   DETAILED
 }
 
-model AIAgentInstruction {
-  id          String   @id @default(uuid()) @db.Uuid
-  workspaceId String   @db.Uuid
-  agentId     String   @db.Uuid
-  title       String
-  content     String
-  position    Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  agent     AIAgent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, agentId, position])
-  @@map("ai_agent_instructions")
-}
-
-model KnowledgeBase {
-  id             String   @id @default(uuid()) @db.Uuid
-  workspaceId    String   @unique @db.Uuid
-  embeddingModel String   @default("text-embedding-3-small")
-  embeddingDims  Int      @default(1536)
-  chunkSize      Int      @default(900)
-  chunkOverlap   Int      @default(150)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  workspace Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  documents KnowledgeDocument[]
-
-  @@map("knowledge_bases")
-}
-
-model KnowledgeDocument {
-  id              String          @id @default(uuid()) @db.Uuid
-  workspaceId     String          @db.Uuid
-  knowledgeBaseId String          @db.Uuid
-  type            KnowledgeType
-  title           String
-  /// Present for TEXT and FAQ. File-backed types keep their text in chunks
-  /// only, so a large PDF is not duplicated in the row.
-  content         String?
-  question        String?
-  answer          String?
-  sourceUrl       String?
-  storageKey      String?
-  mimeType        String?
-  byteSize        Int?
-  status          IngestStatus    @default(PENDING)
-  errorMessage    String?
-  chunkCount      Int             @default(0)
-  ingestedAt      DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-
-  workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  knowledgeBase KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
-  chunks        KnowledgeChunk[]
-
-  @@index([workspaceId, status])
-  @@index([workspaceId, type])
-  @@map("knowledge_documents")
-}
-
 enum KnowledgeType {
   TEXT
   FAQ
@@ -1240,80 +1590,6 @@ enum IngestStatus {
   FAILED
 }
 
-model KnowledgeChunk {
-  id          String   @id @default(uuid()) @db.Uuid
-  workspaceId String   @db.Uuid
-  documentId  String   @db.Uuid
-  content     String
-  position    Int
-  tokenCount  Int      @default(0)
-  /// pgvector column. Prisma has no native vector type, so it is Unsupported
-  /// here and queried through raw SQL in the retrieval repository. The HNSW
-  /// index is created in the migration.
-  embedding   Unsupported("vector(1536)")?
-  metadata    Json?
-  createdAt   DateTime @default(now())
-
-  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  document  KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId])
-  @@index([workspaceId, documentId, position])
-  @@map("knowledge_chunks")
-}
-
-/// One agent turn. This is the audit trail for AI behaviour: what it retrieved,
-/// which tools it called, what the evidence-derived confidence was, and whether
-/// the grounding check let the reply through.
-model AITurn {
-  id             String  @id @default(uuid()) @db.Uuid
-  workspaceId    String  @db.Uuid
-  conversationId String? @db.Uuid
-  /// Null for playground turns, which never touch a real conversation.
-  messageId      String? @unique @db.Uuid
-  agentId        String  @db.Uuid
-
-  source      TurnSource @default(CONVERSATION)
-  inputText    String
-  outputText   String?
-  intent       String?
-  provider     String
-  model        String
-
-  confidence     Float?
-  confidenceBand ConfidenceBand?
-  retrievedChunkIds String[]     @default([])
-  retrievalTopScore Float?
-  /// [ToolCallRecord[]] — name, arguments, result summary, duration.
-  toolCalls      Json?
-  groundingPassed Boolean        @default(true)
-  /// Set when the grounding layer replaced the model's reply. This is the
-  /// metric that tells us whether the agent is trying to hallucinate.
-  blockedReason  String?
-  handoffTriggered Boolean       @default(false)
-  handoffReason  HandoffReason?
-
-  inputTokens  Int @default(0)
-  outputTokens Int @default(0)
-  /// Cost in millionths of a currency unit, integer. Sub-cent AI costs would
-  /// vanish in minor units.
-  costMicros   Int @default(0)
-  latencyMs    Int @default(0)
-  errorMessage String?
-
-  createdAt DateTime @default(now())
-
-  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  message      Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
-  agent        AIAgent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, createdAt(sort: Desc)])
-  @@index([workspaceId, conversationId])
-  @@index([workspaceId, groundingPassed])
-  @@map("ai_turns")
-}
-
 enum TurnSource {
   CONVERSATION
   PLAYGROUND
@@ -1324,37 +1600,6 @@ enum ConfidenceBand {
   HIGH
   MEDIUM
   LOW
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// AUTOMATION
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Automations are data, not code. A trigger plus an ordered action list, so a
-/// new automation is a row rather than a deploy.
-model Automation {
-  id                String      @id @default(uuid()) @db.Uuid
-  workspaceId       String      @db.Uuid
-  name              String
-  description       String?
-  isActive          Boolean     @default(false)
-  triggerType       TriggerType
-  /// [TriggerConfig] — keywords, status transitions, idle duration, and so on.
-  triggerConfig     Json?
-  runCount          Int         @default(0)
-  lastRunAt         DateTime?
-  createdByMemberId String?     @db.Uuid
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-
-  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy WorkspaceMember? @relation(fields: [createdByMemberId], references: [id], onDelete: SetNull)
-
-  actions AutomationAction[]
-  runs    AutomationRun[]
-
-  @@index([workspaceId, isActive, triggerType])
-  @@map("automations")
 }
 
 enum TriggerType {
@@ -1373,24 +1618,6 @@ enum TriggerType {
   LOW_STOCK
 }
 
-model AutomationAction {
-  id           String     @id @default(uuid()) @db.Uuid
-  workspaceId  String     @db.Uuid
-  automationId String     @db.Uuid
-  position     Int
-  type         ActionType
-  /// [ActionConfig] — message body, wait duration, tag name, assignee, etc.
-  config       Json
-  createdAt    DateTime   @default(now())
-
-  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  automation Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
-
-  @@unique([automationId, position])
-  @@index([workspaceId, automationId])
-  @@map("automation_actions")
-}
-
 enum ActionType {
   SEND_MESSAGE
   SEND_TEMPLATE
@@ -1407,67 +1634,12 @@ enum ActionType {
   CREATE_NOTE
 }
 
-/// `dedupeKey` is what makes a retried job safe: the unique constraint means a
-/// second attempt for the same automation and subject cannot double-send.
-model AutomationRun {
-  id           String    @id @default(uuid()) @db.Uuid
-  workspaceId  String    @db.Uuid
-  automationId String    @db.Uuid
-  subjectType  String
-  subjectId    String
-  dedupeKey    String    @unique
-  status       RunStatus @default(RUNNING)
-  currentActionPosition Int @default(0)
-  startedAt    DateTime  @default(now())
-  finishedAt   DateTime?
-  error        String?
-
-  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  automation Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, automationId, startedAt(sort: Desc)])
-  @@map("automation_runs")
-}
-
 enum RunStatus {
   RUNNING
   WAITING
   COMPLETED
   FAILED
   CANCELLED
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TEMPLATES AND CAMPAIGNS
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Approval status mirrors Meta's, and is never set optimistically. A template
-/// is usable only once Meta says APPROVED.
-model MessageTemplate {
-  id                 String           @id @default(uuid()) @db.Uuid
-  workspaceId        String           @db.Uuid
-  name               String
-  language           String           @default("en")
-  category           TemplateCategory
-  bodyText           String
-  headerText         String?
-  footerText         String?
-  /// [TemplateVariable[]] — positional placeholders and example values.
-  variables          Json?
-  providerTemplateId String?
-  approvalStatus     TemplateApproval @default(DRAFT)
-  rejectionReason    String?
-  submittedAt        DateTime?
-  approvedAt         DateTime?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-
-  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  campaigns Campaign[]
-
-  @@unique([workspaceId, name, language])
-  @@index([workspaceId, approvalStatus])
-  @@map("message_templates")
 }
 
 enum TemplateCategory {
@@ -1485,34 +1657,6 @@ enum TemplateApproval {
   DISABLED
 }
 
-model Campaign {
-  id                String         @id @default(uuid()) @db.Uuid
-  workspaceId       String         @db.Uuid
-  name              String
-  templateId        String?        @db.Uuid
-  status            CampaignStatus @default(DRAFT)
-  /// [AudienceFilter] — tags, lead stage, purchase history, city.
-  audienceFilter    Json?
-  scheduledAt       DateTime?
-  startedAt         DateTime?
-  completedAt       DateTime?
-  recipientCount    Int            @default(0)
-  sentCount         Int            @default(0)
-  failedCount       Int            @default(0)
-  createdByMemberId String?        @db.Uuid
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-
-  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  template  MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  createdBy WorkspaceMember? @relation(fields: [createdByMemberId], references: [id], onDelete: SetNull)
-
-  recipients CampaignRecipient[]
-
-  @@index([workspaceId, status])
-  @@map("campaigns")
-}
-
 enum CampaignStatus {
   DRAFT
   SCHEDULED
@@ -1521,27 +1665,6 @@ enum CampaignStatus {
   PAUSED
   CANCELLED
   FAILED
-}
-
-model CampaignRecipient {
-  id          String          @id @default(uuid()) @db.Uuid
-  workspaceId String          @db.Uuid
-  campaignId  String          @db.Uuid
-  contactId   String          @db.Uuid
-  status      RecipientStatus @default(PENDING)
-  messageId   String?         @db.Uuid
-  error       String?
-  sentAt      DateTime?
-  createdAt   DateTime        @default(now())
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  campaign  Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  message   Message?  @relation(fields: [messageId], references: [id], onDelete: SetNull)
-
-  @@unique([campaignId, contactId])
-  @@index([workspaceId, campaignId, status])
-  @@map("campaign_recipients")
 }
 
 enum RecipientStatus {
@@ -1554,70 +1677,12 @@ enum RecipientStatus {
   SKIPPED_OUTSIDE_WINDOW
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PLATFORM INFRASTRUCTURE
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// CROSS-TENANT at insert time. An inbound webhook has no workspace until the
-/// receiving phone number is resolved, which is precisely why `workspaceId` is
-/// nullable here and nowhere else in the message path.
-model WebhookEvent {
-  id               String        @id @default(uuid()) @db.Uuid
-  provider         String        @default("whatsapp")
-  /// Meta's event/message id. The unique constraint is the deduplication
-  /// mechanism — a replayed delivery conflicts and is answered 200 immediately.
-  providerEventId  String
-  workspaceId      String?       @db.Uuid
-  phoneNumberId    String?
-  eventType        String
-  payload          Json
-  signatureValid   Boolean
-  status           WebhookStatus @default(RECEIVED)
-  attempts         Int           @default(0)
-  processedAt      DateTime?
-  error            String?
-  receivedAt       DateTime      @default(now())
-
-  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-
-  @@unique([provider, providerEventId])
-  @@index([status, receivedAt])
-  @@index([workspaceId, receivedAt(sort: Desc)])
-  @@map("webhook_events")
-}
-
 enum WebhookStatus {
   RECEIVED
   PROCESSING
   PROCESSED
   FAILED
   IGNORED
-}
-
-/// CROSS-TENANT. The background queue. Claimed with FOR UPDATE SKIP LOCKED,
-/// which gives correct competition between workers without a broker.
-model Job {
-  id          String    @id @default(uuid()) @db.Uuid
-  type        String
-  payload     Json
-  workspaceId String?   @db.Uuid
-  status      JobStatus @default(PENDING)
-  priority    Int       @default(0)
-  attempts    Int       @default(0)
-  maxAttempts Int       @default(5)
-  runAfter    DateTime  @default(now())
-  lockedAt    DateTime?
-  lockedBy    String?
-  lastError   String?
-  /// Optional. When set, enqueueing the same key twice is a no-op.
-  dedupeKey   String?   @unique
-  createdAt   DateTime  @default(now())
-  startedAt   DateTime?
-  completedAt DateTime?
-
-  @@index([status, runAfter, priority(sort: Desc)])
-  @@index([type, status])
-  @@map("jobs")
 }
 
 enum JobStatus {
@@ -1628,110 +1693,12 @@ enum JobStatus {
   DEAD
 }
 
-model Integration {
-  id                   String        @id @default(uuid()) @db.Uuid
-  workspaceId          String        @db.Uuid
-  provider             String
-  status               ChannelStatus @default(DISCONNECTED)
-  config               Json?
-  /// Encrypted blob. Never selected into any response that reaches a browser.
-  secretsEncrypted     String?
-  connectedAt          DateTime?
-  connectedByMemberId  String?       @db.Uuid
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-
-  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  connectedBy WorkspaceMember? @relation(fields: [connectedByMemberId], references: [id], onDelete: SetNull)
-
-  @@unique([workspaceId, provider])
-  @@map("integrations")
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// BILLING AND METERING
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// CROSS-TENANT. Mirrors config/plans.ts into the database so a subscription
-/// row can reference a plan by foreign key and historical plans survive a
-/// pricing change. config/plans.ts remains the source of truth; a seed step
-/// syncs it here.
-model Plan {
-  key         String   @id
-  name        String
-  description String?
-  priceMinor  Int
-  currency    String   @default("PKR")
-  interval    String   @default("month")
-  trialDays   Int      @default(14)
-  /// [PlanLimits]
-  limits      Json
-  features    String[] @default([])
-  isPublic    Boolean  @default(true)
-  position    Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  subscriptions Subscription[]
-
-  @@map("plans")
-}
-
-model Subscription {
-  id                     String             @id @default(uuid()) @db.Uuid
-  workspaceId            String             @unique @db.Uuid
-  planKey                String
-  status                 SubscriptionStatus @default(TRIAL)
-  provider               String?
-  providerSubscriptionId String?
-  currentPeriodStart     DateTime           @default(now())
-  currentPeriodEnd       DateTime
-  trialEndsAt            DateTime?
-  cancelAtPeriodEnd      Boolean            @default(false)
-  canceledAt             DateTime?
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  plan      Plan      @relation(fields: [planKey], references: [key])
-
-  @@index([status])
-  @@map("subscriptions")
-}
-
 enum SubscriptionStatus {
   TRIAL
   ACTIVE
   PAST_DUE
   CANCELED
   EXPIRED
-}
-
-/// Append-only ledger. Every AI call, outbound message and stored byte lands
-/// here attributed to whatever caused it, which is what makes the unit
-/// economics knowable rather than guessed.
-model UsageRecord {
-  id             String      @id @default(uuid()) @db.Uuid
-  workspaceId    String      @db.Uuid
-  metric         UsageMetric
-  quantity       Int
-  agentId        String?     @db.Uuid
-  conversationId String?     @db.Uuid
-  messageId      String?     @db.Uuid
-  provider       String?
-  model          String?
-  costMicros     Int         @default(0)
-  metadata       Json?
-  occurredAt     DateTime    @default(now())
-
-  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  agent        AIAgent?      @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-  message      Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
-
-  @@index([workspaceId, metric, occurredAt])
-  @@index([workspaceId, occurredAt(sort: Desc)])
-  @@map("usage_records")
 }
 
 enum UsageMetric {
@@ -1746,49 +1713,6 @@ enum UsageMetric {
   STORAGE_BYTES
   CONTACT_COUNT
   TEAM_MEMBER_COUNT
-}
-
-/// Pre-aggregated counters keyed by billing period. Checking a plan limit on
-/// every inbound message must not scan the ledger.
-model UsageCounter {
-  id          String      @id @default(uuid()) @db.Uuid
-  workspaceId String      @db.Uuid
-  metric      UsageMetric
-  /// "2026-08" for monthly metrics, "total" for cumulative ones like contacts.
-  periodKey   String
-  quantity    Int         @default(0)
-  updatedAt   DateTime    @updatedAt
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@unique([workspaceId, metric, periodKey])
-  @@map("usage_counters")
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// NOTIFICATIONS, AUDIT, ANALYTICS
-// ═══════════════════════════════════════════════════════════════════════════
-
-model Notification {
-  id           String            @id @default(uuid()) @db.Uuid
-  workspaceId  String            @db.Uuid
-  /// Null means "everyone in the workspace who can see this kind of thing".
-  memberId     String?           @db.Uuid
-  type         NotificationType
-  level        NotificationLevel @default(INFO)
-  title        String
-  body         String?
-  resourceType String?
-  resourceId   String?
-  readAt       DateTime?
-  createdAt    DateTime          @default(now())
-
-  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  member    WorkspaceMember? @relation(fields: [memberId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, memberId, readAt])
-  @@index([workspaceId, createdAt(sort: Desc)])
-  @@map("notifications")
 }
 
 enum NotificationType {
@@ -1814,99 +1738,10 @@ enum NotificationLevel {
   ERROR
 }
 
-/// `workspaceId` is nullable because some auditable actions — a login, an
-/// account deletion — happen outside any workspace.
-model AuditLog {
-  id             String    @id @default(uuid()) @db.Uuid
-  workspaceId    String?   @db.Uuid
-  actorUserId    String?   @db.Uuid
-  actorMemberId  String?   @db.Uuid
-  actorType      ActorType @default(USER)
-  action         String
-  resourceType   String?
-  resourceId     String?
-  ipAddress      String?
-  userAgent      String?
-  metadata       Json?
-  createdAt      DateTime  @default(now())
-
-  workspace   Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  actorUser   User?            @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
-  actorMember WorkspaceMember? @relation(fields: [actorMemberId], references: [id], onDelete: SetNull)
-
-  @@index([workspaceId, createdAt(sort: Desc)])
-  @@index([workspaceId, resourceType, resourceId])
-  @@index([actorUserId, createdAt(sort: Desc)])
-  @@map("audit_logs")
-}
-
 enum ActorType {
   USER
   AI_AGENT
   SYSTEM
   AUTOMATION
   CUSTOMER
-}
-
-/// CROSS-TENANT rate limiting store. Used when no Redis is configured, which is
-/// the default. `key` encodes the scope, e.g. "login:ip:1.2.3.4".
-model RateLimitBucket {
-  key       String   @id
-  count     Int      @default(0)
-  resetAt   DateTime
-  updatedAt DateTime @updatedAt
-
-  @@index([resetAt])
-  @@map("rate_limit_buckets")
-}
-
-/// Activation and retention funnel events. Deliberately separate from AuditLog:
-/// audit answers "who changed what", this answers "did onboarding work".
-model ProductEvent {
-  id          String   @id @default(uuid()) @db.Uuid
-  workspaceId String?  @db.Uuid
-  userId      String?  @db.Uuid
-  name        String
-  properties  Json?
-  createdAt   DateTime @default(now())
-
-  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@index([name, createdAt])
-  @@index([workspaceId, createdAt])
-  @@map("product_events")
-}
-
-/// Nightly rollup so the dashboard reads one row per day instead of aggregating
-/// the whole message table on every page load.
-model AnalyticsDaily {
-  id          String   @id @default(uuid()) @db.Uuid
-  workspaceId String   @db.Uuid
-  date        DateTime @db.Date
-
-  messagesIn        Int @default(0)
-  messagesOut       Int @default(0)
-  conversationsNew  Int @default(0)
-  conversationsResolved Int @default(0)
-  aiHandledCount    Int @default(0)
-  handoffCount      Int @default(0)
-  contactsNew       Int @default(0)
-  leadsNew          Int @default(0)
-  ordersCount       Int @default(0)
-  revenueMinor      Int @default(0)
-  aiRequests        Int @default(0)
-  aiCostMicros      Int @default(0)
-  /// Milliseconds. Null when there were no responses that day, which is
-  /// meaningfully different from zero.
-  avgFirstResponseMs Int?
-  avgResolutionMs    Int?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@unique([workspaceId, date])
-  @@index([workspaceId, date(sort: Desc)])
-  @@map("analytics_daily")
 }
