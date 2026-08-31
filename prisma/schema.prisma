@@ -68,6 +68,7 @@ model VerificationToken {
 
   @@index([identifier, purpose])
   @@index([expiresAt])
+  @@index([consumedAt])
   @@map("verification_tokens")
 }
 
@@ -318,6 +319,7 @@ model Conversation {
   @@index([workspaceId, assignedToMemberId, status])
   @@index([workspaceId, contactId])
   @@index([workspaceId, lastMessageAt(sort: Desc)])
+  @@index([workspaceId, contactId, channel, status, createdAt(sort: Desc)])
   @@map("conversations")
 }
 
@@ -460,6 +462,7 @@ model Contact {
   @@index([workspaceId, leadStage])
   @@index([workspaceId, lastInteractionAt(sort: Desc)])
   @@index([workspaceId, deletedAt])
+  @@index([workspaceId, deletedAt, createdAt(sort: Desc)])
   @@map("contacts")
 }
 
@@ -554,6 +557,7 @@ model Product {
   @@index([workspaceId, status])
   @@index([workspaceId, categoryId])
   @@index([workspaceId, deletedAt])
+  @@index([workspaceId, deletedAt, createdAt(sort: Desc)])
   @@map("products")
 }
 
@@ -685,6 +689,7 @@ model Order {
   @@index([workspaceId, contactId])
   @@index([workspaceId, createdAt(sort: Desc)])
   @@index([workspaceId, deletedAt])
+  @@index([workspaceId, deletedAt, createdAt(sort: Desc)])
   @@map("orders")
 }
 
@@ -850,6 +855,7 @@ model AIAgent {
   usageRecords         UsageRecord[]
 
   @@index([workspaceId, isActive])
+  @@index([workspaceId, isDefault])
   @@map("ai_agents")
 }
 
@@ -1144,6 +1150,7 @@ model WebhookEvent {
   @@unique([provider, providerEventId])
   @@index([status, receivedAt])
   @@index([workspaceId, receivedAt(sort: Desc)])
+  @@index([status, processedAt])
   @@map("webhook_events")
 }
 
@@ -1168,7 +1175,8 @@ model Job {
   startedAt   DateTime?
   completedAt DateTime?
 
-  @@index([status, runAfter, priority(sort: Desc)])
+  @@index([status, priority(sort: Desc), runAfter])
+  @@index([status, completedAt])
   @@index([type, status])
   @@map("jobs")
 }

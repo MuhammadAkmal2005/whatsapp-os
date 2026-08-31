@@ -19,14 +19,25 @@ import 'server-only';
 
 import { prisma } from '@/db/prisma';
 import { logger } from '@/lib/logger';
-import { deleteCompletedJobsBefore } from '@/server/repositories/job.repository';
+import {
+  deleteCompletedJobsBefore,
+  deleteDeadJobsBefore,
+} from '@/server/repositories/job.repository';
 import { deleteElapsedBuckets } from '@/server/repositories/rate-limit.repository';
 import { deleteExpiredSessions } from '@/server/repositories/session.repository';
+import { deleteExpiredVerificationTokens } from '@/server/repositories/verification-token.repository';
+import { deleteProcessedWebhooksBefore } from '@/server/repositories/webhook-event.repository';
 
 import type { JobContext } from '../registry';
 
-/** Long enough that a failure investigated the next morning still has its history. */
+/** Long enough that a failure investigated the next morning still has its history (3 days). */
 const COMPLETED_JOB_RETENTION_MS = 3 * 24 * 60 * 60_000;
+/** Processed or failed webhook records kept for 14 days for webhook forensics/reconciliation. */
+const PROCESSED_WEBHOOK_RETENTION_MS = 14 * 24 * 60 * 60_000;
+/** Dead jobs kept for 30 days for inspection before terminal pruning. */
+const DEAD_JOB_RETENTION_MS = 30 * 24 * 60 * 60_000;
+/** Consumed verification tokens kept for 7 days. */
+const CONSUMED_TOKEN_RETENTION_MS = 7 * 24 * 60 * 60_000;
 
 export async function maintenanceSweep(_payload: Record<string, never>, context: JobContext): Promise<void> {
   const now = new Date();
@@ -36,9 +47,19 @@ export async function maintenanceSweep(_payload: Record<string, never>, context:
     deleteElapsedBuckets(prisma, now),
     deleteExpiredSessions(prisma, now),
     deleteCompletedJobsBefore(prisma, new Date(now.getTime() - COMPLETED_JOB_RETENTION_MS)),
+    deleteDeadJobsBefore(prisma, new Date(now.getTime() - DEAD_JOB_RETENTION_MS)),
+    deleteProcessedWebhooksBefore(prisma, new Date(now.getTime() - PROCESSED_WEBHOOK_RETENTION_MS)),
+    deleteExpiredVerificationTokens(prisma, now, new Date(now.getTime() - CONSUMED_TOKEN_RETENTION_MS)),
   ]);
 
-  const labels = ['rateLimitBuckets', 'expiredSessions', 'completedJobs'] as const;
+  const labels = [
+    'rateLimitBuckets',
+    'expiredSessions',
+    'completedJobs',
+    'deadJobs',
+    'processedWebhooks',
+    'expiredVerificationTokens',
+  ] as const;
   const deleted: Record<string, number> = {};
 
   results.forEach((result, index) => {

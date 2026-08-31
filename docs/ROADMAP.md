@@ -28,11 +28,10 @@ Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, and Phase 7 are c
 
   - **Unit 3 (`441a033`, `47d76e0`)**: Payment provider integration (Stripe/mock checkout & webhook handling) and Master Phase 8 acceptance suite.
 - **Phase 9**:
-  - **Unit 1**: Security hardening (strict CSP & headers, active session revocation wiring, comprehensive rate-limit attachment, and PostgreSQL RLS architecture).
+  - **Unit 1 (`108584c`)**: Security hardening (strict CSP & headers, active session revocation wiring, comprehensive rate-limit attachment, and PostgreSQL RLS architecture).
+  - **Unit 2**: Database performance optimization, composite indexes for high-volume queries, partial unique indexes for InventoryItem & AIAgent, job claim query optimization (`FOR UPDATE SKIP LOCKED`), and periodic maintenance sweep retention pruning.
 
-**Next Milestone:** Phase 9 Unit 2 (Performance, Index Review & Security Hardening).
-
-**The test and verification gate is active.** 71 test files with 732 passing tests (unit + database-backed integration), TypeScript strict typecheck, ESLint, and Next.js production build all pass locally.
+**The test and verification gate is active.** 73 test files with 742 passing tests (unit + database-backed integration), TypeScript strict typecheck, ESLint, and Next.js production build all pass locally.
 
 ---
 
@@ -47,14 +46,6 @@ tests pass" means "they passed for whoever last remembered to run them."
 
 **No Playwright config.** `npm run test:e2e` is wired and `@playwright/test` is installed, but `playwright.config.ts`
 and `tests/e2e/` do not exist, so the command fails.
-
-**`InventoryItem` has no unique constraint on its product-level row.** `variantId` is unique, so a variant
-has exactly one stock row and can be upserted. The row *for the product itself* — where `variantId IS NULL` —
-is covered by nothing, so `ensureStockRow` is a find-then-create and two concurrent requests can both find
-nothing and both insert. A product with two stock rows then reports whichever `available` a later query happens
-to read, and the figure will not stay still. The fix is a partial unique index, `(productId) WHERE variantId IS
-NULL`, added in the initial migration; the exposure today is low only because both callers are one shop owner
-saving one form.
 
 **Deleting a variant does not check its reserved stock.** `deleteVariant` removes the size and, by cascade, its
 `InventoryItem` row — including any `reserved` units held by an unconfirmed order. The order itself survives

@@ -38,7 +38,7 @@ const UNUSABLE_PASSWORD_HASH = 'scrypt$65536$8$1$0000000000000000$00000000000000
  */
 export async function resetDatabase(): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE users, workspaces, jobs, webhook_events, rate_limit_buckets RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE users, workspaces, jobs, webhook_events, rate_limit_buckets, verification_tokens RESTART IDENTITY CASCADE',
   );
 }
 

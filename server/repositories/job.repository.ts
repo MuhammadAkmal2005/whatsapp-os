@@ -224,3 +224,12 @@ export async function deleteCompletedJobsBefore(db: Db, before: Date): Promise<n
   });
   return deleted.count;
 }
+
+/** Housekeeping. Dead-letter jobs kept for a retention window (e.g. 30 days) and then pruned. */
+export async function deleteDeadJobsBefore(db: Db, before: Date): Promise<number> {
+  const deleted = await db.job.deleteMany({
+    where: { status: 'DEAD', completedAt: { lt: before } },
+  });
+  return deleted.count;
+}
+

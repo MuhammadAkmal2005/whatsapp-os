@@ -56,3 +56,21 @@ export async function updateWebhookEventStatus(
     },
   });
 }
+
+/**
+ * Housekeeping for scheduled maintenance sweep.
+ * Deletes processed or failed webhook events older than the retention boundary.
+ */
+export async function deleteProcessedWebhooksBefore(
+  db: Db,
+  before: Date,
+): Promise<number> {
+  const result = await db.webhookEvent.deleteMany({
+    where: {
+      status: { in: ['PROCESSED', 'FAILED'] },
+      receivedAt: { lt: before },
+    },
+  });
+  return result.count;
+}
+

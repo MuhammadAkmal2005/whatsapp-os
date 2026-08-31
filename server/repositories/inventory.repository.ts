@@ -92,18 +92,11 @@ export async function listStockForProduct(
 /**
  * Creates the row if it is missing, and leaves it alone if it is not.
  *
- * Not an `upsert`, and the reason is a real gap in the schema rather than a preference:
- * `InventoryItem.variantId` is unique, so a variant row could be upserted, but there is
- * no unique constraint covering the product-level row where `variantId IS NULL`. Prisma
- * has no unique key to name, so this is a find-then-create.
+ * Backed by partial unique index `(productId) WHERE variantId IS NULL` (for product-level stock)
+ * and `variantId @unique` (for variant stock).
  *
- * That makes it racy under concurrency: two requests could both find nothing and both
- * insert, leaving a product with two stock rows and an `available` figure that depends
- * on which one a later query happens to read. The window is small and both callers today
- * are a single shop owner saving a form, so the exposure is low — but it is a real
- * defect, the fix is a partial unique index on `(productId) WHERE variantId IS NULL`,
- * and it is recorded in `docs/ROADMAP.md` rather than left for someone to discover from
- * a stock figure that will not stay still.
+ * Under concurrent initialization, if two requests race, the unique index safely prevents
+ * duplicate rows and the loser gracefully recovers the winner's newly inserted row.
  */
 export async function ensureStockRow(
   db: Db,
@@ -115,19 +108,26 @@ export async function ensureStockRow(
   const existing = await findStock(db, workspaceId, productId, variantId);
   if (existing) return existing;
 
-  const row = await db.inventoryItem.create({
-    data: {
-      workspaceId,
-      productId,
-      variantId,
-      available: defaults?.available ?? 0,
-      ...(defaults?.lowStockThreshold === undefined
-        ? {}
-        : { lowStockThreshold: defaults.lowStockThreshold }),
-    },
-    select: STOCK_SELECT,
-  });
-  return row as StockRow;
+  try {
+    const row = await db.inventoryItem.create({
+      data: {
+        workspaceId,
+        productId,
+        variantId,
+        available: defaults?.available ?? 0,
+        ...(defaults?.lowStockThreshold === undefined
+          ? {}
+          : { lowStockThreshold: defaults.lowStockThreshold }),
+      },
+      select: STOCK_SELECT,
+    });
+    return row as StockRow;
+  } catch {
+    // Under concurrency, another transaction inserted between findStock and create.
+    const concurrent = await findStock(db, workspaceId, productId, variantId);
+    if (concurrent) return concurrent;
+    throw new Error(`Failed to ensure stock row for product ${productId}`);
+  }
 }
 
 /**
