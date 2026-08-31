@@ -172,8 +172,8 @@ Managed Postgres with point-in-time recovery, and **a restore that has actually 
 is a belief, not a backup, and the moment it matters is the worst moment to find out.
 
 This product holds other businesses' customer lists and order histories. Losing them is not an inconvenience we
-recover from; it is the end of the product's reputation. Retention and restore procedure are a Phase 9 task and a
-launch blocker, not a nice-to-have.
+recover from; it is the end of the product's reputation. Retention, PITR, restore procedures, and recovery drills
+are fully specified in [`docs/BACKUP_AND_DISASTER_RECOVERY.md`](BACKUP_AND_DISASTER_RECOVERY.md).
 
 Object storage needs versioning enabled so a bad delete is recoverable.
 
@@ -187,5 +187,7 @@ Launch preparedness and operational controls:
 - **Health Probes**: Implemented at `/api/health`, `/api/health/liveness`, and `/api/health/readiness` for uptime checks and container orchestrators.
 - **Audit Log Export**: Tenant-isolated, role-authorized audit export in RFC 4180 CSV and JSON with credential scrubbing.
 - **PostgreSQL RLS & Security**: Phase 9 Units 1–2 hardening with strict CSP, session revocation, rate-limiting, and composite performance indexes.
-- **Post-MVP Launch Requirements**: Security contact disclosure policy and CI pipeline against a PostgreSQL service container.
+- **CI/CD Quality Gate**: Implemented in Phase 10 Unit 1 with `.github/workflows/ci.yml` and `SECURITY.md`.
+- **Backup & Disaster Recovery**: Implemented in Phase 10 Unit 2 with automated snapshot verification tooling (`tools/backup-manager.ts`) and complete operational runbooks (`docs/BACKUP_AND_DISASTER_RECOVERY.md`).
+
 

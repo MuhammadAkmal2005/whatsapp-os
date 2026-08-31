@@ -13,7 +13,7 @@ The user is a shop owner, not an engineer. That constraint shapes most of the pr
 
 ## Status
 
-Under active development. Phases 0–6 are fully built, tested, and committed; Phase 7 (Analytics & Usage Metering) is the active next milestone. Details in [`PROJECT_PLAN.md`](PROJECT_PLAN.md).
+Under active development. Phases 0–9 and Phase 10 Units 1–2 are fully built, tested, and committed. Details in [`PROJECT_PLAN.md`](PROJECT_PLAN.md).
 
 | Phase | Scope | State |
 | --- | --- | --- |
@@ -27,7 +27,7 @@ Under active development. Phases 0–6 are fully built, tested, and committed; P
 | 7 | Analytics aggregation, usage metering per workspace, AI cost tracking, dashboard charts | Complete & Released (`d535f40`, `9b73360`, `3587f7e`) |
 | 8 | Billing, plans, subscriptions, quota limits, Stripe/mock checkout | Complete & Released (`ce77f59`, `91e06e2`, `441a033`) |
 | 9 | Security hardening, CSP, RLS, performance indexes, observability, metrics & audit export | Complete & Released (`108584c`, `94a8a41`, `cf7d193`) |
-| 10 | Production deployment & CI/CD automation | In Progress (Unit 1 Complete) |
+| 10 | Production deployment, CI/CD automation, backup & disaster recovery | In Progress (Units 1 & 2 Complete) |
 
 ---
 

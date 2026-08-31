@@ -28,6 +28,8 @@
     "db:seed": "tsx db/seed.ts",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio",
+    "db:backup": "tsx tools/db-backup.ts",
+    "db:restore": "tsx tools/db-restore.ts",
     "worker": "tsx server/jobs/worker-entry.ts"
   },
   "prisma": {
