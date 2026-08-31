@@ -33,7 +33,8 @@ Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, and Phase 7 are c
   - **Unit 3 (`cf7d193`)**: Observability, OpenTelemetry & Prometheus-compatible metrics registry (`/api/metrics`), health and readiness probes (`/api/health`, `/api/health/liveness`, `/api/health/readiness`), background worker telemetry, and tenant-isolated audit log export engine (`/api/audit/export`, server actions).
 - **Phase 10**:
   - **Unit 1 (`02567ba`)**: Automated CI quality gate (`.github/workflows/ci.yml`), `pgvector` container test runner, security vulnerability disclosure policy (`SECURITY.md`), and production environment validation.
-  - **Unit 2**: Database backup & restore manager (`tools/backup-manager.ts`), SHA-256 manifest verification, PITR procedures, migration deployment & safe rollback protocols, and disaster recovery runbooks (`docs/BACKUP_AND_DISASTER_RECOVERY.md`).
+  - **Unit 2 (`b1226a1`)**: Database backup & restore manager (`tools/backup-manager.ts`), SHA-256 manifest verification, PITR procedures, migration deployment & safe rollback protocols, and disaster recovery runbooks (`docs/BACKUP_AND_DISASTER_RECOVERY.md`).
+  - **Unit 3**: Master production readiness verification gate (`tools/production-readiness.ts`, `npm run verify:prod`, `npm run deploy:check`), pre-launch checklist (`docs/PRODUCTION_CHECKLIST.md`), and master deployment acceptance tests.
 
 **The test and verification gate is active.** Full regression test suite, TypeScript strict typecheck, ESLint, Next.js production build, and automated CI pass.
 

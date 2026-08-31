@@ -13,7 +13,7 @@ The user is a shop owner, not an engineer. That constraint shapes most of the pr
 
 ## Status
 
-Under active development. Phases 0–9 and Phase 10 Units 1–2 are fully built, tested, and committed. Details in [`PROJECT_PLAN.md`](PROJECT_PLAN.md).
+Under active development. Phases 0–10 are fully built, tested, and committed. Details in [`PROJECT_PLAN.md`](PROJECT_PLAN.md).
 
 | Phase | Scope | State |
 | --- | --- | --- |
@@ -27,7 +27,8 @@ Under active development. Phases 0–9 and Phase 10 Units 1–2 are fully built,
 | 7 | Analytics aggregation, usage metering per workspace, AI cost tracking, dashboard charts | Complete & Released (`d535f40`, `9b73360`, `3587f7e`) |
 | 8 | Billing, plans, subscriptions, quota limits, Stripe/mock checkout | Complete & Released (`ce77f59`, `91e06e2`, `441a033`) |
 | 9 | Security hardening, CSP, RLS, performance indexes, observability, metrics & audit export | Complete & Released (`108584c`, `94a8a41`, `cf7d193`) |
-| 10 | Production deployment, CI/CD automation, backup & disaster recovery | In Progress (Units 1 & 2 Complete) |
+| 10 | Production deployment, CI/CD automation, backup & disaster recovery, pre-flight gate | Complete & Released (`02567ba`, `b1226a1`) |
+
 
 ---
 
@@ -83,6 +84,8 @@ npm run test:watch
 npm run test:coverage
 npm run test:e2e       # Playwright (config lands with Phase 3)
 npm run verify         # lint + typecheck + test + build — the phase gate
+npm run verify:prod    # pre-flight audit for production deployment
+npm run deploy:check   # alias for verify:prod
 
 npm run db:migrate     # apply migrations in development
 npm run db:deploy      # apply migrations in production
@@ -91,8 +94,11 @@ npm run db:generate    # regenerate the Prisma client
 npm run db:seed        # realistic seed data (arrives with Phase 2)
 npm run db:reset       # drop, migrate, seed
 npm run db:studio      # Prisma Studio
+npm run db:backup      # create verified database backup with SHA-256 manifest
+npm run db:restore     # restore verified backup with safety safeguards
 
 npm run worker         # background job worker
+
 ```
 
 ### Verifying without a package registry

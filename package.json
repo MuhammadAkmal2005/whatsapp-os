@@ -30,6 +30,8 @@
     "db:studio": "prisma studio",
     "db:backup": "tsx tools/db-backup.ts",
     "db:restore": "tsx tools/db-restore.ts",
+    "verify:prod": "tsx tools/production-readiness.ts",
+    "deploy:check": "tsx tools/production-readiness.ts",
     "worker": "tsx server/jobs/worker-entry.ts"
   },
   "prisma": {

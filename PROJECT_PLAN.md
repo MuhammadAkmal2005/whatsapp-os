@@ -251,6 +251,8 @@ production build all green.
 | 2026-08-31 | 9 (Unit 2) | **Complete & Committed (`94a8a41`)** — Performance indexes, partial unique constraints, and data pruning |
 | 2026-08-31 | 9 (Unit 3) | **Complete & Committed (`cf7d193`)** — Observability, Prometheus metrics registry (`/api/metrics`), health and readiness probes (`/api/health/*`), and audit log export |
 | 2026-08-31 | 10 (Unit 1) | **Complete & Committed (`02567ba`)** — CI automation pipeline (`.github/workflows/ci.yml`), `pgvector` container test integration, and security vulnerability policy (`SECURITY.md`) |
-| 2026-08-31 | 10 (Unit 2) | **Complete** — Database backup/restore manager (`tools/backup-manager.ts`), SHA-256 manifest verification, PITR procedures, migration deployment & rollback runbook (`docs/BACKUP_AND_DISASTER_RECOVERY.md`) |
+| 2026-08-31 | 10 (Unit 2) | **Complete & Committed (`b1226a1`)** — Database backup/restore manager (`tools/backup-manager.ts`), SHA-256 manifest verification, PITR procedures, migration deployment & rollback runbook (`docs/BACKUP_AND_DISASTER_RECOVERY.md`) |
+| 2026-08-31 | 10 (Unit 3) | **Complete** — Master production readiness verification gate (`tools/production-readiness.ts`, `npm run verify:prod`), pre-flight deployment checklist (`docs/PRODUCTION_CHECKLIST.md`), and master deployment acceptance tests |
 | 2026-08-30 | Deferred | Media download/storage, Campaigns, Voice, Multi-channel expansion |
+
 
