@@ -25,6 +25,7 @@
 import 'server-only';
 
 import { logger } from '@/lib/logger';
+import { metricsRegistry } from '@/server/telemetry/metrics';
 
 import { getHandler } from './registry';
 import type { ClaimedJob, JobQueue } from './queue';
@@ -75,6 +76,7 @@ export function createWorker(options: WorkerOptions): Worker {
       // Enqueued but nothing knows how to run it. Failing rather than dropping it
       // keeps the job visible; once a handler is deployed the retry succeeds.
       await options.queue.fail(job.id, new Error(`No handler registered for job type "${job.type}".`));
+      metricsRegistry.jobsProcessed.inc({ type: job.type, status: 'failed' });
       logger.error('worker.no_handler', { jobId: job.id, type: job.type });
       return;
     }
@@ -88,6 +90,9 @@ export function createWorker(options: WorkerOptions): Worker {
         signal: shutdown.signal,
       });
       await options.queue.complete(job.id);
+      const durationSec = (Date.now() - startedAt) / 1000;
+      metricsRegistry.jobsProcessed.inc({ type: job.type, status: 'completed' });
+      metricsRegistry.jobDuration.observe(durationSec, { type: job.type });
       logger.info('worker.job_completed', {
         jobId: job.id,
         type: job.type,
@@ -96,6 +101,9 @@ export function createWorker(options: WorkerOptions): Worker {
       });
     } catch (error) {
       await options.queue.fail(job.id, error);
+      const durationSec = (Date.now() - startedAt) / 1000;
+      metricsRegistry.jobsProcessed.inc({ type: job.type, status: 'failed' });
+      metricsRegistry.jobDuration.observe(durationSec, { type: job.type });
       logger.error('worker.job_failed', {
         jobId: job.id,
         type: job.type,

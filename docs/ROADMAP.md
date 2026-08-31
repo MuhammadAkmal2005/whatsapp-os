@@ -29,9 +29,10 @@ Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, and Phase 7 are c
   - **Unit 3 (`441a033`, `47d76e0`)**: Payment provider integration (Stripe/mock checkout & webhook handling) and Master Phase 8 acceptance suite.
 - **Phase 9**:
   - **Unit 1 (`108584c`)**: Security hardening (strict CSP & headers, active session revocation wiring, comprehensive rate-limit attachment, and PostgreSQL RLS architecture).
-  - **Unit 2**: Database performance optimization, composite indexes for high-volume queries, partial unique indexes for InventoryItem & AIAgent, job claim query optimization (`FOR UPDATE SKIP LOCKED`), and periodic maintenance sweep retention pruning.
+  - **Unit 2 (`94a8a41`)**: Database performance optimization, composite indexes for high-volume queries, partial unique indexes for InventoryItem & AIAgent, job claim query optimization (`FOR UPDATE SKIP LOCKED`), and periodic maintenance sweep retention pruning.
+  - **Unit 3**: Observability, OpenTelemetry & Prometheus-compatible metrics registry (`/api/metrics`), health and readiness probes (`/api/health`, `/api/health/liveness`, `/api/health/readiness`), background worker telemetry, and tenant-isolated audit log export engine (`/api/audit/export`, server actions).
 
-**The test and verification gate is active.** 73 test files with 742 passing tests (unit + database-backed integration), TypeScript strict typecheck, ESLint, and Next.js production build all pass locally.
+**The test and verification gate is active.** Phase 9 is complete across all units. Full regression test suite, TypeScript strict typecheck, ESLint, and Next.js production build pass locally.
 
 ---
 

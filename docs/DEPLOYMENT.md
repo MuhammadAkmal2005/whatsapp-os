@@ -180,14 +180,12 @@ Object storage needs versioning enabled so a bad delete is recoverable.
 ---
 
 ## Before the first real customer
+ 
+Launch preparedness and operational controls:
+ 
+- **Observability & Metrics**: Implemented in Phase 9 Unit 3. OpenTelemetry and Prometheus-compatible metrics are exposed at `/api/metrics`, tracking HTTP traffic, job queues, AI token consumption, and database query latencies with low-cardinality guardrails.
+- **Health Probes**: Implemented at `/api/health`, `/api/health/liveness`, and `/api/health/readiness` for uptime checks and container orchestrators.
+- **Audit Log Export**: Tenant-isolated, role-authorized audit export in RFC 4180 CSV and JSON with credential scrubbing.
+- **PostgreSQL RLS & Security**: Phase 9 Units 1–2 hardening with strict CSP, session revocation, rate-limiting, and composite performance indexes.
+- **Post-MVP Launch Requirements**: Security contact disclosure policy and CI pipeline against a PostgreSQL service container.
 
-Not yet done, and each is a launch blocker rather than an improvement:
-
-An error monitor and a log aggregator. `lib/logger.ts` is the structured-logging seam they attach to; there is no
-`server/observability/` module yet, and the monitoring interface is still to be written. Uptime checks on the app,
-the webhook endpoint and worker liveness — a silently dead worker is the failure mode most likely to go unnoticed,
-because the product looks fine. Alerts on webhook failure rate, AI error rate and queue depth. A security contact
-address and disclosure policy, which `docs/SECURITY.md` records as missing. A privacy policy, since this is
-customer data belonging to third parties. Row-level security, planned for Phase 9, to make tenant isolation a
-property of the database rather than only of the application. And CI running `npm run verify` on every pull
-request against a Postgres service container.

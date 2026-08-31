@@ -12,7 +12,7 @@ Both are **thin adapters**. They authenticate, validate, delegate to a service, 
 rules and authorization live in `server/services` so that an action, a route and a background job all enforce the
 identical rule. When the same rule is written twice it drifts, and the wrong copy is the one in production.
 
-> **Active API & Actions Status.** `app/api/webhooks/whatsapp` is active and built (`GET` verification handshake & `POST` HMAC-signed ingestion). Server actions in `server/actions/` cover authentication, workspaces, members, contacts, products, orders, WhatsApp account connection (`whatsapp-account.actions.ts`), automations (`automation.actions.ts`), notifications (`notification.actions.ts`), and human handoff (`handoff.actions.ts`).
+> **Active API & Actions Status.** `app/api/webhooks/whatsapp` is active (`GET` verification handshake & `POST` HMAC-signed ingestion). Health and observability routes are active at `/api/health`, `/api/health/liveness`, `/api/health/readiness`, and `/api/metrics` (Prometheus/JSON format). Server actions in `server/actions/` cover authentication, workspaces, members, contacts, products, orders, WhatsApp account connection, automations, notifications, analytics, audit log exports (`audit.actions.ts`), and human handoff.
 
 ---
 

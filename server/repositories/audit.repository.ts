@@ -64,3 +64,102 @@ export async function appendProductEvent(db: Db, entry: ProductEventEntry): Prom
     },
   });
 }
+
+export type AuditLogFilter = {
+  from?: Date;
+  to?: Date;
+  action?: string;
+  actorType?: ActorType;
+  resourceType?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type AuditLogRow = {
+  id: string;
+  workspaceId: string | null;
+  actorUserId: string | null;
+  actorMemberId: string | null;
+  actorType: ActorType;
+  action: string;
+  resourceType: string | null;
+  resourceId: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: Date;
+};
+
+/**
+ * Lists audit log entries for a specific workspace.
+ * Guaranteed tenant isolation: injected workspaceId only.
+ */
+export async function listAuditLogs(
+  db: Db,
+  workspaceId: string,
+  filter: AuditLogFilter = {},
+): Promise<AuditLogRow[]> {
+  const where = {
+    workspaceId,
+    ...(filter.from || filter.to
+      ? {
+          createdAt: {
+            ...(filter.from ? { gte: filter.from } : {}),
+            ...(filter.to ? { lte: filter.to } : {}),
+          },
+        }
+      : {}),
+    ...(filter.action ? { action: filter.action } : {}),
+    ...(filter.actorType ? { actorType: filter.actorType } : {}),
+    ...(filter.resourceType ? { resourceType: filter.resourceType } : {}),
+  };
+
+  const rows = await db.auditLog.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: Math.min(filter.limit ?? 100, 5000),
+    skip: filter.offset ?? 0,
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    workspaceId: row.workspaceId,
+    actorUserId: row.actorUserId,
+    actorMemberId: row.actorMemberId,
+    actorType: row.actorType as ActorType,
+    action: row.action,
+    resourceType: row.resourceType,
+    resourceId: row.resourceId,
+    ipAddress: row.ipAddress,
+    userAgent: row.userAgent,
+    metadata: (row.metadata as Record<string, unknown> | null) ?? null,
+    createdAt: row.createdAt,
+  }));
+}
+
+/**
+ * Counts audit log entries for a workspace.
+ */
+export async function countAuditLogs(
+  db: Db,
+  workspaceId: string,
+  filter: Omit<AuditLogFilter, 'limit' | 'offset'> = {},
+): Promise<number> {
+  const where = {
+    workspaceId,
+    ...(filter.from || filter.to
+      ? {
+          createdAt: {
+            ...(filter.from ? { gte: filter.from } : {}),
+            ...(filter.to ? { lte: filter.to } : {}),
+          },
+        }
+      : {}),
+    ...(filter.action ? { action: filter.action } : {}),
+    ...(filter.actorType ? { actorType: filter.actorType } : {}),
+    ...(filter.resourceType ? { resourceType: filter.resourceType } : {}),
+  };
+
+  return db.auditLog.count({ where });
+}
+
