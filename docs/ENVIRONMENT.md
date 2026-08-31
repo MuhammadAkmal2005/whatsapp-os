@@ -48,8 +48,8 @@ credentials will need re-entering. Sessions survive, because session tokens are 
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `AI_PROVIDER` | `mock` | `openai` \| `mock`. The mock is deterministic and offline. |
-| `AI_API_KEY` | — | Required when `AI_PROVIDER=openai`. |
+| `AI_PROVIDER` | `mock` | `openai` \| `gemini` \| `mock`. The mock is deterministic and offline. |
+| `AI_API_KEY` | — | Required when `AI_PROVIDER=openai` or `AI_PROVIDER=gemini`. |
 | `AI_BASE_URL` | — | Optional. Any OpenAI-compatible gateway. |
 | `AI_MODEL` | `gpt-4o-mini` | Customer-facing generation. |
 | `AI_MODEL_FAST` | `gpt-4o-mini` | Classification and summarisation. Route cheap work here. |
@@ -213,7 +213,7 @@ verifying, so raising it is safe and takes effect for new and changed passwords.
 `config/env.ts` enforces these in a `superRefine`, because each is a way a deployment can be half-configured
 that no single field's type can catch.
 
-- `AI_PROVIDER=openai` requires `AI_API_KEY`.
+- `AI_PROVIDER=openai` or `AI_PROVIDER=gemini` requires `AI_API_KEY`.
 - `NODE_ENV=production` forbids `MOCK_WHATSAPP=true`.
 - `MOCK_WHATSAPP=false` requires all five WhatsApp credentials.
 - `QUEUE_DRIVER=redis` requires `REDIS_URL`.

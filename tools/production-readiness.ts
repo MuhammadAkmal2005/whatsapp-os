@@ -232,6 +232,62 @@ export function auditEnvironment(
     });
   }
 
+  // Check AI Provider Credentials
+  const aiProvider = envMap.AI_PROVIDER || 'mock';
+  if (aiProvider === 'openai' || aiProvider === 'gemini') {
+    if (!envMap.AI_API_KEY) {
+      checks.push({
+        id: 'env_ai_api_key',
+        name: 'AI Provider API Key',
+        category: 'environment',
+        status: isProd ? 'BLOCKER' : 'WARN',
+        details: `Missing AI_API_KEY for ${aiProvider} provider.`,
+        remediation: `Configure AI_API_KEY in environment variables when using AI_PROVIDER=${aiProvider}.`,
+      });
+    } else {
+      checks.push({
+        id: 'env_ai_api_key',
+        name: 'AI Provider API Key',
+        category: 'environment',
+        status: 'PASS',
+        details: `API key configured for ${aiProvider} model provider.`,
+      });
+    }
+  } else {
+    checks.push({
+      id: 'env_ai_provider',
+      name: 'AI Model Provider Mode',
+      category: 'environment',
+      status: isProd ? 'WARN' : 'PASS',
+      details: isProd ? 'AI_PROVIDER is set to "mock" in production.' : 'AI_PROVIDER is set to "mock" for offline operation.',
+      remediation: isProd ? 'Set AI_PROVIDER=gemini or openai with valid AI_API_KEY for live customer AI turns.' : undefined,
+    });
+  }
+
+  // Check Payment Provider Credentials
+  const paymentProvider = envMap.PAYMENT_PROVIDER || 'mock';
+  if (paymentProvider === 'stripe') {
+    const missingStripe = ['PAYMENT_SECRET', 'PAYMENT_WEBHOOK_SECRET'].filter((k) => !envMap[k]);
+    if (missingStripe.length > 0) {
+      checks.push({
+        id: 'env_stripe_credentials',
+        name: 'Stripe Payment Gateway Configuration',
+        category: 'environment',
+        status: isProd ? 'BLOCKER' : 'WARN',
+        details: `Missing Stripe credentials: ${missingStripe.join(', ')}`,
+        remediation: 'Configure PAYMENT_SECRET and PAYMENT_WEBHOOK_SECRET for Stripe integration.',
+      });
+    } else {
+      checks.push({
+        id: 'env_stripe_credentials',
+        name: 'Stripe Payment Gateway Configuration',
+        category: 'environment',
+        status: 'PASS',
+        details: 'Stripe secret key and webhook signing secret configured.',
+      });
+    }
+  }
+
   // Check Logging Format
   if (isProd && envMap.LOG_FORMAT !== 'json') {
     checks.push({

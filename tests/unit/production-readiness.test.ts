@@ -44,6 +44,8 @@ describe('Phase 10 Unit 3: Master Production Readiness & Deployment Verification
         STORAGE_ACCESS_KEY: 'AKIAIOSFODNN7EXAMPLE',
         STORAGE_SECRET_KEY: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
         STORAGE_BUCKET: 'whatsapp-os-prod-media',
+        AI_PROVIDER: 'gemini',
+        AI_API_KEY: 'test_gemini_api_key_valid_production',
         LOG_FORMAT: 'json',
       };
 
