@@ -1,0 +1,85 @@
+name: CI Quality & Verification Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, Typecheck, Test & Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres-test:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: whatsapp_os
+          POSTGRES_PASSWORD: whatsapp_os
+          POSTGRES_DB: whatsapp_os_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U whatsapp_os -d whatsapp_os_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Fast Pre-Flight Check (Syntax & Import Consistency)
+        run: |
+          npm run syntax
+          npm run imports
+
+      - name: Generate Prisma Client
+        run: npm run db:generate
+
+      - name: Strict TypeScript Typecheck
+        run: npm run typecheck
+
+      - name: ESLint Code Quality Inspection
+        run: npm run lint
+
+      - name: Run Test Suite (Unit & Database Integration)
+        env:
+          DATABASE_URL: postgresql://whatsapp_os:whatsapp_os@localhost:5433/whatsapp_os_test
+          TEST_DATABASE_URL: postgresql://whatsapp_os:whatsapp_os@localhost:5433/whatsapp_os_test
+          AUTH_SECRET: test_auth_secret_must_be_at_least_32_characters_long_for_security_12345
+          NODE_ENV: test
+          MOCK_WHATSAPP: "true"
+          AI_PROVIDER: mock
+          QUEUE_DRIVER: postgres
+          STORAGE_PROVIDER: local
+          EMAIL_PROVIDER: console
+          PAYMENT_PROVIDER: mock
+        run: npm test
+
+      - name: Compile Next.js Production Build
+        env:
+          DATABASE_URL: postgresql://whatsapp_os:whatsapp_os@localhost:5433/whatsapp_os_test
+          AUTH_SECRET: test_auth_secret_must_be_at_least_32_characters_long_for_security_12345
+          NODE_ENV: production
+          NEXT_PHASE: phase-production-build
+          MOCK_WHATSAPP: "true"
+          AI_PROVIDER: mock
+          STORAGE_PROVIDER: local
+          PAYMENT_PROVIDER: mock
+        run: npm run build

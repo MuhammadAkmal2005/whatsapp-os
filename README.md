@@ -24,10 +24,10 @@ Under active development. Phases 0–6 are fully built, tested, and committed; P
 | 4 | WhatsApp Cloud API integration (Meta provider, webhooks, processor, account UI, text acceptance) | Complete & Released (`a823b83`, `8b857df`, `75360a5`, `9f28ecb`, `96efc21`) |
 | 5 | AI agent runtime, prompt assembly, Gemini provider, Knowledge Base RAG, tools, human handoff | Complete & Released (`69a615a`, `0e3a909`) |
 | 6 | Automation engine, trigger matching, workflow builder, WAIT/resume, notifications, idle scanner | Complete & Released (`69b98d3`, `217d8ea`, `3408a8b`, `a2fe14c`) |
-| 7 | Analytics aggregation, usage metering per workspace, AI cost tracking, dashboard charts | **Next Milestone** |
-| 8 | Billing, plans, subscriptions | Planned |
-| 9 | Security hardening, full test pass, performance | Planned |
-| 10 | Production deployment | Planned |
+| 7 | Analytics aggregation, usage metering per workspace, AI cost tracking, dashboard charts | Complete & Released (`d535f40`, `9b73360`, `3587f7e`) |
+| 8 | Billing, plans, subscriptions, quota limits, Stripe/mock checkout | Complete & Released (`ce77f59`, `91e06e2`, `441a033`) |
+| 9 | Security hardening, CSP, RLS, performance indexes, observability, metrics & audit export | Complete & Released (`108584c`, `94a8a41`, `cf7d193`) |
+| 10 | Production deployment & CI/CD automation | In Progress (Unit 1 Complete) |
 
 ---
 

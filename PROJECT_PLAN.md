@@ -249,6 +249,7 @@ production build all green.
 | 2026-08-31 | 8 (Unit 2) | **Complete** — Billing management UI (`/settings/billing`), plan comparison, quota usage metering visualization, and write-path enforcement (products, contacts, team members) |
 | 2026-08-31 | 9 (Unit 1) | **Complete & Committed (`108584c`)** — Security hardening (strict CSP & headers, active session revocation wiring, comprehensive rate-limit attachment, and PostgreSQL RLS architecture) |
 | 2026-08-31 | 9 (Unit 2) | **Complete & Committed (`94a8a41`)** — Performance indexes, partial unique constraints, and data pruning |
-| 2026-08-31 | 9 (Unit 3) | **Complete** — Observability, Prometheus metrics registry (`/api/metrics`), health and readiness probes (`/api/health/*`), and audit log export |
+| 2026-08-31 | 9 (Unit 3) | **Complete & Committed (`cf7d193`)** — Observability, Prometheus metrics registry (`/api/metrics`), health and readiness probes (`/api/health/*`), and audit log export |
+| 2026-08-31 | 10 (Unit 1) | **Complete** — CI automation pipeline (`.github/workflows/ci.yml`), `pgvector` container test integration, and security vulnerability policy (`SECURITY.md`) |
 | 2026-08-30 | Deferred | Media download/storage, Campaigns, Voice, Multi-channel expansion |
 

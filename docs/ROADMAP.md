@@ -30,9 +30,11 @@ Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, and Phase 7 are c
 - **Phase 9**:
   - **Unit 1 (`108584c`)**: Security hardening (strict CSP & headers, active session revocation wiring, comprehensive rate-limit attachment, and PostgreSQL RLS architecture).
   - **Unit 2 (`94a8a41`)**: Database performance optimization, composite indexes for high-volume queries, partial unique indexes for InventoryItem & AIAgent, job claim query optimization (`FOR UPDATE SKIP LOCKED`), and periodic maintenance sweep retention pruning.
-  - **Unit 3**: Observability, OpenTelemetry & Prometheus-compatible metrics registry (`/api/metrics`), health and readiness probes (`/api/health`, `/api/health/liveness`, `/api/health/readiness`), background worker telemetry, and tenant-isolated audit log export engine (`/api/audit/export`, server actions).
+  - **Unit 3 (`cf7d193`)**: Observability, OpenTelemetry & Prometheus-compatible metrics registry (`/api/metrics`), health and readiness probes (`/api/health`, `/api/health/liveness`, `/api/health/readiness`), background worker telemetry, and tenant-isolated audit log export engine (`/api/audit/export`, server actions).
+- **Phase 10**:
+  - **Unit 1**: Automated CI quality gate (`.github/workflows/ci.yml`), `pgvector` container test runner, security vulnerability disclosure policy (`SECURITY.md`), and production environment validation.
 
-**The test and verification gate is active.** Phase 9 is complete across all units. Full regression test suite, TypeScript strict typecheck, ESLint, and Next.js production build pass locally.
+**The test and verification gate is active.** Full regression test suite, TypeScript strict typecheck, ESLint, Next.js production build, and automated CI pass.
 
 ---
 
@@ -41,9 +43,6 @@ Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, and Phase 7 are c
 Ordered by what would hurt most if it shipped as-is.
 
 ### Correctness
-
-**No CI.** `npm run verify` on every pull request, against a Postgres service container. Until this exists, "the
-tests pass" means "they passed for whoever last remembered to run them."
 
 **No Playwright config.** `npm run test:e2e` is wired and `@playwright/test` is installed, but `playwright.config.ts`
 and `tests/e2e/` do not exist, so the command fails.
