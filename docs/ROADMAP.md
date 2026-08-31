@@ -26,11 +26,13 @@ Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, and Phase 7 are c
   - **Unit 1 (`ce77f59`)**: Subscription lifecycle, trial expiration fallback, plan changes, cancel/resume operations, and centralized quota limit & entitlement enforcement engine.
   - **Unit 2**: Billing management UI (`/settings/billing`), plan comparison, quota usage metering visualization, and write-path enforcement (products, contacts, team members).
 
-  - **Unit 3**: Payment provider integration (Stripe/mock checkout & webhook handling) and Master Phase 8 acceptance suite.
+  - **Unit 3 (`441a033`, `47d76e0`)**: Payment provider integration (Stripe/mock checkout & webhook handling) and Master Phase 8 acceptance suite.
+- **Phase 9**:
+  - **Unit 1**: Security hardening (strict CSP & headers, active session revocation wiring, comprehensive rate-limit attachment, and PostgreSQL RLS architecture).
 
-**Next Milestone:** Phase 9 (Post-MVP Security & Infrastructure).
+**Next Milestone:** Phase 9 Unit 2 (Performance, Index Review & Security Hardening).
 
-**The test and verification gate is active.** 66 test files with 712 passing tests (unit + database-backed integration), TypeScript strict typecheck, ESLint, and Next.js production build all pass locally.
+**The test and verification gate is active.** 71 test files with 732 passing tests (unit + database-backed integration), TypeScript strict typecheck, ESLint, and Next.js production build all pass locally.
 
 ---
 

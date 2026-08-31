@@ -8,7 +8,8 @@
 import 'server-only';
 
 import { prisma } from '@/db/prisma';
-import { NotFoundError } from '@/server/errors';
+import { NotFoundError, RateLimitError } from '@/server/errors';
+import { consume } from '@/server/ratelimit/limiter';
 import {
   clearUnreadCount,
   touchConversationActivity,
@@ -97,6 +98,16 @@ export async function sendMessage(
 
   const conversation = await loadConversationInWorkspace(ctx, input.conversationId);
   const direction = input.direction ?? 'OUTBOUND';
+
+  if (direction === 'OUTBOUND') {
+    const rateLimitDecision = await consume('messageSend', `workspace:${ctx.workspaceId}`);
+    if (!rateLimitDecision.allowed) {
+      throw new RateLimitError(
+        rateLimitDecision.retryAfterSeconds,
+        'Message rate limit exceeded. Please wait before sending more messages.',
+      );
+    }
+  }
 
   const senderMemberId =
     direction === 'OUTBOUND'

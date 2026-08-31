@@ -5,21 +5,7 @@ import type { NextConfig } from 'next';
  * static assets and error pages too — middleware does not run for every
  * response, and a header that is only mostly present is not a control.
  */
-const securityHeaders = [
-  { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'X-Frame-Options', value: 'DENY' },
-  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'X-DNS-Prefetch-Control', value: 'off' },
-  {
-    key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()',
-  },
-  {
-    // Only meaningful over HTTPS; harmless in development.
-    key: 'Strict-Transport-Security',
-    value: 'max-age=63072000; includeSubDomains; preload',
-  },
-];
+import { SECURITY_HEADERS } from './config/security';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -36,7 +22,7 @@ const nextConfig: NextConfig = {
   },
 
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [{ source: '/:path*', headers: [...SECURITY_HEADERS] }];
   },
 };
 

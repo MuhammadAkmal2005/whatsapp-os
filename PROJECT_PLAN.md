@@ -247,5 +247,6 @@ production build all green.
 | 2026-08-30 | 7 (Unit 3) | **Complete & Committed (`3587f7e`)** — Master Phase 7 acceptance suite, RFC 4180 CSV/JSON export engine, and background daily rollup job integration |
 | 2026-08-31 | 8 (Unit 1) | **Complete & Committed (`ce77f59`)** — Subscription lifecycle, trial expiration fallback, plan changes, cancel/resume operations, and centralized quota limit & entitlement enforcement engine |
 | 2026-08-31 | 8 (Unit 2) | **Complete** — Billing management UI (`/settings/billing`), plan comparison, quota usage metering visualization, and write-path enforcement (products, contacts, team members) |
-| 2026-08-31 | 8 (Unit 3) | **Complete & Committed** — Payment provider integration (Stripe/mock checkout & webhook handling) and Master Phase 8 acceptance suite |
+| 2026-08-31 | 8 (Unit 3) | **Complete & Committed (`441a033`, `47d76e0`)** — Payment provider integration (Stripe/mock checkout & webhook handling) and Master Phase 8 acceptance suite |
+| 2026-08-31 | 9 (Unit 1) | **Complete & Committed** — Security hardening (strict CSP & headers, active session revocation wiring, comprehensive rate-limit attachment, and PostgreSQL RLS architecture) |
 | 2026-08-30 | Deferred | Media download/storage, Campaigns, Voice, Multi-channel expansion |

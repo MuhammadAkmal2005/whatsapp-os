@@ -16,6 +16,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { SESSION_COOKIE_NAME } from '@/config/constants';
+import { SECURITY_HEADERS } from '@/config/security';
 
 /** Reachable without a session. Everything else the matcher covers is protected. */
 const PUBLIC_PATHS = new Set([
@@ -45,6 +46,13 @@ function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.has(pathname) || PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
+function applySecurityHeaders(response: NextResponse): NextResponse {
+  for (const { key, value } of SECURITY_HEADERS) {
+    response.headers.set(key, value);
+  }
+  return response;
+}
+
 export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
   const hasSession = request.cookies.has(SESSION_COOKIE_NAME);
@@ -52,15 +60,17 @@ export function middleware(request: NextRequest): NextResponse {
   if (hasSession && AUTH_PATHS.has(pathname)) {
     // …unless they are mid-invitation, where the sign-in screen is a step in the
     // flow rather than a dead end, and bouncing them would drop the token.
-    if (request.nextUrl.searchParams.has('invite')) return NextResponse.next();
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    if (request.nextUrl.searchParams.has('invite')) {
+      return applySecurityHeaders(NextResponse.next());
+    }
+    return applySecurityHeaders(NextResponse.redirect(new URL('/dashboard', request.url)));
   }
 
   if (!hasSession && !isPublic(pathname)) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return applySecurityHeaders(NextResponse.redirect(new URL('/login', request.url)));
   }
 
-  return NextResponse.next();
+  return applySecurityHeaders(NextResponse.next());
 }
 
 export const config = {

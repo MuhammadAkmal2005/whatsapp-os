@@ -10,6 +10,7 @@ import 'server-only';
 
 import { prisma, type Db } from '@/db/prisma';
 import { logger } from '@/lib/logger';
+import { consume } from '@/server/ratelimit/limiter';
 import { triggerHumanHandoff } from './handoff.service';
 import { appendAuditLog } from '@/server/repositories/audit.repository';
 import {
@@ -249,6 +250,38 @@ export async function executeAgentTurn(
   const agent = params.agentId
     ? await findAgentById(db, params.workspaceId, params.agentId)
     : await findDefaultOrActiveAgent(db, params.workspaceId);
+
+  // 3.1 Rate Limit Guard
+  const rateLimitDecision = await consume(
+    'aiRequestPerWorkspace',
+    `workspace:${params.workspaceId}`,
+  );
+  if (!rateLimitDecision.allowed) {
+    logger.warn('ai.agent.rate_limited', {
+      workspaceId: params.workspaceId,
+      conversationId: params.conversationId,
+    });
+    const latencyMs = Date.now() - startTime;
+    return {
+      turnId: '',
+      executionId: params.executionId ?? 'rate_limited',
+      workspaceId: params.workspaceId,
+      conversationId: params.conversationId,
+      messageId: params.messageId,
+      agentId: agent?.id ?? 'unassigned',
+      replyText: null,
+      status: 'FAILED',
+      handoffTriggered: true,
+      handoffReason: 'AI_ERROR',
+      toolCalls: [],
+      inputTokens: 0,
+      outputTokens: 0,
+      latencyMs,
+      costMicros: 0,
+      errorMessage: 'Workspace AI request rate limit exceeded',
+      errorCategory: 'RATE_LIMITED',
+    };
+  }
 
   if (!agent) {
     logger.warn('ai.agent.not_configured', {

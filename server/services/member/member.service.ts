@@ -30,6 +30,7 @@ import { sha256 } from '@/lib/crypto';
 import { logger } from '@/lib/logger';
 import { expiryFrom, generateSingleUseToken, INVITE_TTL_MS } from '@/server/auth/session-token';
 import { ASSIGNABLE_ROLES, canAssignRole, type WorkspaceRole } from '@/server/authz/permissions';
+import { revokeAllSessions } from '@/server/services/auth/session.service';
 import { assertWithinPlanLimit, getEffectivePlan } from '@/server/services/billing/limit-guard.service';
 import {
   canAcceptInvite,
@@ -312,6 +313,9 @@ export async function changeMemberRole(
     'Team member',
   );
 
+  // Revoke target user's active sessions immediately so role permissions re-evaluate
+  await revokeAllSessions(target.userId);
+
   await appendAuditLog(prisma, {
     action: 'member.role_changed',
     workspaceId: ctx.workspaceId,
@@ -355,6 +359,11 @@ export async function setMemberStatus(
     'Team member',
   );
 
+  // Revoke active sessions immediately on suspension so access is immediately severed
+  if (input.status === 'SUSPENDED') {
+    await revokeAllSessions(target.userId);
+  }
+
   await appendAuditLog(prisma, {
     action: input.status === 'SUSPENDED' ? 'member.suspended' : 'member.reactivated',
     workspaceId: ctx.workspaceId,
@@ -386,6 +395,9 @@ export async function removeMember(
   );
 
   assertTouched(await deleteMember(prisma, ctx.workspaceId, target.id), 'Team member');
+
+  // Revoke active sessions immediately on member removal
+  await revokeAllSessions(target.userId);
 
   await appendAuditLog(prisma, {
     action: 'member.removed',

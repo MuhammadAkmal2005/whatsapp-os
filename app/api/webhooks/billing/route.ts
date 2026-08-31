@@ -2,10 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { env } from '@/config/env';
 import { verifyHmacSha256 } from '@/lib/crypto';
 import { logger } from '@/lib/logger';
+import { consume } from '@/server/ratelimit/limiter';
+import { clientIpFrom } from '@/server/ratelimit/window';
 import { processBillingWebhook, type BillingEvent } from '@/server/services/billing/billing-webhook.service';
 
 export async function POST(req: NextRequest) {
   try {
+    // 1. Rate limiting
+    const ip = clientIpFrom(req.headers);
+    const rateLimitDecision = await consume('webhook', ip ? `ip:${ip}` : 'anonymous');
+    if (!rateLimitDecision.allowed) {
+      logger.warn('billing.webhook.rate_limited', { ip });
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
+    }
+
     const rawBody = await req.text();
     const signature = req.headers.get('stripe-signature');
 
