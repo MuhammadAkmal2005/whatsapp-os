@@ -479,6 +479,7 @@ describe('Phase 7 Unit 1: Analytics Aggregation & Metering Integration', () => {
         costMicros: 45,
         latencyMs: 200,
         groundingPassed: true,
+        createdAt: new Date('2026-08-10T12:00:00Z'),
       },
     });
 
@@ -496,6 +497,7 @@ describe('Phase 7 Unit 1: Analytics Aggregation & Metering Integration', () => {
         costMicros: 0,
         latencyMs: 150,
         groundingPassed: true,
+        createdAt: new Date('2026-08-15T12:00:00Z'),
       },
     });
 
