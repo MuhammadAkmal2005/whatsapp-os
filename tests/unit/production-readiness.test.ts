@@ -30,6 +30,7 @@ describe('Phase 10 Unit 3: Master Production Readiness & Deployment Verification
     it('passes audit for a fully-configured, valid production environment', () => {
       const validProdEnv = {
         NODE_ENV: 'production',
+        DEPLOYMENT_ENV: 'production',
         APP_URL: 'https://app.whatsapp-os.example.com',
         AUTH_SECRET: 'dGVzdC1hdXRoLXNlY3JldC12YWxpZC1lbnRyb3B5LTMyaGV4LWtleXMxMjM=',
         DATABASE_URL: 'postgresql://prod_user:secret_pass@db.internal:5432/whatsapp_os_prod?sslmode=require',
@@ -58,12 +59,13 @@ describe('Phase 10 Unit 3: Master Production Readiness & Deployment Verification
     });
 
     it('blocks deployment if AUTH_SECRET is missing or shorter than 32 characters', () => {
-      const missingSecret = { NODE_ENV: 'production', DATABASE_URL: 'postgresql://localhost:5432/db' };
+      const missingSecret = { NODE_ENV: 'production', DEPLOYMENT_ENV: 'production', DATABASE_URL: 'postgresql://localhost:5432/db' };
       const checksMissing = auditEnvironment(missingSecret, { isStrictProduction: true });
       expect(checksMissing.some((c) => c.id === 'env_auth_secret_present' && c.status === 'BLOCKER')).toBe(true);
 
       const shortSecret = {
         NODE_ENV: 'production',
+        DEPLOYMENT_ENV: 'production',
         AUTH_SECRET: 'too_short_key',
         DATABASE_URL: 'postgresql://localhost:5432/db',
       };
@@ -74,6 +76,7 @@ describe('Phase 10 Unit 3: Master Production Readiness & Deployment Verification
     it('blocks deployment if AUTH_SECRET is a trivial repeating string or placeholder', () => {
       const trivialSecret = {
         NODE_ENV: 'production',
+        DEPLOYMENT_ENV: 'production',
         AUTH_SECRET: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         DATABASE_URL: 'postgresql://localhost:5432/db',
       };
@@ -84,6 +87,7 @@ describe('Phase 10 Unit 3: Master Production Readiness & Deployment Verification
     it('blocks deployment if MOCK_WHATSAPP=true is set in production', () => {
       const mockInProd = {
         NODE_ENV: 'production',
+        DEPLOYMENT_ENV: 'production',
         AUTH_SECRET: 'dGVzdC1hdXRoLXNlY3JldC12YWxpZC1lbnRyb3B5LTMyaGV4LWtleXMxMjM=',
         DATABASE_URL: 'postgresql://localhost:5432/db',
         MOCK_WHATSAPP: 'true',
@@ -96,9 +100,22 @@ describe('Phase 10 Unit 3: Master Production Readiness & Deployment Verification
       expect(checks.some((c) => c.id === 'env_mock_whatsapp_prod' && c.status === 'BLOCKER')).toBe(true);
     });
 
+    it('allows deployment if MOCK_WHATSAPP=true is set in staging', () => {
+      const mockInStaging = {
+        NODE_ENV: 'production',
+        DEPLOYMENT_ENV: 'staging',
+        AUTH_SECRET: 'dGVzdC1hdXRoLXNlY3JldC12YWxpZC1lbnRyb3B5LTMyaGV4LWtleXMxMjM=',
+        DATABASE_URL: 'postgresql://localhost:5432/db',
+        MOCK_WHATSAPP: 'true',
+      };
+      const checks = auditEnvironment(mockInStaging, { isStrictProduction: false });
+      expect(checks.some((c) => c.id === 'env_mock_whatsapp_prod' && c.status === 'BLOCKER')).toBe(false);
+    });
+
     it('blocks deployment if STORAGE_PROVIDER=local is set in production', () => {
       const localInProd = {
         NODE_ENV: 'production',
+        DEPLOYMENT_ENV: 'production',
         AUTH_SECRET: 'dGVzdC1hdXRoLXNlY3JldC12YWxpZC1lbnRyb3B5LTMyaGV4LWtleXMxMjM=',
         DATABASE_URL: 'postgresql://localhost:5432/db',
         MOCK_WHATSAPP: 'false',

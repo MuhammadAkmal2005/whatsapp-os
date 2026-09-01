@@ -47,6 +47,7 @@ const floatFromString = (fallback: number) =>
 const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    DEPLOYMENT_ENV: z.enum(['development', 'staging', 'production']).default('development'),
     APP_URL: z.string().url().default('http://localhost:3000'),
     NEXT_PUBLIC_APP_NAME: z.string().min(1).default('ConvoNexa'),
 
@@ -139,7 +140,7 @@ const schema = z
 
     // The dangerous direction is a production deployment that silently answers
     // customers from a mock. Refuse to start rather than pretend.
-    if (value.NODE_ENV === 'production' && !isBuildPhase && value.MOCK_WHATSAPP) {
+    if (value.DEPLOYMENT_ENV === 'production' && !isBuildPhase && value.MOCK_WHATSAPP) {
       fail('MOCK_WHATSAPP', 'Must be false in production. A live deployment must not run the mock WhatsApp driver.');
     }
 
@@ -173,7 +174,7 @@ const schema = z
       fail('PAYMENT_SECRET', 'Required when PAYMENT_PROVIDER=stripe.');
     }
 
-    if (value.NODE_ENV === 'production' && !isBuildPhase && value.STORAGE_PROVIDER === 'local') {
+    if (value.DEPLOYMENT_ENV === 'production' && !isBuildPhase && value.STORAGE_PROVIDER === 'local') {
       fail('STORAGE_PROVIDER', 'The local disk driver is for development only. Use s3 in production.');
     }
   });
@@ -205,6 +206,9 @@ export const env: Env = parseEnv();
 export const isProduction = env.NODE_ENV === 'production';
 export const isDevelopment = env.NODE_ENV === 'development';
 export const isTest = env.NODE_ENV === 'test';
+
+export const isDeploymentStaging = env.DEPLOYMENT_ENV === 'staging';
+export const isDeploymentProduction = env.DEPLOYMENT_ENV === 'production';
 
 /** True when no real WhatsApp credentials are in play. Surfaced in the UI. */
 export const isWhatsAppMocked = env.MOCK_WHATSAPP;

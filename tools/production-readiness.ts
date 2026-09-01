@@ -29,6 +29,7 @@ export interface AuditCheck {
 export interface ProductionReadinessReport {
   timestamp: string;
   overallStatus: 'READY' | 'WARNINGS' | 'BLOCKED';
+  deploymentEnv: string;
   summary: {
     total: number;
     passed: number;
@@ -47,25 +48,46 @@ export function auditEnvironment(
 ): AuditCheck[] {
   const envMap = customEnv || process.env;
   const checks: AuditCheck[] = [];
-  const isProd = options?.isStrictProduction ?? (envMap.NODE_ENV === 'production');
+  const deploymentEnv = envMap.DEPLOYMENT_ENV || 'development';
+  const isProd = options?.isStrictProduction ?? (deploymentEnv === 'production');
 
-  // Check NODE_ENV
+  // Check DEPLOYMENT_ENV
   if (isProd) {
     checks.push({
-      id: 'env_node_env',
-      name: 'Production Environment Flag',
+      id: 'env_deployment_env',
+      name: 'Deployment Intent Flag',
       category: 'environment',
       status: 'PASS',
-      details: 'NODE_ENV is set to "production".',
+      details: 'DEPLOYMENT_ENV is set to "production".',
+    });
+  } else {
+    checks.push({
+      id: 'env_deployment_env',
+      name: 'Deployment Intent Flag',
+      category: 'environment',
+      status: 'WARN',
+      details: `DEPLOYMENT_ENV is "${deploymentEnv}" (not "production").`,
+      remediation: 'Set DEPLOYMENT_ENV=production in production deployments.',
+    });
+  }
+
+  // Check NODE_ENV
+  if (envMap.NODE_ENV === 'production') {
+    checks.push({
+      id: 'env_node_env',
+      name: 'Framework Production Flag',
+      category: 'environment',
+      status: 'PASS',
+      details: 'NODE_ENV is correctly set to "production".',
     });
   } else {
     checks.push({
       id: 'env_node_env',
-      name: 'Production Environment Flag',
+      name: 'Framework Production Flag',
       category: 'environment',
       status: 'WARN',
-      details: `NODE_ENV is "${envMap.NODE_ENV || 'development'}" (not "production").`,
-      remediation: 'Set NODE_ENV=production in production deployments.',
+      details: `NODE_ENV is "${envMap.NODE_ENV || 'development'}". Framework will not use production optimisations.`,
+      remediation: 'Set NODE_ENV=production.',
     });
   }
 
@@ -732,10 +754,13 @@ export function runProductionReadinessAudit(
   }
 
   const overallStatus = blockers > 0 ? 'BLOCKED' : warnings > 0 ? 'WARNINGS' : 'READY';
+  const envMap = customEnv || process.env;
+  const deploymentEnv = envMap.DEPLOYMENT_ENV || 'development';
 
   return {
     timestamp: new Date().toISOString(),
     overallStatus,
+    deploymentEnv,
     summary: {
       total: checks.length,
       passed,
@@ -784,12 +809,13 @@ export function printReadinessReport(report: ProductionReadinessReport): void {
   }
 
   console.log('================================================================');
+  const contextWord = report.deploymentEnv === 'staging' ? 'STAGING' : 'PRODUCTION';
   if (report.overallStatus === 'BLOCKED') {
-    console.log('  DEPLOYMENT GATE FAILED: Blocking issues must be resolved.');
+    console.log(`  DEPLOYMENT GATE FAILED: Blocking issues must be resolved for ${contextWord}.`);
   } else if (report.overallStatus === 'WARNINGS') {
-    console.log('  DEPLOYMENT GATE PASSED (WITH WARNINGS): Non-blocking notes detected.');
+    console.log(`  DEPLOYMENT GATE PASSED (WITH WARNINGS): System is verified for ${contextWord}.`);
   } else {
-    console.log('  DEPLOYMENT GATE PASSED: System is fully verified for production.');
+    console.log(`  DEPLOYMENT GATE PASSED: System is fully verified for ${contextWord}.`);
   }
   console.log('================================================================\n');
 }

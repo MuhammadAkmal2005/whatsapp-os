@@ -37,7 +37,8 @@ credentials will need re-entering. Sessions survive, because session tokens are 
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `NODE_ENV` | `development` | `development` \| `test` \| `production`. Several safety rules key off `production`. |
+| `NODE_ENV` | `development` | `development` \| `test` \| `production`. Controls Next.js/React framework optimisations. |
+| `DEPLOYMENT_ENV` | `development` | `development` \| `staging` \| `production`. Controls the business invariants. Real production requires `production`. |
 | `APP_URL` | `http://localhost:3000` | Must be a valid URL. Absolute links, webhook callback URLs, cookie scoping. |
 | `NEXT_PUBLIC_APP_NAME` | `WhatsApp OS` | Display name. The codebase is not coupled to it. |
 | `TEST_DATABASE_URL` | — | When set, the integration suite runs here and resets it freely. Point it at the 5433 container from `docker-compose.yml`, never at your development database. |
@@ -75,9 +76,9 @@ environment edit that silently alters every cost figure in the product.
 | `WHATSAPP_VERIFY_TOKEN` | — | A string you choose. Meta echoes it during webhook verification; compared in constant time. Required when `MOCK_WHATSAPP=false`. |
 | `META_APP_SECRET` | — | Verifies the `X-Hub-Signature-256` HMAC over the raw webhook body. Required when `MOCK_WHATSAPP=false`. |
 
-**`config/env.ts` refuses to boot with `NODE_ENV=production` and `MOCK_WHATSAPP=true`.** The dangerous failure
+**`config/env.ts` refuses to boot with `DEPLOYMENT_ENV=production` and `MOCK_WHATSAPP=true`.** The dangerous failure
 is a live deployment answering real customers from a mock and nobody noticing, so it is made impossible rather
-than documented as a caution.
+than documented as a caution. Staging deployments should use `DEPLOYMENT_ENV=staging`.
 
 Setting `MOCK_WHATSAPP=false` demands all five credentials at once. Half-connected is worse than disconnected:
 messages would send while webhooks failed signature verification, so the business would talk to customers and
@@ -214,13 +215,13 @@ verifying, so raising it is safe and takes effect for new and changed passwords.
 that no single field's type can catch.
 
 - `AI_PROVIDER=openai` or `AI_PROVIDER=gemini` requires `AI_API_KEY`.
-- `NODE_ENV=production` forbids `MOCK_WHATSAPP=true`.
+- `DEPLOYMENT_ENV=production` forbids `MOCK_WHATSAPP=true`.
 - `MOCK_WHATSAPP=false` requires all five WhatsApp credentials.
 - `QUEUE_DRIVER=redis` requires `REDIS_URL`.
 - `STORAGE_PROVIDER=s3` requires endpoint, access key and secret key.
 - `EMAIL_PROVIDER=smtp` requires `SMTP_HOST`.
 - `PAYMENT_PROVIDER=stripe` requires `PAYMENT_SECRET`.
-- `NODE_ENV=production` forbids `STORAGE_PROVIDER=local`.
+- `DEPLOYMENT_ENV=production` forbids `STORAGE_PROVIDER=local`.
 
 When adding a variable, add it to the schema in `config/env.ts`, to `.env.example` with a comment explaining
 what it does, and to this document. A variable that exists in only one of the three is a variable someone will

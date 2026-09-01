@@ -64,10 +64,10 @@ is therefore a planned operation with a re-connect step, not a routine hygiene t
 misconfigured deployment fails at boot with a list of problems rather than at the first request that happens to
 need a value. Two rules are specifically about production:
 
-**`NODE_ENV=production` with `MOCK_WHATSAPP=true` is refused.** The dangerous failure is a live deployment
+**`DEPLOYMENT_ENV=production` with `MOCK_WHATSAPP=true` is refused.** The dangerous failure is a live deployment
 answering real customers from a mock while everyone believes it is connected.
 
-**`NODE_ENV=production` with `STORAGE_PROVIDER=local` is refused.** Serverless hosts have ephemeral disks; uploads
+**`DEPLOYMENT_ENV=production` with `STORAGE_PROVIDER=local` is refused.** Serverless hosts have ephemeral disks; uploads
 would vanish between deployments and the failure would look like data corruption to the business whose customer
 sent a payment screenshot.
 
