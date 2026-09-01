@@ -11,7 +11,7 @@ interface UsageOverviewCardProps {
 
 export function UsageOverviewCard({ quotaUsage }: UsageOverviewCardProps) {
   return (
-    <Card className="border-border shadow-sm">
+    <Card className="border-border shadow-card">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

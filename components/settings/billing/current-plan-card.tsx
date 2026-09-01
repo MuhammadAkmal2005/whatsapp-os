@@ -48,7 +48,7 @@ export function CurrentPlanCard({
   const isFreePlan = subscription.planKey === 'free' || plan.key === 'free';
 
   return (
-    <Card className="border-border shadow-sm">
+    <Card className="border-border shadow-card">
       <CardHeader className="flex flex-row items-start justify-between pb-4">
         <div>
           <div className="flex items-center gap-2">

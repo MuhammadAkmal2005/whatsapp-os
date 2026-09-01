@@ -77,7 +77,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <div className="flex flex-col gap-3">
             <Logo />
             <p className="max-w-xs text-sm text-muted-foreground">
-              Turn WhatsApp into your AI-powered business operating system.
+              AI-powered conversations that grow your business.
             </p>
           </div>
           {FOOTER_SECTIONS.map((section) => (

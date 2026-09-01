@@ -37,7 +37,7 @@ type Option = { value: string; label: string };
 type ServerAction = (prev: FormState, formData: FormData) => Promise<FormState>;
 
 const SELECT_CLASS =
-  'h-9 w-full rounded-md border border-input bg-background px-2 text-sm shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
+  'h-9 w-full rounded-md border border-input bg-background px-2 text-sm shadow-soft transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:border-primary/30';
 
 export function ContactQuickControls({
   contactId,

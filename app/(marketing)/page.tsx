@@ -76,7 +76,7 @@ const STEPS = [
 const FAQS = [
   {
     q: 'Is this official WhatsApp, or a workaround?',
-    a: 'Official. WhatsApp OS connects through the WhatsApp Business Platform (Cloud API). There is no QR-code hack or web scraping, so your number stays safe and compliant.',
+    a: 'Official. ConvoNexa connects through the WhatsApp Business Platform (Cloud API). There is no QR-code hack or web scraping, so your number stays safe and compliant.',
   },
   {
     q: 'Will the AI make up prices or stock?',

@@ -13,8 +13,8 @@
  * brief says the name may change and the codebase must not be coupled to it.
  * Swap these two values and the product is renamed everywhere.
  */
-export const APP_NAME = 'WhatsApp OS';
-export const APP_TAGLINE = 'Turn WhatsApp into your AI-powered business OS';
+export const APP_NAME = 'ConvoNexa';
+export const APP_TAGLINE = 'AI-powered conversations that grow your business';
 
 // ── Money ──────────────────────────────────────────────────────────────────
 /** Minor units per major unit. 100 paisa to the rupee, 100 cents to the dollar. */

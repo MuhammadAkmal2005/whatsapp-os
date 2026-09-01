@@ -21,7 +21,7 @@ import {
 import { getTenantContext } from '@/server/tenancy/resolve';
 
 export const metadata: Metadata = {
-  title: 'Analytics & Usage — WhatsApp OS',
+  title: 'Analytics & Usage',
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;

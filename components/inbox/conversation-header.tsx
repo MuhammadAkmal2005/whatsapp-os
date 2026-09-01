@@ -29,7 +29,7 @@ import type { ConversationDetail } from '@/server/services/conversation/conversa
 import type { ConversationStatus, Priority } from '@/server/validation/conversation';
 
 const SELECT_CLASS =
-  'h-8 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+  'h-8 rounded-md border border-input bg-background px-2.5 text-xs shadow-soft transition-all duration-150 hover:border-primary/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export function ConversationHeader({
   conversation,

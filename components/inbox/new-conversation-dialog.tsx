@@ -28,7 +28,7 @@ import { IDLE_FORM_STATE } from '@/lib/form-state';
 import { createConversationAction } from '@/server/actions/conversation.actions';
 
 const SELECT_CLASS =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
+  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-soft transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:border-primary/30';
 
 export function NewConversationDialog({
   open,
@@ -133,7 +133,7 @@ export function NewConversationDialog({
               name="initialMessageBody"
               rows={3}
               placeholder="Hi, how can we help you today?"
-              className="w-full rounded-md border border-input bg-background p-3 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full rounded-md border border-input bg-background p-3 text-sm shadow-soft transition-all duration-150 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:border-primary/30"
             />
           </div>
 

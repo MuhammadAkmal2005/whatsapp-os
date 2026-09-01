@@ -32,10 +32,10 @@ export function MessageBubble({ message }: { message: MessageView }) {
 
       {/* Bubble Container */}
       <div
-        className={`relative max-w-[85%] sm:max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-xs transition-colors ${
+        className={`relative max-w-[85%] sm:max-w-[75%] rounded-xl px-3.5 py-2 text-sm shadow-soft transition-colors ${
           isOutbound
-            ? 'bg-primary text-primary-foreground rounded-br-xs'
-            : 'bg-muted/80 text-foreground border rounded-bl-xs'
+            ? 'bg-primary text-primary-foreground rounded-br-sm'
+            : 'bg-muted/80 text-foreground border rounded-bl-sm'
         } ${isFailed ? 'border-destructive bg-destructive/10 text-destructive' : ''}`}
       >
         {/* Attachments */}

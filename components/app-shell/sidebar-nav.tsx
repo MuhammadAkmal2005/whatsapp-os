@@ -59,7 +59,7 @@ function isActive(pathname: string, href: string): boolean {
 }
 
 const rowStyles =
-  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors [&_svg]:size-4 [&_svg]:shrink-0';
+  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 [&_svg]:size-4 [&_svg]:shrink-0';
 
 function NavRow({
   item,

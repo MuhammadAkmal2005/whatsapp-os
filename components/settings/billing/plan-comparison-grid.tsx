@@ -82,7 +82,7 @@ export function PlanComparisonGrid({
             >
               {p.highlighted && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-primary text-primary-foreground text-xs px-2.5 py-0.5 shadow-sm">
+                  <Badge className="bg-primary text-primary-foreground text-xs px-2.5 py-0.5 shadow-soft">
                     <Sparkles className="mr-1 size-3" />
                     Most Popular
                   </Badge>
@@ -181,7 +181,7 @@ export function PlanComparisonGrid({
                   <Button
                     variant={p.highlighted ? 'default' : 'outline'}
                     className={`w-full text-xs h-9 font-medium ${
-                      p.highlighted ? 'shadow-sm' : ''
+                      p.highlighted ? 'shadow-card' : ''
                     }`}
                     disabled={!canManage || isActionLoading}
                     onClick={() => onSelectPlan(p.key)}

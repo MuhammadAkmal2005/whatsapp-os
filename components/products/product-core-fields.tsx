@@ -37,7 +37,7 @@ import {
 /** Shared with the variant form so the two status pickers cannot drift into looking
  *  like different controls for the same choice. */
 export const SELECT_CLASS =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60';
+  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-soft transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 hover:border-primary/30 focus:border-primary/40';
 
 export type Category = { id: string; name: string };
 

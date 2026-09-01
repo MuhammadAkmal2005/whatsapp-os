@@ -11,7 +11,7 @@ import { ORDERED_PLANS, type Plan, type PlanFeature, type PlanLimits } from '@/c
 export const metadata: Metadata = {
   title: 'Pricing',
   description:
-    'Simple, honest pricing for WhatsApp OS. Start free, then upgrade as your shop grows.',
+    'Simple, honest pricing for ConvoNexa. Start free, then upgrade as your shop grows.',
 };
 
 /** Shop-owner wording for each entitlement flag. */

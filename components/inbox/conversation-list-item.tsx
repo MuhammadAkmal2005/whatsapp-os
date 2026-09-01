@@ -47,7 +47,7 @@ export function ConversationListItem({
   return (
     <Link
       href={`/conversations?${createQueryString(conversation.id)}`}
-      className={`group relative flex flex-col gap-1.5 p-3.5 transition-colors border-b last:border-b-0 hover:bg-accent/50 ${
+      className={`group relative flex flex-col gap-1.5 p-3.5 transition-all duration-150 border-b last:border-b-0 hover:bg-accent/50 ${
         isSelected
           ? 'bg-accent/80 border-l-4 border-l-primary pl-[10px]'
           : 'bg-card hover:bg-muted/40'

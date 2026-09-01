@@ -40,7 +40,7 @@ export function InboxShell({
   };
 
   return (
-    <div className="flex h-[calc(100vh-8.5rem)] min-h-[500px] rounded-xl border bg-card shadow-xs overflow-hidden">
+    <div className="flex h-[calc(100vh-8.5rem)] min-h-[500px] rounded-xl border border-border bg-card shadow-card overflow-hidden">
       {/* Left pane: Conversation List */}
       <div
         className={`w-full md:w-80 lg:w-96 shrink-0 h-full ${
@@ -81,12 +81,12 @@ export function InboxShell({
             />
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-muted/5">
-            <div className="p-4 bg-muted rounded-full mb-3 shadow-2xs">
-              <MessageSquare className="size-8 text-muted-foreground" aria-hidden />
+          <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+            <div className="flex size-14 items-center justify-center rounded-full bg-primary/8 text-primary ring-1 ring-primary/10 mb-4">
+              <MessageSquare className="size-6" aria-hidden />
             </div>
             <h3 className="text-base font-semibold text-foreground">Select a conversation</h3>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+            <p className="text-sm text-muted-foreground mt-1.5 max-w-xs">
               Choose a customer thread from the left to view messages and respond.
             </p>
           </div>

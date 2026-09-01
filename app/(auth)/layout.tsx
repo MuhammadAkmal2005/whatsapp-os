@@ -22,16 +22,16 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="w-full max-w-sm">{children}</div>
         </main>
         <footer className="text-xs text-muted-foreground">
-          © {new Date().getFullYear()} {APP_NAME}. Built for businesses that run on WhatsApp.
+          © {new Date().getFullYear()} {APP_NAME}. AI-powered conversations that grow your business.
         </footer>
       </div>
 
       <aside className="relative hidden overflow-hidden bg-sidebar px-12 py-16 text-sidebar-foreground lg:flex lg:flex-col lg:justify-center">
         <div className="max-w-md">
           <p className="text-2xl font-semibold leading-snug text-white">
-            Your WhatsApp sales and support team, powered by AI.
+            Your AI-powered sales and support team on WhatsApp.
           </p>
-          <p className="mt-4 text-sidebar-foreground">
+          <p className="mt-4 text-sidebar-foreground/90">
             Answer customers instantly, capture every lead, and turn chats into orders — all from
             one dashboard, in the language your customers actually write in.
           </p>

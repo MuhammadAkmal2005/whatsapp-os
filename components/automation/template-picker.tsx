@@ -75,7 +75,7 @@ export function TemplatePicker() {
               href={`/automations/new?template=${tmpl.id}`}
               className="group block"
             >
-              <Card className="h-full border-border bg-card/60 transition-all hover:border-primary/50 hover:bg-card hover:shadow-sm">
+              <Card className="h-full border-border bg-card/60 transition-all duration-150 hover:border-primary/50 hover:bg-card hover:shadow-soft">
                 <CardContent className="flex h-full flex-col justify-between p-4">
                   <div>
                     <div className="flex items-center justify-between gap-2">

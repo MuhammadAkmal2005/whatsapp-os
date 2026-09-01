@@ -156,7 +156,7 @@ export function ConversationList({
               onClick={() => updateFilters({ status: tab.id === 'ALL' ? null : tab.id })}
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
                 isActive
-                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  ? 'bg-primary text-primary-foreground shadow-soft'
                   : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground'
               }`}
             >

@@ -3,102 +3,115 @@
 @tailwind utilities;
 
 /**
+ * ConvoNexa design tokens.
+ *
  * The palette lives here as bare HSL triplets, and tailwind.config.ts wraps each
  * one in hsl(). That indirection is what lets the single `.dark` class below
  * repaint the entire product without any utility class knowing which theme is
  * active.
  *
- * The primary is a considered, slightly desaturated forest green — WhatsApp is
- * the channel, so green reads as "right", but it is deliberately not WhatsApp's
- * own brand green. Neutrals carry a faint green undertone so the interface feels
- * of a piece rather than green accents dropped onto a grey shell.
+ * The primary is a considered, slightly desaturated teal-green. It reads as
+ * professional and approachable without being tied to any single messaging
+ * platform. Neutrals carry a faint cool undertone so the interface feels
+ * cohesive rather than green accents dropped onto a grey shell.
  */
 
 :root {
-  --background: 140 20% 99%;
-  --foreground: 160 24% 10%;
+  --background: 150 14% 98%;
+  --foreground: 170 20% 11%;
 
   --card: 0 0% 100%;
-  --card-foreground: 160 24% 10%;
+  --card-foreground: 170 20% 11%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 160 24% 10%;
+  --popover-foreground: 170 20% 11%;
 
-  --primary: 152 56% 30%;
-  --primary-foreground: 140 40% 98%;
+  --primary: 160 50% 28%;
+  --primary-foreground: 150 40% 98%;
 
-  --secondary: 150 16% 95%;
-  --secondary-foreground: 158 30% 18%;
+  --secondary: 155 12% 94%;
+  --secondary-foreground: 165 24% 18%;
 
-  --muted: 150 14% 96%;
-  --muted-foreground: 155 10% 40%;
+  --muted: 155 10% 95%;
+  --muted-foreground: 160 8% 44%;
 
-  --accent: 150 18% 94%;
-  --accent-foreground: 158 34% 16%;
+  --accent: 155 14% 93%;
+  --accent-foreground: 165 28% 16%;
 
-  --destructive: 0 72% 45%;
+  --destructive: 0 68% 46%;
   --destructive-foreground: 0 0% 100%;
 
-  --success: 152 60% 32%;
-  --success-foreground: 140 40% 98%;
+  --success: 158 54% 30%;
+  --success-foreground: 150 40% 98%;
 
-  --warning: 38 92% 45%;
-  --warning-foreground: 40 40% 8%;
+  --warning: 40 88% 48%;
+  --warning-foreground: 42 36% 10%;
 
-  --border: 150 14% 89%;
-  --input: 150 14% 87%;
-  --ring: 152 56% 30%;
+  --border: 155 10% 88%;
+  --input: 155 10% 85%;
+  --ring: 160 50% 28%;
 
-  --sidebar: 156 26% 13%;
-  --sidebar-foreground: 150 16% 82%;
-  --sidebar-accent: 154 34% 20%;
-  --sidebar-border: 156 24% 20%;
+  --sidebar: 168 30% 11%;
+  --sidebar-foreground: 155 12% 80%;
+  --sidebar-accent: 164 30% 18%;
+  --sidebar-border: 166 22% 18%;
 
   --radius: 0.625rem;
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Menlo', monospace;
+
+  /* Glass & gradient tokens for premium effects */
+  --glass-bg: 0 0% 100% / 0.7;
+  --glass-border: 0 0% 100% / 0.2;
+  --gradient-primary: linear-gradient(135deg, hsl(160 50% 28%), hsl(170 44% 34%));
+  --gradient-hero: linear-gradient(180deg, hsl(155 20% 96%) 0%, hsl(150 14% 98%) 100%);
 }
 
 .dark {
-  --background: 160 24% 7%;
-  --foreground: 150 14% 92%;
+  --background: 168 22% 7%;
+  --foreground: 155 10% 92%;
 
-  --card: 162 22% 10%;
-  --card-foreground: 150 14% 92%;
+  --card: 168 20% 9%;
+  --card-foreground: 155 10% 92%;
 
-  --popover: 162 24% 9%;
-  --popover-foreground: 150 14% 92%;
+  --popover: 168 22% 8%;
+  --popover-foreground: 155 10% 92%;
 
-  --primary: 150 52% 45%;
-  --primary-foreground: 160 40% 6%;
+  --primary: 158 48% 42%;
+  --primary-foreground: 168 36% 6%;
 
-  --secondary: 158 16% 16%;
-  --secondary-foreground: 150 14% 90%;
+  --secondary: 164 14% 15%;
+  --secondary-foreground: 155 10% 90%;
 
-  --muted: 158 14% 15%;
-  --muted-foreground: 150 10% 60%;
+  --muted: 164 12% 14%;
+  --muted-foreground: 155 8% 58%;
 
-  --accent: 156 18% 18%;
-  --accent-foreground: 150 14% 92%;
+  --accent: 162 16% 17%;
+  --accent-foreground: 155 10% 92%;
 
-  --destructive: 0 62% 52%;
+  --destructive: 0 58% 52%;
   --destructive-foreground: 0 0% 100%;
 
-  --success: 150 52% 45%;
-  --success-foreground: 160 40% 6%;
+  --success: 156 48% 42%;
+  --success-foreground: 168 36% 6%;
 
-  --warning: 38 88% 55%;
-  --warning-foreground: 40 40% 8%;
+  --warning: 40 82% 54%;
+  --warning-foreground: 42 36% 10%;
 
-  --border: 156 16% 20%;
-  --input: 156 16% 22%;
-  --ring: 150 52% 45%;
+  --border: 164 14% 19%;
+  --input: 164 14% 21%;
+  --ring: 158 48% 42%;
 
-  --sidebar: 162 26% 9%;
-  --sidebar-foreground: 150 14% 78%;
-  --sidebar-accent: 156 24% 17%;
-  --sidebar-border: 156 20% 16%;
+  --sidebar: 170 26% 8%;
+  --sidebar-foreground: 155 10% 76%;
+  --sidebar-accent: 166 22% 15%;
+  --sidebar-border: 166 18% 14%;
+
+  --glass-bg: 168 22% 10% / 0.7;
+  --glass-border: 155 10% 20% / 0.3;
+  --gradient-primary: linear-gradient(135deg, hsl(158 48% 42%), hsl(168 42% 38%));
+  --gradient-hero: linear-gradient(180deg, hsl(168 22% 9%) 0%, hsl(168 22% 7%) 100%);
 }
 
 @layer base {
@@ -131,6 +144,12 @@
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
+
+  /* Premium text selection colour */
+  ::selection {
+    background-color: hsl(var(--primary) / 0.15);
+    color: hsl(var(--foreground));
+  }
 }
 
 @layer utilities {
@@ -140,8 +159,8 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
@@ -149,8 +168,28 @@
     border-radius: 9999px;
   }
 
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+  }
+
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  /* Glass morphism utility */
+  .glass {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+    border: 1px solid hsl(var(--glass-border));
+  }
+
+  /* Gradient text utility */
+  .text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }
 

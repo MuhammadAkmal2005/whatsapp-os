@@ -103,7 +103,7 @@ export function ReplyComposer({
             onKeyDown={handleKeyDown}
             placeholder="Type a message... (Enter to send, Shift+Enter for new line)"
             disabled={isPending}
-            className="w-full resize-none rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 min-h-[40px] max-h-[140px]"
+            className="w-full resize-none rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm shadow-soft transition-all duration-150 placeholder:text-muted-foreground hover:border-primary/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-primary/40 disabled:opacity-50 min-h-[40px] max-h-[140px]"
           />
         </div>
 

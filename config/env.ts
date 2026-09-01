@@ -48,7 +48,7 @@ const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     APP_URL: z.string().url().default('http://localhost:3000'),
-    NEXT_PUBLIC_APP_NAME: z.string().min(1).default('WhatsApp OS'),
+    NEXT_PUBLIC_APP_NAME: z.string().min(1).default('ConvoNexa'),
 
     /** 32 bytes minimum. Session tokens are random rather than signed, but this
      *  secret keys the encryption of stored provider tokens. */
@@ -89,7 +89,7 @@ const schema = z
     STORAGE_MAX_UPLOAD_BYTES: intFromString(20_971_520).pipe(z.number().min(1024)),
 
     EMAIL_PROVIDER: z.enum(['console', 'smtp']).default('console'),
-    EMAIL_FROM: z.string().default('WhatsApp OS <no-reply@example.com>'),
+    EMAIL_FROM: z.string().default('ConvoNexa <no-reply@example.com>'),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: intFromString(587),
     SMTP_USER: z.string().optional(),

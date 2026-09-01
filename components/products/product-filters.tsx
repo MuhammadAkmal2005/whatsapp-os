@@ -31,7 +31,7 @@ import {
 const SEARCH_DEBOUNCE_MS = 350;
 
 const SELECT_CLASS =
-  'h-9 rounded-md border border-input bg-background px-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
+  'h-9 rounded-md border border-input bg-background px-2 text-sm shadow-soft transition-all duration-150 hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
 
 type Category = { id: string; name: string };
 

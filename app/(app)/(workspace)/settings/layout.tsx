@@ -19,7 +19,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Set up how {context.workspaceName} runs on WhatsApp OS.
+          Set up how {context.workspaceName} runs on ConvoNexa.
         </p>
       </header>
 
