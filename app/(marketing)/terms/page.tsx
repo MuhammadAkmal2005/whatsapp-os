@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { Info } from 'lucide-react';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { APP_NAME } from '@/config/constants';
 
 export const metadata: Metadata = {
@@ -18,10 +20,16 @@ export default function TermsPage() {
       </header>
 
       <div className="mt-8 flex flex-col gap-8 text-sm leading-relaxed text-foreground">
-        <section className="rounded-lg border border-border bg-muted/40 p-4 text-muted-foreground">
-          These terms are a starting template provided with {APP_NAME}. Review and adapt them to
-          your business and local law before going live. They are not legal advice.
-        </section>
+        {/* Same information banner as the privacy page, so the two legal pages open
+            identically and the notice reads as something to act on. */}
+        <Alert variant="info">
+          <Info aria-hidden />
+          <AlertTitle>This is a template, not legal advice</AlertTitle>
+          <AlertDescription>
+            These terms ship with {APP_NAME} as a starting point. Review and adapt them to your
+            business and local law before you go live.
+          </AlertDescription>
+        </Alert>
 
         <Section title="Acceptance">
           By creating an account or using {APP_NAME}, you agree to these terms on behalf of your
@@ -82,8 +90,8 @@ export default function TermsPage() {
 
         <Section title="Termination">
           You may close your account at any time. We may suspend or end access for a serious or
-          repeated breach of these terms, particularly around messaging abuse or attempts to breach
-          tenant isolation.
+          repeated breach of these terms, particularly around messaging abuse or attempts to reach
+          another business&apos;s data.
         </Section>
 
         <Section title="Contact">

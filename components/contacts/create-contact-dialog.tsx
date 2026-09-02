@@ -30,6 +30,7 @@ import {
 import { FormAlert } from '@/components/ui/form-alert';
 import { FormControl, FormDescription, FormField, FormLabel } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { IDLE_FORM_STATE } from '@/lib/form-state';
 import { createContactAction } from '@/server/actions/contact.actions';
@@ -38,9 +39,6 @@ import {
   CONTACT_STATUSES,
   CONTACT_STATUS_LABELS,
 } from '@/server/validation/contact';
-
-const SELECT_CLASS =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-soft transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:border-primary/30';
 
 export function CreateContactDialog({ assignees }: { assignees: { id: string; name: string }[] }) {
   const [open, setOpen] = useState(false);
@@ -51,7 +49,7 @@ export function CreateContactDialog({ assignees }: { assignees: { id: string; na
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <UserPlus className="size-4" aria-hidden />
+          <UserPlus aria-hidden />
           Add customer
         </Button>
       </DialogTrigger>
@@ -92,14 +90,24 @@ export function CreateContactDialog({ assignees }: { assignees: { id: string; na
             <FormField error={fieldErrors?.name?.[0]}>
               <FormLabel>Name</FormLabel>
               <FormControl>
-                <Input name="name" autoComplete="off" placeholder="e.g. Ayesha Khan" maxLength={CONTACT_FIELD_MAX.name} />
+                <Input
+                  name="name"
+                  autoComplete="off"
+                  placeholder="e.g. Ayesha Khan"
+                  maxLength={CONTACT_FIELD_MAX.name}
+                />
               </FormControl>
             </FormField>
 
             <FormField error={fieldErrors?.city?.[0]}>
               <FormLabel>City</FormLabel>
               <FormControl>
-                <Input name="city" autoComplete="off" placeholder="e.g. Lahore" maxLength={CONTACT_FIELD_MAX.city} />
+                <Input
+                  name="city"
+                  autoComplete="off"
+                  placeholder="e.g. Lahore"
+                  maxLength={CONTACT_FIELD_MAX.city}
+                />
               </FormControl>
             </FormField>
           </div>
@@ -108,27 +116,27 @@ export function CreateContactDialog({ assignees }: { assignees: { id: string; na
             <FormField error={fieldErrors?.status?.[0]}>
               <FormLabel>Status</FormLabel>
               <FormControl>
-                <select name="status" defaultValue="LEAD" className={SELECT_CLASS}>
+                <NativeSelect name="status" defaultValue="LEAD">
                   {CONTACT_STATUSES.map((value) => (
                     <option key={value} value={value}>
                       {CONTACT_STATUS_LABELS[value]}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </FormControl>
             </FormField>
 
             <FormField error={fieldErrors?.assignedToMemberId?.[0]}>
               <FormLabel>Looked after by</FormLabel>
               <FormControl>
-                <select name="assignedToMemberId" defaultValue="" className={SELECT_CLASS}>
+                <NativeSelect name="assignedToMemberId" defaultValue="">
                   <option value="">Nobody yet</option>
                   {assignees.map((assignee) => (
                     <option key={assignee.id} value={assignee.id}>
                       {assignee.name}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </FormControl>
             </FormField>
           </div>

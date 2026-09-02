@@ -20,6 +20,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { NativeSelect } from '@/components/ui/native-select';
 import {
   ORDER_FIELD_MAX,
   ORDER_STATUSES,
@@ -31,9 +32,6 @@ import {
 /** Long enough that normal typing produces one request per word rather than one per
  *  keystroke, short enough that it does not feel laggy. */
 const SEARCH_DEBOUNCE_MS = 350;
-
-const SELECT_CLASS =
-  'h-9 rounded-md border border-input bg-background px-2 text-sm shadow-soft transition-all duration-150 hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
 
 /**
  * Applies a set of filter changes and always drops the cursor.
@@ -124,11 +122,11 @@ export function OrderFilters() {
         <label className="sr-only" htmlFor="order-status-filter">
           Filter by status
         </label>
-        <select
+        <NativeSelect
           id="order-status-filter"
           value={status}
           onChange={(event) => apply({ status: event.target.value })}
-          className={SELECT_CLASS}
+          wrapperClassName="w-auto"
         >
           <option value="">All statuses</option>
           {ORDER_STATUSES.map((value) => (
@@ -136,16 +134,16 @@ export function OrderFilters() {
               {ORDER_STATUS_LABELS[value]}
             </option>
           ))}
-        </select>
+        </NativeSelect>
 
         <label className="sr-only" htmlFor="order-payment-filter">
           Filter by payment
         </label>
-        <select
+        <NativeSelect
           id="order-payment-filter"
           value={paymentStatus}
           onChange={(event) => apply({ paymentStatus: event.target.value })}
-          className={SELECT_CLASS}
+          wrapperClassName="w-auto"
         >
           <option value="">All payments</option>
           {PAYMENT_STATUSES.map((value) => (
@@ -153,7 +151,7 @@ export function OrderFilters() {
               {PAYMENT_STATUS_LABELS[value]}
             </option>
           ))}
-        </select>
+        </NativeSelect>
 
         {hasFilters ? (
           <Button

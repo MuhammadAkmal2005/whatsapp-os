@@ -21,7 +21,7 @@ import {
 import { getTenantContext } from '@/server/tenancy/resolve';
 
 export const metadata: Metadata = {
-  title: 'Analytics & Usage',
+  title: 'Analytics',
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -63,7 +63,7 @@ function resolveDateRange(params: { range?: string; from?: string; to?: string }
       from,
       to: now,
       rangeKey: '7d',
-      formattedRange: 'Last 7 Days',
+      formattedRange: 'Last 7 days',
     };
   }
 
@@ -73,7 +73,7 @@ function resolveDateRange(params: { range?: string; from?: string; to?: string }
       from,
       to: now,
       rangeKey: '90d',
-      formattedRange: 'Last 90 Days',
+      formattedRange: 'Last 90 days',
     };
   }
 
@@ -83,7 +83,7 @@ function resolveDateRange(params: { range?: string; from?: string; to?: string }
       from,
       to: now,
       rangeKey: 'this_month',
-      formattedRange: 'This Month',
+      formattedRange: 'This month',
     };
   }
 
@@ -94,7 +94,7 @@ function resolveDateRange(params: { range?: string; from?: string; to?: string }
       from,
       to,
       rangeKey: 'last_month',
-      formattedRange: 'Last Month',
+      formattedRange: 'Last month',
     };
   }
 
@@ -104,7 +104,7 @@ function resolveDateRange(params: { range?: string; from?: string; to?: string }
     from,
     to: now,
     rangeKey: '30d',
-    formattedRange: 'Last 30 Days',
+    formattedRange: 'Last 30 days',
   };
 }
 
@@ -134,51 +134,54 @@ export default async function AnalyticsPage(props: PageProps) {
     overview.summary.contactsTotal === 0;
 
   return (
-    <div className="flex flex-col gap-8 pb-12">
-      <AnalyticsHeader currentRange={rangeKey} formattedRange={formattedRange} />
+    <div className="flex flex-col gap-6">
+      <AnalyticsHeader
+        currentRange={rangeKey}
+        formattedRange={formattedRange}
+        from={from.toISOString()}
+        to={to.toISOString()}
+      />
 
       {isEmpty ? (
         <EmptyAnalyticsState />
       ) : (
-        <Tabs defaultValue="overview" className="flex flex-col gap-6">
-          <TabsList className="grid w-full grid-cols-2 md:w-auto md:inline-flex md:grid-cols-none">
-            <TabsTrigger value="overview" className="gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Overview & Operations
+        <Tabs defaultValue="overview" className="flex flex-col">
+          {/* The list scrolls horizontally on a narrow screen rather than wrapping — three
+              labels in a two-column grid put one on a second row inside a fixed-height
+              track, which clipped it. */}
+          <TabsList>
+            <TabsTrigger value="overview">
+              <TrendingUp aria-hidden />
+              Overview
             </TabsTrigger>
-            <TabsTrigger value="ai" className="gap-2">
-              <Bot className="h-4 w-4" />
-              AI Telemetry & Costs
+            <TabsTrigger value="ai">
+              <Bot aria-hidden />
+              AI activity
             </TabsTrigger>
             {usageStatus ? (
-              <TabsTrigger value="usage" className="gap-2">
-                <Gauge className="h-4 w-4" />
-                Plan Quotas & Usage
+              <TabsTrigger value="usage">
+                <Gauge aria-hidden />
+                Plan limits
               </TabsTrigger>
             ) : null}
           </TabsList>
 
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="flex flex-col gap-6 mt-0">
+          <TabsContent value="overview" className="flex flex-col gap-6">
             <AnalyticsKpiGrid summary={overview.summary} currency={context.currency} />
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <RevenueOrdersChart data={overview.timeSeries} currency={context.currency} />
               <MessagingVolumeChart data={overview.timeSeries} />
             </div>
           </TabsContent>
 
-          {/* AI Telemetry Tab */}
-          <TabsContent value="ai" className="flex flex-col gap-6 mt-0">
-            <div className="grid grid-cols-1 gap-6">
-              <AIUsageChart data={overview.timeSeries} />
-              <AITelemetryView telemetry={telemetry} />
-            </div>
+          <TabsContent value="ai" className="flex flex-col gap-6">
+            <AIUsageChart data={overview.timeSeries} />
+            <AITelemetryView telemetry={telemetry} />
           </TabsContent>
 
-          {/* Usage Metering Tab */}
           {usageStatus ? (
-            <TabsContent value="usage" className="flex flex-col gap-6 mt-0">
+            <TabsContent value="usage">
               <UsageMeteringCard status={usageStatus} />
             </TabsContent>
           ) : null}

@@ -1,24 +1,22 @@
 /**
- * Badges, icons, and formatters for the Inbox UI.
+ * The inbox's shared vocabulary: how a status, a priority, a channel, who is answering,
+ * and whether a message arrived are each drawn.
  *
- * Provides consistent visual representation for conversation statuses, priorities,
- * channels, AI automation states, and message delivery statuses across the inbox.
+ * Every one of these appears in at least two places — the list row, the thread header,
+ * the customer panel — so they live here rather than being re-styled per screen. They are
+ * all thin wrappers over the `Badge` primitive: a chip in the inbox should be
+ * indistinguishable from a chip on the orders table, and the way that goes wrong is one
+ * screen hand-mixing its own border and background from the raw palette.
+ *
+ * Date formatting deliberately does *not* live here. It is in `lib/datetime.ts` with the
+ * rest of it.
  */
 
-import {
-  AlertCircle,
-  Bot,
-  Check,
-  CheckCheck,
-  Clock,
-  Mail,
-  MessageCircle,
-  MessageSquare,
-  Smartphone,
-  UserCheck,
-} from 'lucide-react';
+import { AlertCircle, Bot, Check, CheckCheck, Clock, UserRound } from 'lucide-react';
 
 import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { handoffReasonLabel } from '@/lib/labels';
+import { cn } from '@/lib/utils';
 import type {
   Channel,
   ConversationStatus,
@@ -27,7 +25,7 @@ import type {
   Priority,
 } from '@/server/validation/conversation';
 
-// ── Status Badges ──────────────────────────────────────────────────────────
+/* ── Status ──────────────────────────────────────────────────────────────── */
 
 const STATUS_LABELS: Record<ConversationStatus, string> = {
   OPEN: 'Open',
@@ -45,19 +43,22 @@ const STATUS_VARIANT: Record<ConversationStatus, BadgeProps['variant']> = {
 
 export function ConversationStatusBadge({
   status,
+  size,
   className,
 }: {
   status: ConversationStatus;
+  /** Passed through rather than shrunk with a `text-` override on the way in. */
+  size?: BadgeProps['size'];
   className?: string;
 }) {
   return (
-    <Badge variant={STATUS_VARIANT[status]} className={className}>
+    <Badge variant={STATUS_VARIANT[status]} size={size} className={className}>
       {STATUS_LABELS[status]}
     </Badge>
   );
 }
 
-// ── Priority Badges ────────────────────────────────────────────────────────
+/* ── Priority ────────────────────────────────────────────────────────────── */
 
 const PRIORITY_LABELS: Record<Priority, string> = {
   LOW: 'Low',
@@ -75,44 +76,58 @@ const PRIORITY_VARIANT: Record<Priority, BadgeProps['variant']> = {
 
 export function PriorityBadge({
   priority,
+  size,
   className,
 }: {
   priority: Priority;
+  size?: BadgeProps['size'];
   className?: string;
 }) {
   return (
-    <Badge variant={PRIORITY_VARIANT[priority]} className={className}>
+    <Badge variant={PRIORITY_VARIANT[priority]} size={size} className={className}>
       {PRIORITY_LABELS[priority]}
     </Badge>
   );
 }
 
-// ── Channel Badges ─────────────────────────────────────────────────────────
+/* ── Channel ─────────────────────────────────────────────────────────────── */
 
-const CHANNEL_ICONS = {
-  WHATSAPP: MessageCircle,
-  INSTAGRAM: MessageSquare,
-  MESSENGER: MessageSquare,
-  WEBCHAT: MessageSquare,
-  SMS: Smartphone,
-  EMAIL: Mail,
+/**
+ * How each channel is named on screen.
+ *
+ * Spelled out rather than derived from the enum with `toLowerCase()` and a `capitalize`
+ * class, which rendered "Whatsapp" — the one word in the product whose capitalisation
+ * customers would notice. Only WhatsApp is connected today; the rest are here because the
+ * column can already hold them, not as a claim that they work.
+ */
+const CHANNEL_LABELS: Record<Channel, string> = {
+  WHATSAPP: 'WhatsApp',
+  INSTAGRAM: 'Instagram',
+  MESSENGER: 'Messenger',
+  WEBCHAT: 'Web chat',
+  SMS: 'SMS',
+  EMAIL: 'Email',
 };
 
-export function ChannelBadge({ channel, className }: { channel: Channel; className?: string }) {
-  const Icon = CHANNEL_ICONS[channel] ?? MessageCircle;
+export function ChannelLabel({ channel, className }: { channel: Channel; className?: string }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1 text-xs text-muted-foreground ${className ?? ''}`}
-      title={`Channel: ${channel}`}
-    >
-      <Icon className="size-3.5" aria-hidden />
-      <span className="capitalize">{channel.toLowerCase()}</span>
+    <span className={cn('text-2xs text-muted-foreground', className)}>
+      {CHANNEL_LABELS[channel] ?? channel}
     </span>
   );
 }
 
-// ── AI State Badge ─────────────────────────────────────────────────────────
+/* ── Who is answering ────────────────────────────────────────────────────── */
 
+/**
+ * Whether the AI is handling this conversation or a person has taken it over.
+ *
+ * Two semantic variants rather than a hand-mixed palette: `ai` is the product's one
+ * reserved colour for machine-generated work, and takeover is `warning` because it means
+ * *this needs a person* — not because amber looked right. The handoff reason goes through
+ * `handoffReasonLabel`, so a shop owner reads "The AI wasn't sure enough" rather than
+ * `LOW_CONFIDENCE`.
+ */
 export function AiStatusBadge({
   aiEnabled,
   handoffReason,
@@ -124,30 +139,50 @@ export function AiStatusBadge({
 }) {
   if (aiEnabled) {
     return (
-      <Badge
-        variant="outline"
-        className={`gap-1 border-primary/40 bg-primary/5 text-primary text-xs ${className ?? ''}`}
-      >
-        <Bot className="size-3" aria-hidden />
-        AI active
+      <Badge variant="ai" className={className}>
+        <Bot aria-hidden />
+        AI is replying
       </Badge>
     );
   }
 
   return (
-    <Badge
-      variant="outline"
-      className={`gap-1 border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs ${className ?? ''}`}
-      title={handoffReason ? `Reason: ${handoffReason.replace(/_/g, ' ')}` : 'Human operator active'}
-    >
-      <UserCheck className="size-3" aria-hidden />
-      Human takeover
+    <Badge variant="warning" className={className}>
+      <UserRound aria-hidden />
+      Your team is replying
+      {handoffReason ? (
+        <span className="sr-only"> — {handoffReasonLabel(handoffReason)}</span>
+      ) : null}
     </Badge>
   );
 }
 
-// ── Message Status Icons ───────────────────────────────────────────────────
+/* ── Delivery ────────────────────────────────────────────────────────────── */
 
+type DeliveryMark = { label: string; icon: typeof Check; tone: string };
+
+/**
+ * Outbound delivery state, as WhatsApp's own ticks.
+ *
+ * Read is the one state that gets colour, because it is the only one worth scanning for;
+ * the rest are grey so a thread does not turn into a column of blue. `text-info` rather
+ * than `text-sky-500`: the palette utility does not follow the theme, and in dark mode it
+ * sat at a different contrast from every other accent on screen.
+ */
+const DELIVERY_MARKS: Partial<Record<MessageStatus, DeliveryMark>> = {
+  QUEUED: { label: 'Waiting to send', icon: Clock, tone: 'text-muted-foreground' },
+  SENDING: { label: 'Sending', icon: Clock, tone: 'text-muted-foreground' },
+  SENT: { label: 'Sent', icon: Check, tone: 'text-muted-foreground' },
+  DELIVERED: { label: 'Delivered', icon: CheckCheck, tone: 'text-muted-foreground' },
+  READ: { label: 'Read', icon: CheckCheck, tone: 'text-info' },
+  FAILED: { label: 'Not delivered', icon: AlertCircle, tone: 'text-destructive' },
+};
+
+/**
+ * `title` alone is not an accessible name and never reaches a touch device, so the state
+ * is also written out for screen readers. The icon carries `aria-hidden` and the text
+ * carries the meaning — the reverse of how this read before.
+ */
 export function MessageStatusIcon({
   status,
   direction,
@@ -159,100 +194,15 @@ export function MessageStatusIcon({
 }) {
   if (direction === 'INBOUND') return null;
 
-  switch (status) {
-    case 'QUEUED':
-    case 'SENDING':
-      return (
-        <span title="Queued">
-          <Clock className={`size-3 text-muted-foreground ${className ?? ''}`} />
-        </span>
-      );
-    case 'SENT':
-      return (
-        <span title="Sent">
-          <Check className={`size-3 text-muted-foreground ${className ?? ''}`} />
-        </span>
-      );
-    case 'DELIVERED':
-      return (
-        <span title="Delivered">
-          <CheckCheck className={`size-3 text-muted-foreground ${className ?? ''}`} />
-        </span>
-      );
-    case 'READ':
-      return (
-        <span title="Read">
-          <CheckCheck className={`size-3 text-sky-500 ${className ?? ''}`} />
-        </span>
-      );
-    case 'FAILED':
-      return (
-        <span title="Failed to deliver">
-          <AlertCircle className={`size-3 text-destructive ${className ?? ''}`} />
-        </span>
-      );
-    default:
-      return null;
-  }
-}
+  const mark = DELIVERY_MARKS[status];
+  if (!mark) return null;
 
-// ── Date and Name Formatters ───────────────────────────────────────────────
+  const Icon = mark.icon;
 
-export function formatRelativeTime(dateInput: Date | string | null): string {
-  if (!dateInput) return '';
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  if (Number.isNaN(date.getTime())) return '';
-
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHours = Math.floor(diffMin / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffSec < 60) return 'Just now';
-  if (diffMin < 60) return `${diffMin}m`;
-  if (diffHours < 24) return `${diffHours}h`;
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d`;
-
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-export function formatMessageTime(dateInput: Date | string | null): string {
-  if (!dateInput) return '';
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  if (Number.isNaN(date.getTime())) return '';
-
-  return date.toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-export function formatThreadDividerDate(dateInput: Date | string): string {
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  if (Number.isNaN(date.getTime())) return '';
-
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-
-  if (date.toDateString() === today.toDateString()) return 'Today';
-  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-
-  return date.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
-  });
-}
-
-export function initials(name: string | null | undefined): string {
-  if (!name) return '??';
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '??';
-  if (parts.length === 1) return (parts[0]?.slice(0, 2) ?? '??').toUpperCase();
-  return `${parts[0]?.[0] ?? ''}${parts[parts.length - 1]?.[0] ?? ''}`.toUpperCase();
+  return (
+    <span className="inline-flex items-center">
+      <Icon className={cn('size-3', mark.tone, className)} aria-hidden />
+      <span className="sr-only">{mark.label}</span>
+    </span>
+  );
 }

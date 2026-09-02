@@ -1,84 +1,131 @@
-import { Package } from 'lucide-react';
 import Link from 'next/link';
 
 import { ProductPrice, ProductStatusBadge, StockBadge } from '@/components/products/product-badges';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import type { ProductSummary } from '@/server/services/product/product.service';
 
 /**
  * The catalogue.
  *
- * Rows, not a table, for the reason `ContactList` gives: a table of a product's name,
- * code, category, price and stock either scrolls sideways on a phone or shrinks its text
- * past reading. Each row is one link into the product, with the two things a shop owner
- * scans a catalogue for held at the end where the eye lands — what it costs and whether
- * it is about to run out.
+ * This was a list of stacked rows, on the argument that a table cannot work on a phone.
+ * That argument gave up something real: a catalogue is scanned down a column — every price
+ * against every other price, every stock level against every other — and stacked rows put
+ * each product's figures at a different horizontal position, so the comparison the screen
+ * exists for has to be done by reading rather than by looking.
+ *
+ * Below `md` two columns are drawn — what it is and what it costs — and the code, category,
+ * size count, stock and status fold into the first cell. From `md` up each of those gets its
+ * own column and the folded line drops away, so no fact is ever drawn twice and nothing
+ * visible on a phone disappears on a laptop. The size count stays in the first cell at every
+ * width as a quiet second line: it qualifies the product's name rather than standing beside
+ * it, and the same holds for the item count on an order and the owner on a customer.
  *
  * A server component: nothing here is interactive, so none of it ships as JavaScript.
  */
 export function ProductList({ products }: { products: ProductSummary[] }) {
   return (
-    <ul className="divide-y divide-border">
-      {products.map((product) => (
-        <ProductRow key={product.id} product={product} />
-      ))}
-    </ul>
+    <TableContainer>
+      <Table aria-label="Products">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Product</TableHead>
+            <TableHead className="hidden md:table-cell">Code</TableHead>
+            <TableHead className="hidden md:table-cell">Category</TableHead>
+            <TableHead numeric>Price</TableHead>
+            <TableHead className="hidden md:table-cell">Stock</TableHead>
+            <TableHead className="hidden md:table-cell">Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {products.map((product) => (
+            <ProductRow key={product.id} product={product} />
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
-/**
- * The secondary line: code, category and how many sizes, joined only when present.
- *
- * A product may have none of the three — a one-off with no code, no category and no
- * variants — so the line falls back to a quiet hint rather than rendering empty and
- * leaving rows at uneven heights.
- */
-function metaParts(product: ProductSummary): string[] {
-  const parts: string[] = [];
-  if (product.sku) parts.push(product.sku);
-  if (product.categoryName) parts.push(product.categoryName);
-  if (product.variantCount > 0) {
-    parts.push(`${product.variantCount} ${product.variantCount === 1 ? 'size' : 'sizes'}`);
-  }
-  return parts;
+/** "4 sizes", or nothing at all for a product sold as a single item. */
+function sizeCount(product: ProductSummary): string | null {
+  if (product.variantCount === 0) return null;
+  return `${product.variantCount} ${product.variantCount === 1 ? 'size' : 'sizes'}`;
 }
 
 function ProductRow({ product }: { product: ProductSummary }) {
-  const meta = metaParts(product);
+  const sizes = sizeCount(product);
+
+  // The facts that have no column of their own below `md`. A product may have none of them
+  // — a one-off with no code, no category and no variants — so there is a fallback rather
+  // than an empty line that leaves rows at uneven heights.
+  const folded = [product.sku, product.categoryName, sizes].filter(Boolean).join(' · ');
 
   return (
-    <li>
-      <Link
-        href={`/products/${product.id}`}
-        className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none sm:px-6"
-      >
-        {/* A neutral tile, not a photo. The list summary carries no image, and a broken
-            thumbnail would read worse than an honest placeholder. */}
-        <span
-          className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
-          aria-hidden
+    // `relative` so the name's stretched overlay covers this row and nothing wider. Any
+    // control added to a row later needs `relative z-10` to sit above that overlay.
+    <TableRow interactive className="relative">
+      <TableCell>
+        <Link
+          href={`/products/${product.id}`}
+          // The overlay makes the whole row the click target while the focus ring stays
+          // around the name, so a keyboard reader sees a word highlighted rather than a
+          // rectangle the width of the screen.
+          className="font-medium text-foreground after:absolute after:inset-0 after:content-['']"
         >
-          <Package className="size-5" />
+          {product.name}
+        </Link>
+
+        {/* Wraps rather than truncates. A table cell sizes to its content, so a clamped
+            width here would be a guess, and on a phone a second line of code-and-category
+            costs less than hiding what the reader came to check. */}
+        <span className="mt-0.5 block text-xs text-muted-foreground md:hidden">
+          {folded || 'No code or category yet'}
         </span>
+        {sizes ? (
+          <span className="mt-0.5 hidden text-xs text-muted-foreground md:block">{sizes}</span>
+        ) : null}
 
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate font-medium text-foreground">{product.name}</span>
-            <ProductStatusBadge status={product.status} />
-          </div>
-          <p className="truncate text-sm text-muted-foreground">
-            {meta.length > 0 ? meta.join(' · ') : 'No code or category yet'}
-          </p>
-        </div>
-
-        <div className="flex flex-col items-end gap-1.5 text-end">
-          <ProductPrice price={product.price} />
+        <span className="mt-1.5 flex flex-wrap items-center gap-1.5 md:hidden">
           <StockBadge
             tracksStock={product.tracksStock}
             totalAvailable={product.totalAvailable}
             isLowStock={product.isLowStock}
           />
-        </div>
-      </Link>
-    </li>
+          <ProductStatusBadge status={product.status} />
+        </span>
+      </TableCell>
+
+      <TableCell className="hidden font-mono text-xs text-muted-foreground md:table-cell">
+        {product.sku ?? <span className="font-sans">Not set</span>}
+      </TableCell>
+
+      <TableCell className="hidden text-muted-foreground md:table-cell">
+        {product.categoryName ?? 'Uncategorised'}
+      </TableCell>
+
+      <TableCell numeric>
+        <ProductPrice price={product.price} className="flex justify-end" />
+      </TableCell>
+
+      <TableCell className="hidden md:table-cell">
+        <StockBadge
+          tracksStock={product.tracksStock}
+          totalAvailable={product.totalAvailable}
+          isLowStock={product.isLowStock}
+        />
+      </TableCell>
+
+      <TableCell className="hidden md:table-cell">
+        <ProductStatusBadge status={product.status} />
+      </TableCell>
+    </TableRow>
   );
 }

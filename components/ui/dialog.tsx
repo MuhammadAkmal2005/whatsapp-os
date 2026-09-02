@@ -18,9 +18,12 @@ const DialogOverlay = forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-50 bg-foreground/40 backdrop-blur-sm',
-      'data-[state=open]:animate-in data-[state=open]:fade-in-0',
-      'data-[state=closed]:animate-out data-[state=closed]:fade-out-0',
+      // No backdrop blur. Blurring the page behind a dialog costs a full-screen
+      // composite on every frame and, on a dense table, turns the context the user was
+      // reading into noise. Dimming alone says "later" clearly enough.
+      'fixed inset-0 z-50 bg-overlay',
+      'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-fast',
+      'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-instant',
       className,
     )}
     {...props}
@@ -37,18 +40,21 @@ const DialogContent = forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4',
-        'rounded-lg border border-border bg-card p-6 shadow-elevated',
-        'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-200',
-        'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:duration-150',
+        'fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4',
+        // Capped so a tall form scrolls inside the dialog instead of pushing its own
+        // footer off the bottom of a short laptop screen.
+        'max-h-[calc(100dvh-3rem)] overflow-y-auto scrollbar-thin',
+        'rounded-xl border border-border bg-card p-5 shadow-overlay sm:p-6',
+        'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-moderate',
+        'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:duration-fast',
         'focus:outline-none',
         className,
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground opacity-70 transition-all hover:opacity-100 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none">
-        <X className="size-4" />
+      <DialogPrimitive.Close className="absolute right-3.5 top-3.5 grid size-7 place-items-center rounded-md text-muted-foreground transition-colors duration-instant ease-out hover:bg-accent hover:text-foreground disabled:pointer-events-none">
+        <X className="size-4" aria-hidden />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
@@ -57,10 +63,13 @@ const DialogContent = forwardRef<
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('flex flex-col gap-1.5 text-left', className)} {...props} />;
+  // Right padding clears the close button so a long title does not run under it.
+  return <div className={cn('flex flex-col gap-1.5 pr-8 text-left', className)} {...props} />;
 }
 
 function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  // Column-reverse on mobile puts the primary action — always last in the DOM, for
+  // sensible tab order — at the bottom, where the thumb is.
   return (
     <div
       className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)}
@@ -75,7 +84,7 @@ const DialogTitle = forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn('text-lg font-semibold leading-tight tracking-tight', className)}
+    className={cn('text-md font-semibold leading-snug tracking-tight', className)}
     {...props}
   />
 ));
@@ -87,7 +96,7 @@ const DialogDescription = forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn('text-sm text-muted-foreground', className)}
+    className={cn('text-sm leading-relaxed text-muted-foreground', className)}
     {...props}
   />
 ));

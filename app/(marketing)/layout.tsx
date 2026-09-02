@@ -40,7 +40,9 @@ const FOOTER_SECTIONS = [
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      {/* Solid rather than translucent-and-blurred: the same treatment the product's own
+          mobile header uses, and one less thing between the reader and the words. */}
+      <header className="sticky top-0 z-40 border-b border-border bg-background shadow-sticky">
         <div className="container flex h-16 items-center justify-between gap-4">
           <Link href="/" aria-label={`${APP_NAME} home`} className="inline-flex">
             <Logo />
@@ -51,7 +53,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                className="text-sm text-muted-foreground transition-colors duration-fast ease-out hover:text-foreground"
               >
                 {link.label}
               </Link>
@@ -72,23 +74,24 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t border-border bg-muted/30">
+      <footer className="border-t border-border bg-surface-sunken">
         <div className="container grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col gap-3">
             <Logo />
-            <p className="max-w-xs text-sm text-muted-foreground">
-              AI-powered conversations that grow your business.
+            <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
+              The WhatsApp inbox, AI assistant, customer records and order book that small shops
+              actually run on.
             </p>
           </div>
           {FOOTER_SECTIONS.map((section) => (
             <div key={section.heading} className="flex flex-col gap-3">
-              <h3 className="text-sm font-semibold">{section.heading}</h3>
+              <h2 className="eyebrow">{section.heading}</h2>
               <ul className="flex flex-col gap-2">
                 {section.links.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      className="text-sm text-muted-foreground transition-colors duration-fast ease-out hover:text-foreground"
                     >
                       {link.label}
                     </Link>
@@ -103,7 +106,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <p>
               © {new Date().getFullYear()} {APP_NAME}. All rights reserved.
             </p>
-            <p>Made for Pakistani businesses that run on WhatsApp.</p>
+            <p>Built for Pakistani businesses that run on WhatsApp.</p>
           </div>
         </div>
       </footer>

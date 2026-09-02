@@ -19,6 +19,7 @@ import { useEffect, useState, useTransition } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import {
   CONTACT_FIELD_MAX,
@@ -31,9 +32,6 @@ import {
 /** Long enough that a normal typing speed produces one request per word rather
  *  than one per keystroke, short enough that it does not feel laggy. */
 const SEARCH_DEBOUNCE_MS = 350;
-
-const SELECT_CLASS =
-  'h-9 rounded-md border border-input bg-background px-2 text-sm shadow-soft transition-all duration-150 hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
 
 type Assignee = { id: string; name: string };
 
@@ -127,11 +125,11 @@ export function ContactFilters({ assignees }: { assignees: Assignee[] }) {
         <label className="sr-only" htmlFor="contact-status-filter">
           Filter by status
         </label>
-        <select
+        <NativeSelect
           id="contact-status-filter"
           value={status}
           onChange={(event) => apply({ status: event.target.value })}
-          className={SELECT_CLASS}
+          wrapperClassName="w-auto"
         >
           <option value="">All statuses</option>
           {CONTACT_STATUSES.map((value) => (
@@ -139,16 +137,16 @@ export function ContactFilters({ assignees }: { assignees: Assignee[] }) {
               {CONTACT_STATUS_LABELS[value]}
             </option>
           ))}
-        </select>
+        </NativeSelect>
 
         <label className="sr-only" htmlFor="contact-stage-filter">
           Filter by lead stage
         </label>
-        <select
+        <NativeSelect
           id="contact-stage-filter"
           value={stage}
           onChange={(event) => apply({ leadStage: event.target.value })}
-          className={SELECT_CLASS}
+          wrapperClassName="w-auto"
         >
           <option value="">All stages</option>
           {LEAD_STAGES.map((value) => (
@@ -156,16 +154,16 @@ export function ContactFilters({ assignees }: { assignees: Assignee[] }) {
               {LEAD_STAGE_LABELS[value]}
             </option>
           ))}
-        </select>
+        </NativeSelect>
 
         <label className="sr-only" htmlFor="contact-assignee-filter">
           Filter by who is looking after them
         </label>
-        <select
+        <NativeSelect
           id="contact-assignee-filter"
           value={assignedTo}
           onChange={(event) => apply({ assignedTo: event.target.value })}
-          className={SELECT_CLASS}
+          wrapperClassName="w-auto"
         >
           <option value="">Anyone</option>
           <option value="me">Mine</option>
@@ -175,7 +173,7 @@ export function ContactFilters({ assignees }: { assignees: Assignee[] }) {
               {assignee.name}
             </option>
           ))}
-        </select>
+        </NativeSelect>
 
         {hasFilters ? (
           <Button

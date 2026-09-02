@@ -19,9 +19,11 @@ import { useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import type { SupportedCurrency } from '@/config/constants';
 import { formatMoney, money } from '@/lib/money';
+import { cn } from '@/lib/utils';
 import type { OrderableOption, OrderableProduct } from '@/server/services/order/order.service';
 
 function stockLabel(available: number | null): { text: string; variant: 'muted' | 'warning' | 'danger' | 'success' } {
@@ -89,14 +91,16 @@ export function OrderProductPicker({
       ) : null}
 
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-center">
-          <PackageX className="size-5 text-muted-foreground" aria-hidden />
-          <p className="text-sm text-muted-foreground">
-            {options.length === 0
-              ? 'No active products yet. Add a product to your catalogue first.'
-              : 'No products match your search.'}
-          </p>
-        </div>
+        <EmptyState
+          icon={PackageX}
+          title={options.length === 0 ? 'Your catalogue is empty' : 'Nothing matches that search'}
+          description={
+            options.length === 0
+              ? 'Add a product to your catalogue first, then come back and build the order.'
+              : 'Try part of the product name, or the code you gave it.'
+          }
+          size="compact"
+        />
       ) : (
         <ul className="max-h-80 divide-y divide-border overflow-y-auto rounded-md border border-border">
           {filtered.map((option) => {
@@ -105,7 +109,16 @@ export function OrderProductPicker({
             const soldOut = option.available !== null && option.available <= 0;
 
             return (
-              <li key={option.key} className="flex items-center gap-3 px-3 py-2.5">
+              <li
+                key={option.key}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5',
+                  // Already in the order, so it carries the same tint a selected row does
+                  // anywhere else. In a list of a couple of hundred products the count alone
+                  // is easy to miss while scrolling.
+                  inOrder > 0 && 'bg-surface-selected',
+                )}
+              >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">{option.label}</p>
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -114,7 +127,9 @@ export function OrderProductPicker({
                   </div>
                 </div>
                 {inOrder > 0 ? (
-                  <span className="text-xs font-medium text-muted-foreground">{inOrder} added</span>
+                  <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
+                    {inOrder} in this order
+                  </span>
                 ) : null}
                 <Button
                   type="button"
@@ -123,7 +138,7 @@ export function OrderProductPicker({
                   disabled={soldOut}
                   onClick={() => onAdd(option)}
                 >
-                  <Plus className="size-4" aria-hidden />
+                  <Plus aria-hidden />
                   Add
                 </Button>
               </li>

@@ -1,57 +1,70 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Stable keys for the placeholder blocks, matching the four-up summary and the two
-// stacked cards below it. Array indexes would trip the lint rule against them.
-const STAT_KEYS = ['price', 'stock', 'sizes', 'status'] as const;
-const FIELD_KEYS = ['f1', 'f2', 'f3', 'f4', 'f5'] as const;
+// Stable keys for the placeholder blocks. Array indexes would trip the lint rule against them.
+const STAT_KEYS = ['price', 'stock', 'sizes'] as const;
+const FIELD_KEYS = ['name', 'code', 'price', 'category', 'description'] as const;
 
 /**
  * Shown while one product resolves.
  *
- * The list's skeleton would otherwise be inherited here — eight identical rows, which on
- * the way to a single product reads as the wrong page having loaded. This mirrors the
- * product page instead: an image tile and a name, four figures, then the cards.
+ * The list's skeleton would otherwise be inherited here — eight identical rows, which on the
+ * way to a single product reads as the wrong page having loaded.
+ *
+ * The geometry is the product page's, not an approximation of it: the same `max-w-3xl` column,
+ * a back link above the title, three figures in a band, then the two form cards. The column
+ * width matters most — without it the placeholder spans the full content area on a wide screen
+ * and the page snaps to two-thirds of it a moment later, which is the one kind of loading state
+ * that is worse than none.
  */
 export default function ProductDetailLoading() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-live="polite">
+    <div
+      className="mx-auto flex w-full max-w-3xl flex-col gap-6"
+      role="status"
+      aria-busy="true"
+    >
       <span className="sr-only">Loading product…</span>
 
-      <Skeleton className="h-8 w-28" />
-
-      <div className="flex items-center gap-4">
-        <Skeleton className="size-14 shrink-0 rounded-md" />
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-7 w-56 max-w-full" />
-          <Skeleton className="h-4 w-40 max-w-full" />
+      <div className="flex flex-col gap-4">
+        {/* The back link, which is a small ghost button pulled left by its own padding. */}
+        <Skeleton className="ml-0.5 h-7 w-28" />
+        <div className="flex flex-col gap-1.5">
+          <Skeleton className="h-8 w-64 max-w-full" />
+          <Skeleton className="h-4 w-44 max-w-full" />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {STAT_KEYS.map((key) => (
-          <div key={key} className="flex flex-col gap-2 rounded-lg border border-border px-4 py-3">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-6 w-24" />
-          </div>
-        ))}
-      </div>
+      {/* One card, three cells sharing it — the band the page draws, at its own breakpoints. */}
+      <Card className="overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {STAT_KEYS.map((key) => (
+            <div
+              key={key}
+              className="-ml-px -mt-px flex flex-col gap-1.5 border-l border-t border-border px-5 py-4"
+            >
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-6 w-24" />
+            </div>
+          ))}
+        </div>
+      </Card>
 
       <Card>
-        <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
+        <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
           {FIELD_KEYS.map((key) => (
             <div key={key} className="flex flex-col gap-1.5">
               <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-9" />
+              <Skeleton className="h-control" />
             </div>
           ))}
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="flex flex-col gap-3 pt-6">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-9 w-full" />
+        <CardContent className="flex flex-col gap-4 pt-5">
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-16 w-full" />
         </CardContent>
       </Card>
     </div>

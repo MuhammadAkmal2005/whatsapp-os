@@ -16,6 +16,8 @@ import {
 
 import type { Permission } from '@/server/authz/permissions';
 
+import { SETTINGS_NAV } from './settings-nav-config';
+
 /**
  * The dashboard's information architecture, in one place.
  *
@@ -44,7 +46,8 @@ export type NavItem = {
 };
 
 export type NavSection = {
-  readonly label: string;
+  /** `null` for the section that opens the nav, which needs no heading. */
+  readonly label: string | null;
   readonly items: readonly NavItem[];
 };
 
@@ -55,9 +58,20 @@ export type NavSection = {
  */
 const IN_PROGRESS = 'Being built — available in an upcoming update.';
 
+/**
+ * Four groups, not six. Section headings are navigation furniture, not content: at six
+ * headings for nine live destinations the sidebar spent more height on labels than on
+ * links, and Settings fell below the fold on a laptop. Dashboard now opens the list
+ * without a heading of its own, and Settings is pinned to the sidebar footer where every
+ * tool this audience already uses keeps it.
+ *
+ * The order follows the shop owner's day rather than the org chart: the messages waiting
+ * for them, then the people and things they sell, then the machinery that does it for
+ * them, then the numbers.
+ */
 export const NAV_SECTIONS: readonly NavSection[] = [
   {
-    label: 'Overview',
+    label: null,
     items: [
       {
         label: 'Dashboard',
@@ -66,11 +80,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         permission: 'analytics:read',
         available: true,
       },
-    ],
-  },
-  {
-    label: 'Inbox',
-    items: [
       {
         label: 'Conversations',
         href: '/conversations',
@@ -78,6 +87,11 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         permission: 'conversation:read',
         available: true,
       },
+    ],
+  },
+  {
+    label: 'Sell',
+    items: [
       {
         label: 'Customers',
         href: '/contacts',
@@ -85,11 +99,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         permission: 'contact:read',
         available: true,
       },
-    ],
-  },
-  {
-    label: 'Commerce',
-    items: [
       {
         label: 'Products',
         href: '/products',
@@ -107,8 +116,15 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     ],
   },
   {
-    label: 'AI',
+    label: 'Automate',
     items: [
+      {
+        label: 'Automations',
+        href: '/automations',
+        icon: Zap,
+        permission: 'automation:read',
+        available: true,
+      },
       {
         label: 'AI Agent',
         href: '/agent',
@@ -131,10 +147,10 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     label: 'Grow',
     items: [
       {
-        label: 'Automations',
-        href: '/automations',
-        icon: Zap,
-        permission: 'automation:read',
+        label: 'Analytics',
+        href: '/analytics',
+        icon: BarChart3,
+        permission: 'analytics:read',
         available: true,
       },
       {
@@ -153,25 +169,42 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         available: false,
         reason: IN_PROGRESS,
       },
-      {
-        label: 'Analytics',
-        href: '/analytics',
-        icon: BarChart3,
-        permission: 'analytics:read',
-        available: true,
-      },
-    ],
-  },
-  {
-    label: 'Manage',
-    items: [
-      {
-        label: 'Settings',
-        href: '/settings',
-        icon: Settings,
-        permission: 'workspace:read',
-        available: true,
-      },
     ],
   },
 ];
+
+/**
+ * Rendered in the sidebar footer rather than in the scrolling list. Settings is reached
+ * occasionally and from anywhere, so it should never move or scroll out of reach.
+ */
+export const NAV_FOOTER_ITEMS: readonly NavItem[] = [
+  {
+    label: 'Settings',
+    href: '/settings',
+    icon: Settings,
+    permission: 'workspace:read',
+    available: true,
+  },
+];
+
+/**
+ * Whether a path is a destination that exists and is built today.
+ *
+ * The two nav registries already record this for every screen in the product, so anything
+ * else that needs to know — the setup checklist, a hint that links somewhere — asks here
+ * rather than keeping its own list. The checklist used to keep one, and it had gone stale:
+ * it still believed `/products` and `/settings/whatsapp` were unbuilt long after they
+ * shipped, so every step on the dashboard's own onboarding card rendered as inert.
+ *
+ * Unknown paths answer `false`. Failing closed means a mistyped href renders as an
+ * unavailable step rather than as a link to a 404.
+ */
+export function isNavDestinationAvailable(href: string): boolean {
+  const match = [...NAV_SECTIONS.flatMap((section) => section.items), ...NAV_FOOTER_ITEMS].find(
+    (item) => item.href === href,
+  );
+
+  if (match) return match.available;
+
+  return SETTINGS_NAV.find((item) => item.href === href)?.available ?? false;
+}

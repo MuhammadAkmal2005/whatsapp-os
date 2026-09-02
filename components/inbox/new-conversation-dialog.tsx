@@ -1,15 +1,23 @@
 'use client';
 
 /**
- * Modal to initiate a new conversation with a customer.
+ * Start a conversation with a customer who is already in the workspace.
  *
- * Allows selecting a customer from the workspace directory, choosing an initial assignee,
- * and appending an optional opening message.
+ * Rebuilt on the form primitives rather than around them. The old version had a hand-rolled
+ * `<textarea>` carrying its own border, its own focus ring on top of the global one, and a
+ * dead `shadow-soft`; a filter field shrunk with `h-8 text-xs` overrides; and no label on
+ * that field at all, so its only name was a placeholder that vanished as soon as you typed.
+ *
+ * Two honesty fixes in the copy. The customer picker holds the list it was given — up to
+ * fifty — and the filter narrows *that list*, so it is labelled as filtering the list rather
+ * than searching your customers. And the opening message now says what WhatsApp actually
+ * permits, because a business-initiated free-form message outside the 24-hour window is
+ * refused by Meta, and the first place a shop owner meets that rule should not be a failed
+ * send.
  */
 
 import { useActionState, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MessageSquarePlus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -21,14 +29,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { FormAlert } from '@/components/ui/form-alert';
-import { FormControl, FormField, FormLabel } from '@/components/ui/form-field';
+import { FormControl, FormDescription, FormField, FormLabel } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { Textarea } from '@/components/ui/textarea';
 import { IDLE_FORM_STATE } from '@/lib/form-state';
 import { createConversationAction } from '@/server/actions/conversation.actions';
-
-const SELECT_CLASS =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-soft transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:border-primary/30';
 
 export function NewConversationDialog({
   open,
@@ -45,7 +53,6 @@ export function NewConversationDialog({
   const [state, formAction] = useActionState(createConversationAction, IDLE_FORM_STATE);
   const [filter, setFilter] = useState('');
 
-  // Close dialog on success and refresh router
   useEffect(() => {
     if (state.status === 'success') {
       onOpenChange(false);
@@ -53,99 +60,106 @@ export function NewConversationDialog({
     }
   }, [state.status, onOpenChange, router]);
 
-  const filteredContacts = contacts.filter((c) => {
-    if (!filter) return true;
-    const term = filter.toLowerCase();
-    return (
-      (c.name && c.name.toLowerCase().includes(term)) ||
-      c.phoneE164.toLowerCase().includes(term)
-    );
-  });
+  const term = filter.trim().toLowerCase();
+
+  const matches = term
+    ? contacts.filter(
+        (contact) =>
+          contact.name?.toLowerCase().includes(term) ||
+          contact.phoneE164.toLowerCase().includes(term),
+      )
+    : contacts;
 
   const fieldErrors = state.status === 'error' ? state.fieldErrors : undefined;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent>
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <MessageSquarePlus className="size-4" aria-hidden />
-            </div>
-            <div>
-              <DialogTitle>Start conversation</DialogTitle>
-              <DialogDescription>
-                Open a new chat with an existing customer.
-              </DialogDescription>
-            </div>
-          </div>
+          <DialogTitle>Start a conversation</DialogTitle>
+          <DialogDescription>
+            Open a thread with a customer who is already saved in your workspace.
+          </DialogDescription>
         </DialogHeader>
 
-        <form action={formAction} className="space-y-4">
+        <form action={formAction} className="flex flex-col gap-4">
           <FormAlert state={state} />
 
-          {/* Contact Selector */}
           <FormField error={fieldErrors?.['contactId']?.[0]}>
-            <FormLabel htmlFor="contactId">Customer</FormLabel>
-            <div className="space-y-2">
+            <FormLabel>Customer</FormLabel>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="customer-filter" className="sr-only">
+                Filter the customer list
+              </Label>
               <Input
+                id="customer-filter"
                 type="text"
-                placeholder="Filter by name or phone..."
                 value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="h-8 text-xs mb-1"
+                onChange={(event) => setFilter(event.target.value)}
+                placeholder="Filter by name or number"
               />
+
               <FormControl>
-                <select id="contactId" name="contactId" required className={SELECT_CLASS} defaultValue="">
+                <NativeSelect name="contactId" required defaultValue="">
                   <option value="" disabled>
-                    Select a customer...
+                    Choose a customer
                   </option>
-                  {filteredContacts.map((contact) => (
+                  {matches.length === 0 ? (
+                    <option value="" disabled>
+                      No customer in this list matches that
+                    </option>
+                  ) : null}
+                  {matches.map((contact) => (
                     <option key={contact.id} value={contact.id}>
-                      {contact.name ? `${contact.name} (${contact.phoneE164})` : contact.phoneE164}
+                      {contact.name ? `${contact.name} — ${contact.phoneE164}` : contact.phoneE164}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </FormControl>
             </div>
+
+            {term ? (
+              <FormDescription className="text-xs">
+                Showing {matches.length} of {contacts.length}.
+              </FormDescription>
+            ) : null}
           </FormField>
 
-          {/* Initial Assignee */}
           <FormField error={fieldErrors?.['assignedToMemberId']?.[0]}>
-            <FormLabel htmlFor="assignedToMemberId">Assign to</FormLabel>
+            <FormLabel>Handled by</FormLabel>
             <FormControl>
-              <select id="assignedToMemberId" name="assignedToMemberId" className={SELECT_CLASS} defaultValue="">
-                <option value="">Unassigned (shared pool)</option>
+              <NativeSelect name="assignedToMemberId" defaultValue="">
+                <option value="">Nobody yet — anyone on the team can pick it up</option>
                 {assignees.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </FormControl>
           </FormField>
 
-          {/* Opening Message */}
-          <div className="space-y-1.5">
-            <FormLabel htmlFor="initialMessageBody">Opening message (optional)</FormLabel>
-            <textarea
-              id="initialMessageBody"
-              name="initialMessageBody"
-              rows={3}
-              placeholder="Hi, how can we help you today?"
-              className="w-full rounded-md border border-input bg-background p-3 text-sm shadow-soft transition-all duration-150 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:border-primary/30"
-            />
-          </div>
+          <FormField error={fieldErrors?.['initialMessageBody']?.[0]}>
+            <FormLabel>Opening message</FormLabel>
+            <FormControl>
+              <Textarea
+                name="initialMessageBody"
+                rows={3}
+                placeholder="Assalamualaikum! How can we help you today?"
+              />
+            </FormControl>
+            <FormDescription className="text-xs">
+              Optional. WhatsApp only allows a free-form message within 24 hours of the
+              customer&apos;s last message — after that you need an approved template.
+            </FormDescription>
+          </FormField>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <SubmitButton>Start chat</SubmitButton>
+            <SubmitButton pendingText="Starting…">Start conversation</SubmitButton>
           </DialogFooter>
         </form>
       </DialogContent>

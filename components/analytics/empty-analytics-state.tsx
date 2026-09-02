@@ -1,44 +1,38 @@
-'use client';
-
 import Link from 'next/link';
-import { BarChart3, MessageSquare, Plus, ShoppingBag } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 
+/**
+ * The analytics screen before there is anything to measure.
+ *
+ * The previous version offered three equally weighted buttons — inbox, add a product, create
+ * an order — which is a menu, not a next step, and one of them sent a shop owner to write an
+ * order by hand on the screen that exists to tell them how the business is doing.
+ *
+ * There is genuinely nothing to configure here: these figures accumulate on their own. So the
+ * state says that plainly and offers the one place where activity actually starts.
+ */
 export function EmptyAnalyticsState() {
   return (
-    <Card className="border-dashed">
-      <CardHeader className="text-center pb-2">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-          <BarChart3 className="h-6 w-6 text-muted-foreground" />
-        </div>
-        <CardTitle className="text-xl">No analytics data recorded yet</CardTitle>
-        <CardDescription className="max-w-md mx-auto">
-          Analytics, AI telemetry, and message volumes will appear automatically as your WhatsApp
-          business receives conversations and orders.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+    <EmptyState
+      icon={BarChart3}
+      title="Nothing to measure yet"
+      description="Sales, replies and AI activity are recorded automatically. As soon as customers start messaging you, this page fills in on its own — there is nothing to set up."
+      action={
         <Button variant="outline" asChild>
-          <Link href="/conversations">
-            <MessageSquare className="mr-2 h-4 w-4" />
-            Open Inbox
-          </Link>
+          <Link href="/conversations">Open your inbox</Link>
         </Button>
-        <Button variant="outline" asChild>
-          <Link href="/products/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Product
+      }
+      secondaryAction={
+        <>
+          Not live yet?{' '}
+          <Link href="/settings/whatsapp" className="font-medium text-primary hover:underline">
+            Connect WhatsApp
           </Link>
-        </Button>
-        <Button variant="outline" asChild>
-          <Link href="/orders/new">
-            <ShoppingBag className="mr-2 h-4 w-4" />
-            Create Order
-          </Link>
-        </Button>
-      </CardContent>
-    </Card>
+        </>
+      }
+    />
   );
 }

@@ -1,5 +1,6 @@
 import { Bot } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
 import { formatDateTime } from '@/lib/datetime';
 import { ORDER_STATUS_LABELS, type OrderStatus } from '@/server/validation/order';
 import type { OrderEventRow } from '@/server/repositories/order.repository';
@@ -27,12 +28,19 @@ export function OrderTimeline({ events }: { events: OrderEventRow[] }) {
     return <p className="text-sm text-muted-foreground">No history yet.</p>;
   }
 
+  const latestIndex = events.length - 1;
+
   return (
     <ol className="flex flex-col gap-4">
-      {events.map((event) => (
+      {events.map((event, index) => (
         <li key={event.id} className="flex gap-3">
+          {/* The last event is where the order stands now, so it is the only marker
+              drawn in the brand colour. Everything above it is settled history. */}
           <span
-            className="mt-1.5 size-2 shrink-0 rounded-full bg-primary/60"
+            className={cn(
+              'mt-1.5 size-2 shrink-0 rounded-full',
+              index === latestIndex ? 'bg-primary' : 'bg-border-strong',
+            )}
             aria-hidden
           />
           <div className="min-w-0 flex-1">

@@ -1,110 +1,79 @@
-'use client';
-
+import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { MessageSquare, ShoppingBag, Clock, Sparkles, ArrowRight } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
-export interface AutomationTemplate {
-  id: string;
-  name: string;
-  description: string;
-  icon: typeof MessageSquare;
-  triggerType: string;
-  actionsCount: number;
-  triggerBadge: string;
-}
+import { AUTOMATION_PRESETS } from '@/components/automation/presets';
+import { isTriggerWatched } from '@/components/automation/watched-triggers';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { actionTypeLabel, triggerTypeLabel } from '@/lib/labels';
 
-export const PRESET_TEMPLATES: readonly AutomationTemplate[] = [
-  {
-    id: 'welcome-tag',
-    name: 'Welcome & Inquiry Auto-Tag',
-    description: 'Instantly greet inbound inquiries and attach a "new-inquiry" tag to the customer.',
-    icon: MessageSquare,
-    triggerType: 'MESSAGE_CONTAINS',
-    actionsCount: 2,
-    triggerBadge: 'Message Contains',
-  },
-  {
-    id: 'order-followup',
-    name: 'Order Confirmation Follow-up',
-    description: 'Wait 10 minutes after order confirmation, then message delivery details and tips.',
-    icon: ShoppingBag,
-    triggerType: 'ORDER_STATUS_CHANGED',
-    actionsCount: 3,
-    triggerBadge: 'Order Confirmed',
-  },
-  {
-    id: 'idle-reminder',
-    name: 'Idle Chat Follow-up',
-    description: 'Check in on conversations idle for 60 minutes and notify your sales team.',
-    icon: Clock,
-    triggerType: 'CONVERSATION_IDLE',
-    actionsCount: 2,
-    triggerBadge: 'Idle (60m)',
-  },
-  {
-    id: 'vip-escalation',
-    name: 'VIP Lead Escalation',
-    description: 'Elevate priority to Urgent and alert staff when a customer reaches Qualified lead stage.',
-    icon: Sparkles,
-    triggerType: 'LEAD_STAGE_CHANGED',
-    actionsCount: 3,
-    triggerBadge: 'Lead Qualified',
-  },
-];
-
+/**
+ * The four ready-made automations, offered to a workspace that has none yet.
+ *
+ * Each row states the whole rule in one line — when it starts, then every step in order —
+ * because that sentence is the only thing a shop owner needs in order to decide, and it is
+ * derived from the same data the builder opens with. The cards used to carry a hand-written
+ * summary and a hand-typed step count beside a decorative glyph; both went stale, and the
+ * glyph said nothing the name did not.
+ *
+ * A list rather than a grid of four cards: these are four alternatives to read down, not four
+ * things to compare across.
+ */
 export function TemplatePicker() {
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold tracking-tight text-foreground">
-          Quick-Start Templates
-        </h2>
-        <span className="text-xs text-muted-foreground">
-          Click any preset to pre-fill the workflow builder
-        </span>
-      </div>
+    <Card className="overflow-hidden">
+      <CardHeader>
+        <CardTitle>Or start from a ready-made rule</CardTitle>
+        <CardDescription>
+          Each one opens in the builder with its trigger and steps already filled in, so you can
+          change the wording before you save. Nothing runs until you do.
+        </CardDescription>
+      </CardHeader>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {PRESET_TEMPLATES.map((tmpl) => {
-          const Icon = tmpl.icon;
-          return (
+      <ul className="border-t border-border">
+        {AUTOMATION_PRESETS.map((preset) => (
+          <li key={preset.id} className="border-b border-border last:border-b-0">
             <Link
-              key={tmpl.id}
-              href={`/automations/new?template=${tmpl.id}`}
-              className="group block"
+              href={`/automations/new?template=${preset.id}`}
+              className="group flex items-center gap-4 px-5 py-3.5 transition-colors duration-instant ease-out hover:bg-surface-sunken"
             >
-              <Card className="h-full border-border bg-card/60 transition-all duration-150 hover:border-primary/50 hover:bg-card hover:shadow-soft">
-                <CardContent className="flex h-full flex-col justify-between p-4">
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <Icon className="size-4" aria-hidden />
-                      </div>
-                      <Badge variant="outline" className="text-3xs">
-                        {tmpl.triggerBadge}
-                      </Badge>
-                    </div>
+              <span className="flex min-w-0 flex-col gap-1">
+                <span className="text-sm font-medium text-foreground">{preset.headline}</span>
 
-                    <h3 className="mt-3 text-sm font-medium text-foreground group-hover:text-primary">
-                      {tmpl.name}
-                    </h3>
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                      {tmpl.description}
-                    </p>
-                  </div>
+                {/*
+                  The rule as a sentence. Read out of the preset itself, so a step added to a
+                  preset shows up here without anyone remembering to update a description.
+                */}
+                <span className="text-sm text-muted-foreground">
+                  When {triggerTypeLabel(preset.values.triggerType)}
+                  {preset.values.actions.map((action) => (
+                    <span key={action.id}>
+                      <span aria-hidden> → </span>
+                      <span className="sr-only">, then </span>
+                      {actionTypeLabel(action.type).toLowerCase()}
+                    </span>
+                  ))}
+                </span>
 
-                  <div className="mt-4 flex items-center justify-between text-xs font-medium text-primary">
-                    <span>{tmpl.actionsCount} actions</span>
-                    <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                </CardContent>
-              </Card>
+                {/*
+                  Two of these presets start from an event nothing raises yet. Said here rather
+                  than only in the builder, so nobody picks one expecting it to work — and stated
+                  in weight rather than colour, because this sits on a plain card at small size.
+                */}
+                {isTriggerWatched(preset.values.triggerType) ? null : (
+                  <span className="text-sm font-medium text-foreground">
+                    Will not run yet — nothing in the product raises this event.
+                  </span>
+                )}
+              </span>
+
+              <ChevronRight
+                className="ml-auto size-4 shrink-0 text-muted-foreground transition-transform duration-fast ease-out group-hover:translate-x-0.5"
+                aria-hidden
+              />
             </Link>
-          );
-        })}
-      </div>
-    </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }

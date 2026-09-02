@@ -21,23 +21,23 @@ export default async function NotFound() {
     <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background px-6 text-center">
       <span
         aria-hidden
-        className="flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground"
+        className="flex size-14 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground"
       >
         <Compass className="size-7" />
       </span>
       <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-muted-foreground">Error 404</p>
+        <p className="eyebrow">Error 404</p>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           We couldn&apos;t find that page
         </h1>
-        <p className="mx-auto max-w-md text-sm text-muted-foreground">
+        <p className="mx-auto max-w-form text-sm text-muted-foreground">
           The page you&apos;re looking for may have been moved or no longer exists. Check the
           address, or head back to somewhere familiar.
         </p>
       </div>
       <Button asChild>
         <Link href={href}>
-          <ArrowLeft className="size-4" aria-hidden />
+          <ArrowLeft aria-hidden />
           {label}
         </Link>
       </Button>

@@ -21,6 +21,7 @@ import { forwardRef } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { FormControl, FormDescription, FormField, FormLabel } from '@/components/ui/form-field';
 import { Input, type InputProps } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import type { FieldErrors } from '@/lib/form-state';
 import { currencySymbol } from '@/lib/money';
@@ -33,11 +34,6 @@ import {
   PRODUCT_STATUS_LABELS,
   type ProductStatus,
 } from '@/server/validation/product';
-
-/** Shared with the variant form so the two status pickers cannot drift into looking
- *  like different controls for the same choice. */
-export const SELECT_CLASS =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-soft transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 hover:border-primary/30 focus:border-primary/40';
 
 export type Category = { id: string; name: string };
 
@@ -124,11 +120,10 @@ export function ProductCoreFields({
         <FormField error={fieldErrors?.categoryId?.[0]}>
           <FormLabel>Category</FormLabel>
           <FormControl>
-            <select
+            <NativeSelect
               name="categoryId"
               defaultValue={defaults.categoryId ?? ''}
               disabled={disabled}
-              className={SELECT_CLASS}
             >
               <option value="">No category</option>
               {categories.map((category) => (
@@ -136,7 +131,7 @@ export function ProductCoreFields({
                   {category.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </FormControl>
         </FormField>
       </div>
@@ -197,18 +192,17 @@ export function ProductCoreFields({
         <FormField error={fieldErrors?.status?.[0]}>
           <FormLabel>Status</FormLabel>
           <FormControl>
-            <select
+            <NativeSelect
               name="status"
               defaultValue={defaults.status ?? 'ACTIVE'}
               disabled={disabled}
-              className={SELECT_CLASS}
             >
               {PRODUCT_STATUSES.map((value) => (
                 <option key={value} value={value}>
                   {PRODUCT_STATUS_LABELS[value]}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </FormControl>
           <FormDescription>{PRODUCT_STATUS_DESCRIPTIONS[defaults.status ?? 'ACTIVE']}</FormDescription>
         </FormField>
@@ -249,7 +243,7 @@ const PriceInput = forwardRef<HTMLInputElement, InputProps & { symbol: string }>
   ({ symbol, className, ...props }, ref) => (
     <div className="relative">
       <span
-        className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+        className="pointer-events-none absolute start-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
         aria-hidden
       >
         {symbol}
@@ -259,7 +253,7 @@ const PriceInput = forwardRef<HTMLInputElement, InputProps & { symbol: string }>
         type="text"
         inputMode="decimal"
         autoComplete="off"
-        className={cn('ps-12', className)}
+        className={cn('ps-9', className)}
         maxLength={PRODUCT_FIELD_MAX.price}
         {...props}
       />

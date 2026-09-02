@@ -1,17 +1,18 @@
+import { ArrowLeft, ShieldX } from 'lucide-react';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { CreateOrderForm } from '@/components/orders/create-order-form';
-import { EmptyState } from '@/components/ui/empty-state';
-import { ShieldX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { getContacts } from '@/server/services/contact/contact.service';
 import { orderListCapability } from '@/server/services/order/order.capability';
 import { getOrderableCatalogue } from '@/server/services/order/order.service';
-import { getContacts } from '@/server/services/contact/contact.service';
 import { getTenantContext } from '@/server/tenancy/resolve';
 import { listContactsSchema } from '@/server/validation/contact';
 
-export const metadata = { title: 'Create Order' };
+export const metadata = { title: 'New order' };
 
 /**
  * Create order page.
@@ -34,7 +35,9 @@ export default async function CreateOrderPage() {
       <EmptyState
         icon={ShieldX}
         title="You cannot create orders"
-        description="Your role does not have permission to create orders. Ask your workspace owner to grant you the order:create permission."
+        // Named in terms of what a shop owner controls — a person's role — rather than the
+        // permission string behind it, which is not a thing anyone can go and change.
+        description="Your role can read orders but not place them. Ask whoever owns this workspace to change your role if you need to take orders by hand."
         action={
           <Button asChild variant="outline">
             <Link href="/orders">Back to orders</Link>
@@ -61,12 +64,20 @@ export default async function CreateOrderPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Create order</h1>
-        <p className="text-sm text-muted-foreground">
-          Place an order on behalf of a customer.
-        </p>
-      </div>
+      <PageHeader
+        title="New order"
+        description="For an order taken over the phone, at the counter, or paid for outside a chat. Your AI writes up the ones that come in over WhatsApp itself."
+        breadcrumb={
+          // Pulled left by the button's own padding so the label lines up with the heading
+          // below it rather than sitting a few pixels inside it.
+          <Button asChild variant="ghost" size="sm" className="-ml-2.5 self-start">
+            <Link href="/orders">
+              <ArrowLeft aria-hidden />
+              All orders
+            </Link>
+          </Button>
+        }
+      />
 
       <CreateOrderForm
         products={catalogue.products}

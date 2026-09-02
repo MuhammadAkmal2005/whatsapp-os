@@ -185,7 +185,7 @@ function StockForm({
       ) : null}
 
       {state.status === 'success' ? (
-        <p role="status" className="text-xs font-medium text-emerald-600 dark:text-emerald-500">
+        <p role="status" className="text-xs font-medium text-success">
           {state.message}
         </p>
       ) : null}

@@ -1,21 +1,25 @@
-import { redirect } from 'next/navigation';
 import { MessageSquare } from 'lucide-react';
+import { redirect } from 'next/navigation';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { EmptyState } from '@/components/ui/empty-state';
 import { ConnectWhatsAppForm } from '@/components/settings/whatsapp/connect-whatsapp-form';
 import { WhatsAppAccountCard } from '@/components/settings/whatsapp/whatsapp-account-card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { getWhatsAppAccountOverview } from '@/server/services/whatsapp/whatsapp-account.service';
 import { can } from '@/server/tenancy/context';
 import { getTenantContext } from '@/server/tenancy/resolve';
-import { getWhatsAppAccountOverview } from '@/server/services/whatsapp/whatsapp-account.service';
 
-export const metadata = { title: 'WhatsApp Settings' };
+export const metadata = { title: 'WhatsApp' };
 
 /**
- * WhatsApp Channel Management Settings Page.
+ * Connecting and managing the business's WhatsApp number.
  *
- * Provides workspace owners and admins with a dashboard to connect, manage,
- * verify, and disconnect Meta WhatsApp Business Cloud API accounts.
+ * Written for the shop owner rather than for whoever set up the Meta account: the words on the
+ * screen are about messages arriving and customers being answered, and the technical names
+ * appear only where the owner has to match them against something Meta actually shows them.
+ *
+ * A disconnected account is kept in the record but is not listed as a connection, because it no
+ * longer carries messages — the connect card says so rather than leaving the row to imply it.
  */
 export default async function WhatsAppSettingsPage() {
   const context = await getTenantContext();
@@ -25,59 +29,52 @@ export default async function WhatsAppSettingsPage() {
   const canConnect = can(context, 'whatsapp:connect');
   const canDisconnect = can(context, 'whatsapp:disconnect');
 
-  // Filter for active/connected/error accounts
-  const activeAccounts = accounts.filter((a) => a.status !== 'DISCONNECTED');
-  const hasActiveAccount = activeAccounts.length > 0;
+  // A disconnected account still exists and still holds its history; it simply no longer
+  // receives anything, so it does not belong in a list of live connections.
+  const activeAccounts = accounts.filter((account) => account.status !== 'DISCONNECTED');
+  const hasPreviousConnection = accounts.length > activeAccounts.length;
+
+  if (activeAccounts.length > 0) {
+    return (
+      <div className="flex flex-col gap-6">
+        {activeAccounts.map((account) => (
+          <WhatsAppAccountCard
+            key={account.id}
+            account={account}
+            canConnect={canConnect}
+            canDisconnect={canDisconnect}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (!canConnect) {
+    return (
+      <EmptyState
+        icon={MessageSquare}
+        title="WhatsApp is not connected yet"
+        description="Nothing reaches your inbox until your business number is connected. An owner or admin can do that from this page."
+      />
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight">WhatsApp Integration</h2>
-        <p className="text-sm text-muted-foreground">
-          Manage your official Meta WhatsApp Business Platform connection, phone numbers, and credentials.
-        </p>
-      </div>
-
-      {hasActiveAccount ? (
-        <div className="flex flex-col gap-6">
-          {activeAccounts.map((account) => (
-            <WhatsAppAccountCard
-              key={account.id}
-              account={account}
-              canConnect={canConnect}
-              canDisconnect={canDisconnect}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-6">
-          {canConnect ? (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <MessageSquare className="size-4" />
-                  </div>
-                  <CardTitle>Connect WhatsApp Business Account</CardTitle>
-                </div>
-                <CardDescription>
-                  Enter your Meta WhatsApp Cloud API credentials to enable customer messaging,
-                  AI automation, and order processing.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ConnectWhatsAppForm />
-              </CardContent>
-            </Card>
-          ) : (
-            <EmptyState
-              icon={MessageSquare}
-              title="No WhatsApp account connected"
-              description="Your business does not have an active WhatsApp connection. Contact a workspace owner or admin to connect your WhatsApp Business number."
-            />
-          )}
-        </div>
-      )}
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Connect your WhatsApp Business number</CardTitle>
+        <CardDescription>
+          Your customers keep messaging the same number. Once it is connected their messages
+          arrive in your inbox, your AI can answer them, and you can raise an order straight from
+          a chat. You will need the details Meta shows for your WhatsApp Business account.
+          {hasPreviousConnection
+            ? ' A number you disconnected earlier is kept in your records, but it no longer receives messages.'
+            : ''}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ConnectWhatsAppForm />
+      </CardContent>
+    </Card>
   );
 }

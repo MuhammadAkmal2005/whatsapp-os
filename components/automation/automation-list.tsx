@@ -1,27 +1,27 @@
 'use client';
 
+/**
+ * The automations table.
+ *
+ * One row per rule, and the row states the whole rule in words: what starts it, then every
+ * step in order. It used to render each step as a small chip with its own glyph, which meant
+ * a rule with four steps became four coloured objects that took longer to read than the four
+ * words they replaced — and the trigger came from a local table covering ten of the thirteen
+ * triggers, so a rule started by a new customer or an incoming payment showed
+ * `CONTACT_CREATED` to the shop owner.
+ *
+ * The switch is the only thing in the row that changes anything without leaving the page, so
+ * everything slower — editing, testing, deleting — lives behind the row menu, and the two
+ * that cannot be undone by flicking the switch back ask first.
+ */
+
+import { MoreVertical, Pencil, Play, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
-import {
-  MoreVertical,
-  Play,
-  Pencil,
-  Trash2,
-  Zap,
-  Clock,
-  Tag,
-  MessageSquare,
-  Bot,
-  UserCheck,
-  Bell,
-  FileText,
-  CheckCircle2,
-  AlertCircle,
-} from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -37,7 +37,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { FormAlert } from '@/components/ui/form-alert';
 import { Switch } from '@/components/ui/switch';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { IDLE_FORM_STATE, type FormState } from '@/lib/form-state';
+import { actionTypeLabel, triggerTypeLabel } from '@/lib/labels';
 import {
   deleteAutomationAction,
   testTriggerAutomationAction,
@@ -68,210 +80,227 @@ export interface AutomationListProps {
   automations: AutomationItem[];
   canEdit?: boolean;
   canDelete?: boolean;
+  /** Rendered inside the card below the table — where the page puts its pagination. */
+  footer?: React.ReactNode;
+}
+
+/** How often a rule has run, in the phrasing used on a phone where there is no Runs column. */
+function runsSummary(runs: number): string {
+  if (runs === 0) return 'never run';
+  return `${runs.toLocaleString()} run${runs === 1 ? '' : 's'}`;
 }
 
 export function AutomationList({
   automations,
   canEdit = true,
   canDelete = true,
+  footer,
 }: AutomationListProps) {
   const [isPending, startTransition] = useTransition();
+  const [state, setState] = useState<FormState>(IDLE_FORM_STATE);
   const [deleteTarget, setDeleteTarget] = useState<AutomationItem | null>(null);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [testTarget, setTestTarget] = useState<AutomationItem | null>(null);
 
-  const handleToggle = (auto: AutomationItem) => {
+  const handleToggle = (automation: AutomationItem) => {
     startTransition(async () => {
-      const res = await toggleAutomationAction(auto.id, !auto.isActive);
-      if (res.status === 'error') {
-        setMessage({ type: 'error', text: res.message || 'Failed to toggle status.' });
-      } else {
-        setMessage({ type: 'success', text: res.message || 'Status updated.' });
-      }
+      setState(await toggleAutomationAction(automation.id, !automation.isActive));
     });
   };
 
-  const handleTestRun = (auto: AutomationItem) => {
+  const handleTestRun = () => {
+    if (!testTarget) return;
     startTransition(async () => {
-      const res = await testTriggerAutomationAction(auto.id);
-      if (res.status === 'error') {
-        setMessage({ type: 'error', text: res.message || 'Test trigger failed.' });
-      } else {
-        setMessage({ type: 'success', text: res.message || 'Test run initiated.' });
-      }
+      const result = await testTriggerAutomationAction(testTarget.id);
+      setState(result);
+      setTestTarget(null);
     });
   };
 
   const handleDelete = () => {
     if (!deleteTarget) return;
     startTransition(async () => {
-      const res = await deleteAutomationAction(deleteTarget.id);
-      if (res.status === 'error') {
-        setMessage({ type: 'error', text: res.message || 'Failed to delete automation.' });
-      }
+      // Deleting redirects back to this page on success, so a returned state only ever
+      // describes a failure.
+      const result = await deleteAutomationAction(deleteTarget.id);
+      if (result?.status === 'error') setState(result);
       setDeleteTarget(null);
     });
   };
 
   return (
     <div className="flex flex-col gap-4">
-      {message && (
-        <div
-          className={`flex items-center justify-between rounded-lg px-4 py-3 text-sm ${
-            message.type === 'success'
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-              : 'bg-destructive/10 text-destructive'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {message.type === 'success' ? (
-              <CheckCircle2 className="size-4" />
-            ) : (
-              <AlertCircle className="size-4" />
-            )}
-            <span>{message.text}</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setMessage(null)}
-            className="h-auto p-1 text-xs"
-          >
-            Dismiss
-          </Button>
-        </div>
-      )}
+      <FormAlert state={state} />
 
-      <div className="flex flex-col gap-3">
-        {automations.map((auto) => (
-          <Card
-            key={auto.id}
-            className={`border-border bg-card/60 transition-all hover:bg-card ${
-              !auto.isActive ? 'opacity-80' : ''
-            }`}
-          >
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-1 flex-col gap-1.5 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      href={`/automations/${auto.id}`}
-                      className="font-semibold text-foreground hover:underline hover:text-primary"
-                    >
-                      {auto.name}
-                    </Link>
-                    <Badge variant={auto.isActive ? 'default' : 'secondary'} className="text-3xs">
-                      {auto.isActive ? 'Active' : 'Inactive'}
-                    </Badge>
-                    <TriggerBadge triggerType={auto.triggerType} />
-                  </div>
+      <Card className="overflow-hidden">
+        <TableContainer>
+          <Table aria-label="Automations">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Automation</TableHead>
+                <TableHead className="hidden md:table-cell">When</TableHead>
+                <TableHead numeric className="hidden md:table-cell">
+                  Runs
+                </TableHead>
+                <TableHead className="w-px">
+                  <span className="sr-only">On or off, and more</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
 
-                  {auto.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-1">
-                      {auto.description}
-                    </p>
-                  )}
-
-                  {/* Actions Pipeline Badges */}
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span className="text-2xs font-medium text-muted-foreground mr-1">Actions:</span>
-                    {auto.actions.length === 0 ? (
-                      <span className="text-2xs text-muted-foreground italic">No actions defined</span>
-                    ) : (
-                      auto.actions.map((act, i) => (
-                        <div key={act.id || i} className="flex items-center gap-1">
-                          {i > 0 && <span className="text-muted-foreground text-3xs">→</span>}
-                          <ActionBadge type={act.type} />
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 self-end sm:self-center">
-                  <div className="text-right">
-                    <div className="text-xs font-semibold text-foreground">
-                      {auto._count.runs} runs
-                    </div>
-                    <div className="text-3xs text-muted-foreground">executed</div>
-                  </div>
-
-                  {canEdit && (
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={auto.isActive}
-                        onCheckedChange={() => handleToggle(auto)}
-                        disabled={isPending}
-                        aria-label={`Toggle ${auto.name}`}
-                      />
-                    </div>
-                  )}
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="Open menu">
-                        <MoreVertical className="size-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link href={`/automations/${auto.id}`} className="flex items-center gap-2">
-                          <Pencil className="size-3.5" />
-                          <span>Edit Workflow</span>
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleTestRun(auto)}
-                        disabled={isPending}
-                        className="flex items-center gap-2"
+            <TableBody>
+              {automations.map((automation) => (
+                <TableRow key={automation.id}>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <Link
+                        href={`/automations/${automation.id}`}
+                        className="font-medium text-foreground hover:text-primary hover:underline"
                       >
-                        <Play className="size-3.5 text-primary" />
-                        <span>Run Test Trigger</span>
-                      </DropdownMenuItem>
-                      {canDelete && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => setDeleteTarget(auto)}
-                            className="flex items-center gap-2 text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="size-3.5" />
-                            <span>Delete</span>
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                        {automation.name}
+                      </Link>
 
-      {/* Delete Confirmation Modal */}
-      <Dialog open={Boolean(deleteTarget)} onOpenChange={() => setDeleteTarget(null)}>
-        <DialogContent>
+                      {automation.description ? (
+                        <p className="max-w-prose text-sm text-muted-foreground">
+                          {automation.description}
+                        </p>
+                      ) : null}
+
+                      <p className="text-sm text-muted-foreground">
+                        <ActionPipeline actions={automation.actions} />
+                      </p>
+
+                      {/* Below md the trigger and the run count have no column of their own,
+                          so they fold in here rather than disappearing. */}
+                      <p className="text-sm text-muted-foreground md:hidden">
+                        When {triggerTypeLabel(automation.triggerType)} ·{' '}
+                        {runsSummary(automation._count.runs)}
+                      </p>
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="hidden md:table-cell">
+                    {triggerTypeLabel(automation.triggerType)}
+                  </TableCell>
+
+                  <TableCell numeric className="hidden md:table-cell">
+                    {automation._count.runs.toLocaleString()}
+                  </TableCell>
+
+                  <TableCell className="w-px whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-1">
+                      {canEdit ? (
+                        <Switch
+                          checked={automation.isActive}
+                          onCheckedChange={() => handleToggle(automation)}
+                          disabled={isPending}
+                          aria-label={`Turn ${automation.name} on and off`}
+                        />
+                      ) : (
+                        // Without the switch there is nothing in the row saying whether the
+                        // rule is running, and that is the first thing anyone wants to know.
+                        <Badge variant={automation.isActive ? 'success' : 'muted'}>
+                          {automation.isActive ? 'On' : 'Off'}
+                        </Badge>
+                      )}
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`More for ${automation.name}`}
+                          >
+                            <MoreVertical aria-hidden />
+                          </Button>
+                        </DropdownMenuTrigger>
+
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/automations/${automation.id}`}>
+                              <Pencil aria-hidden />
+                              {canEdit ? 'Edit' : 'View'}
+                            </Link>
+                          </DropdownMenuItem>
+
+                          {canEdit ? (
+                            <DropdownMenuItem
+                              onClick={() => setTestTarget(automation)}
+                              disabled={isPending}
+                            >
+                              <Play aria-hidden />
+                              Test run…
+                            </DropdownMenuItem>
+                          ) : null}
+
+                          {canDelete ? (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setDeleteTarget(automation)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 aria-hidden />
+                                Delete
+                              </DropdownMenuItem>
+                            </>
+                          ) : null}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {footer}
+      </Card>
+
+      <Dialog open={Boolean(testTarget)} onOpenChange={() => setTestTarget(null)}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete Automation</DialogTitle>
+            <DialogTitle>Test run {testTarget?.name}?</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? All
-              configured actions and run logs for this automation will be permanently removed.
+              The rule runs for real. It picks one of your existing conversations and uses
+              stand-in details in place of a real event, so anything it does there — a tag, a
+              note, a change of status or priority, an alert to your team — stays. Any other rule
+              that starts on the same event runs too.
             </DialogDescription>
           </DialogHeader>
+
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteTarget(null)}
-              disabled={isPending}
-            >
+            <Button type="button" variant="outline" onClick={() => setTestTarget(null)}>
               Cancel
             </Button>
+            <Button type="button" onClick={handleTestRun} disabled={isPending}>
+              {isPending ? 'Running…' : 'Test run'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={() => setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete {deleteTarget?.name}?</DialogTitle>
+            <DialogDescription>
+              Its steps and its whole run history go with it, and none of that can be brought
+              back. If you only want it to stop, turn it off instead.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteTarget(null)}>
+              Keep it
+            </Button>
             <Button
+              type="button"
               variant="destructive"
               onClick={handleDelete}
               disabled={isPending}
             >
-              {isPending ? 'Deleting...' : 'Delete Automation'}
+              {isPending ? 'Deleting…' : 'Delete automation'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -280,53 +309,32 @@ export function AutomationList({
   );
 }
 
-function TriggerBadge({ triggerType }: { triggerType: string }) {
-  const triggerLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
-    MESSAGE_CONTAINS: { label: 'Message Contains', variant: 'outline' },
-    MESSAGE_RECEIVED: { label: 'Message Received', variant: 'outline' },
-    CONVERSATION_OPENED: { label: 'Chat Opened', variant: 'outline' },
-    CONVERSATION_IDLE: { label: 'Chat Idle', variant: 'secondary' },
-    CONVERSATION_RESOLVED: { label: 'Chat Resolved', variant: 'outline' },
-    ORDER_CREATED: { label: 'Order Created', variant: 'outline' },
-    ORDER_STATUS_CHANGED: { label: 'Order Status Changed', variant: 'default' },
-    LEAD_STAGE_CHANGED: { label: 'Lead Stage Changed', variant: 'default' },
-    LOW_STOCK: { label: 'Low Stock Alert', variant: 'secondary' },
-    HANDOFF_REQUESTED: { label: 'Handoff Requested', variant: 'secondary' },
-  };
+/**
+ * The steps in order, as a sentence.
+ *
+ * Sorted here rather than trusted, because the order is the rule: "wait, then message" and
+ * "message, then wait" are different automations.
+ */
+function ActionPipeline({ actions }: { actions: ActionItemSummary[] }) {
+  if (actions.length === 0) {
+    return <>No steps yet, so it does nothing</>;
+  }
 
-  const info = triggerLabels[triggerType] || { label: triggerType, variant: 'outline' };
-  return (
-    <Badge variant={info.variant} className="text-3xs font-medium">
-      <Zap className="mr-1 size-2.5" />
-      {info.label}
-    </Badge>
-  );
-}
-
-function ActionBadge({ type }: { type: string }) {
-  const map: Record<string, { label: string; icon: typeof MessageSquare }> = {
-    SEND_MESSAGE: { label: 'Send Message', icon: MessageSquare },
-    SEND_TEMPLATE: { label: 'Send Template', icon: MessageSquare },
-    WAIT: { label: 'Wait', icon: Clock },
-    ADD_TAG: { label: 'Add Tag', icon: Tag },
-    REMOVE_TAG: { label: 'Remove Tag', icon: Tag },
-    ASSIGN_CONVERSATION: { label: 'Assign', icon: UserCheck },
-    SET_CONVERSATION_STATUS: { label: 'Set Status', icon: Zap },
-    SET_PRIORITY: { label: 'Set Priority', icon: Zap },
-    SET_LEAD_STAGE: { label: 'Set Stage', icon: Zap },
-    PAUSE_AI: { label: 'Pause AI', icon: Bot },
-    RESUME_AI: { label: 'Resume AI', icon: Bot },
-    NOTIFY_TEAM: { label: 'Notify Team', icon: Bell },
-    CREATE_NOTE: { label: 'Create Note', icon: FileText },
-  };
-
-  const item = map[type] || { label: type, icon: Zap };
-  const Icon = item.icon;
+  const ordered = [...actions].sort((left, right) => left.position - right.position);
 
   return (
-    <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-3xs font-medium text-foreground">
-      <Icon className="size-2.5 text-muted-foreground" />
-      {item.label}
-    </span>
+    <>
+      {ordered.map((action, index) => (
+        <span key={action.id}>
+          {index > 0 ? (
+            <>
+              <span aria-hidden> → </span>
+              <span className="sr-only">, then </span>
+            </>
+          ) : null}
+          {actionTypeLabel(action.type)}
+        </span>
+      ))}
+    </>
   );
 }

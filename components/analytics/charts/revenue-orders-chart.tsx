@@ -1,141 +1,132 @@
 'use client';
 
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { Area, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from 'recharts';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatMoney, money } from '@/lib/money';
+import {
+  AXIS_PROPS,
+  CHART_MARGIN,
+  ChartFrame,
+  ChartTooltip,
+  GRID_PROPS,
+  chartColor,
+  formatChartDate,
+} from '@/components/analytics/charts/chart-kit';
 import type { SupportedCurrency } from '@/config/constants';
+import { currencySymbol, formatMoney, money } from '@/lib/money';
 import type { TimeSeriesDataPoint } from '@/server/repositories/analytics.repository';
+
+const REVENUE_COLOR = chartColor(1);
+const ORDERS_COLOR = chartColor(2);
 
 interface RevenueOrdersChartProps {
   data: TimeSeriesDataPoint[];
   currency: SupportedCurrency;
 }
 
-function formatDateLabel(dateStr: string): string {
-  try {
-    const [year, month, day] = dateStr.split('-');
-    if (!month || !day) return dateStr;
-    const date = new Date(Number(year), Number(month) - 1, Number(day));
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  } catch {
-    return dateStr;
-  }
-}
-
+/**
+ * Money taken and orders placed, by day.
+ *
+ * Two quantities on two scales, so they are drawn in two different forms: revenue as a filled
+ * area against the left axis, orders as a plain line against the right. The previous version
+ * drew both as filled areas, which invites reading one as larger than the other when they are
+ * not on the same scale at all — a day with two orders and a day with Rs. 40,000 sat at the
+ * same height.
+ */
 export function RevenueOrdersChart({ data, currency }: RevenueOrdersChartProps) {
-  const chartData = data.map((d) => ({
-    ...d,
-    formattedDate: formatDateLabel(d.date),
-    revenueMajor: d.revenueMinor / 100,
+  const chartData = data.map((point) => ({
+    ...point,
+    label: formatChartDate(point.date),
+    // Recharts plots numbers, and minor units would put the axis in paisa.
+    revenueMajor: point.revenueMinor / 100,
   }));
 
-  const hasData = chartData.some((d) => d.revenueMinor > 0 || d.ordersCount > 0);
+  const hasData = chartData.some((point) => point.revenueMinor > 0 || point.ordersCount > 0);
+  const symbol = currencySymbol(currency);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base font-medium">Revenue & Order Trends</CardTitle>
-        <CardDescription>Daily completed sales revenue and total paid orders.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {!hasData ? (
-          <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-            No revenue or order transactions recorded for this period.
-          </div>
-        ) : (
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                  </linearGradient>
-                  <linearGradient id="ordersGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" className="dark:stroke-neutral-800" />
-                <XAxis
-                  dataKey="formattedDate"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 12 }}
-                  stroke="#888888"
-                />
-                <YAxis
-                  yAxisId="left"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 12 }}
-                  stroke="#888888"
-                  tickFormatter={(val) => `${val.toLocaleString()}`}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 12 }}
-                  stroke="#888888"
-                  allowDecimals={false}
-                />
-                <Tooltip
-                  formatter={(value: unknown, name: string | undefined) => {
-                    if (name === 'Revenue') {
-                      const minor = Math.round(Number(value) * 100);
-                      return [formatMoney(money(minor, currency)), 'Revenue'];
-                    }
-                    if (name === 'Orders') {
-                      return [Number(value), 'Orders'];
-                    }
-                    return [String(value), name ?? ''];
-                  }}
-                  labelFormatter={(label) => `Date: ${label}`}
-                  contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    borderRadius: '8px',
-                    border: '1px solid #e2e8f0',
-                    fontSize: '12px',
-                  }}
-                />
-                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                <Area
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="revenueMajor"
-                  name="Revenue"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#revenueGrad)"
-                />
-                <Area
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="ordersCount"
-                  name="Orders"
-                  stroke="#6366f1"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#ordersGrad)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <ChartFrame
+      title="Sales"
+      description="What you earned each day, and how many orders it came from."
+      series={[
+        { label: 'Revenue', color: REVENUE_COLOR },
+        { label: 'Orders', color: ORDERS_COLOR },
+      ]}
+      emptyMessage={
+        hasData ? undefined : 'No orders were paid for in this period, so there is nothing to plot.'
+      }
+    >
+      <ComposedChart data={chartData} margin={CHART_MARGIN}>
+        <defs>
+          {/* A soft fill under the revenue line rather than a solid block, so the grid rules
+              stay readable through it. */}
+          <linearGradient id="revenue-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={REVENUE_COLOR} stopOpacity={0.22} />
+            <stop offset="100%" stopColor={REVENUE_COLOR} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+
+        <CartesianGrid {...GRID_PROPS} />
+        <XAxis dataKey="label" {...AXIS_PROPS} />
+        <YAxis
+          yAxisId="revenue"
+          {...AXIS_PROPS}
+          width={64}
+          tickFormatter={(value: number) => formatAxisAmount(value, symbol)}
+        />
+        <YAxis
+          yAxisId="orders"
+          orientation="right"
+          {...AXIS_PROPS}
+          width={36}
+          allowDecimals={false}
+        />
+        <Tooltip
+          cursor={{ stroke: 'hsl(var(--border-strong))', strokeWidth: 1 }}
+          content={
+            <ChartTooltip
+              formats={{
+                revenueMajor: (row) =>
+                  formatMoney(money(Math.round(Number(row.revenueMinor ?? 0)), currency)),
+                ordersCount: (row) => Number(row.ordersCount ?? 0).toLocaleString(),
+              }}
+            />
+          }
+        />
+
+        <Area
+          yAxisId="revenue"
+          type="monotone"
+          dataKey="revenueMajor"
+          name="Revenue"
+          stroke={REVENUE_COLOR}
+          strokeWidth={2}
+          fill="url(#revenue-fill)"
+          activeDot={{ r: 4, strokeWidth: 0 }}
+        />
+        <Line
+          yAxisId="orders"
+          type="monotone"
+          dataKey="ordersCount"
+          name="Orders"
+          stroke={ORDERS_COLOR}
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 4, strokeWidth: 0 }}
+        />
+      </ComposedChart>
+    </ChartFrame>
   );
+}
+
+/**
+ * A money axis tick. Abbreviated because an axis has room for four or five characters, and
+ * "Rs. 1,240,000" on every tick would take more width than the plot.
+ */
+function formatAxisAmount(value: number, symbol: string): string {
+  const digits = new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value);
+
+  return `${symbol}${digits}`;
 }

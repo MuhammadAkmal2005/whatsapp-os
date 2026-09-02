@@ -5,113 +5,252 @@
 /**
  * ConvoNexa design tokens.
  *
- * The palette lives here as bare HSL triplets, and tailwind.config.ts wraps each
- * one in hsl(). That indirection is what lets the single `.dark` class below
- * repaint the entire product without any utility class knowing which theme is
- * active.
+ * Everything visual in the product resolves back to this file. Colours are bare HSL
+ * triplets and tailwind.config.ts wraps each one in hsl(); that indirection is what lets
+ * the single `.dark` class below repaint the whole product without any utility class
+ * knowing which theme is active.
  *
- * The primary is a considered, slightly desaturated teal-green. It reads as
- * professional and approachable without being tied to any single messaging
- * platform. Neutrals carry a faint cool undertone so the interface feels
- * cohesive rather than green accents dropped onto a grey shell.
+ * Three principles hold the system together.
+ *
+ * Surfaces separate by value, not by shadow. The page ground is a shade darker than a
+ * card, so a card reads as raised while lying flat. Shadow is reserved for things that
+ * genuinely float above the page — a menu, a dialog — which is why there are only three
+ * elevation tokens and none of them is applied by default.
+ *
+ * Colour is scarce on purpose. One green carries brand and affirmative meaning; status
+ * gets four semantic families and nothing else. No component may reach for a raw palette
+ * hue, because a raw hue is correct in one theme and wrong in the other.
+ *
+ * Radius is differentiated by role rather than uniform. A control, a surface and an
+ * overlay are different kinds of object and should not share a corner.
  */
 
 :root {
-  --background: 150 14% 98%;
-  --foreground: 170 20% 11%;
+  /* ── Ground and surfaces ──────────────────────────────────────────────────────
+     Six steps, darkest ground to lightest surface, so depth is legible without
+     shadow: sunken wells, the page itself, cards, and selected rows. */
+  --background: 150 16% 96%;
+  --foreground: 172 24% 10%;
+
+  --surface-sunken: 152 14% 93%;
+  --surface-selected: 158 26% 94%;
 
   --card: 0 0% 100%;
-  --card-foreground: 170 20% 11%;
+  --card-foreground: 172 24% 10%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 170 20% 11%;
+  --popover-foreground: 172 24% 10%;
 
-  --primary: 160 50% 28%;
+  --overlay: 172 24% 10% / 0.32;
+
+  /* ── Brand ────────────────────────────────────────────────────────────────────
+     A deep moss green. Deliberately desaturated and dark enough to carry white text
+     at AA, so it can be both the brand mark and a working button colour. */
+  --primary: 164 58% 25%;
   --primary-foreground: 150 40% 98%;
+  --primary-hover: 164 58% 21%;
+  --primary-surface: 160 34% 93%;
+  --primary-border: 162 30% 80%;
 
-  --secondary: 155 12% 94%;
-  --secondary-foreground: 165 24% 18%;
+  --secondary: 154 12% 93%;
+  --secondary-foreground: 168 24% 17%;
 
-  --muted: 155 10% 95%;
-  --muted-foreground: 160 8% 44%;
+  --muted: 152 12% 94%;
+  --muted-foreground: 165 9% 42%;
 
-  --accent: 155 14% 93%;
-  --accent-foreground: 165 28% 16%;
+  --accent: 154 16% 92%;
+  --accent-foreground: 168 28% 15%;
 
-  --destructive: 0 68% 46%;
-  --destructive-foreground: 0 0% 100%;
-
-  --success: 158 54% 30%;
+  /* ── Status ───────────────────────────────────────────────────────────────────
+     Each family carries a solid fill, its readable foreground, a tinted surface for
+     banners and chips, and a border for that surface. Defining all four per theme is
+     what makes dark mode correct by construction instead of by inspection. */
+  --success: 158 52% 28%;
   --success-foreground: 150 40% 98%;
+  --success-surface: 156 40% 93%;
+  --success-border: 156 32% 78%;
 
-  --warning: 40 88% 48%;
-  --warning-foreground: 42 36% 10%;
+  --warning: 32 74% 38%;
+  --warning-foreground: 40 60% 98%;
+  --warning-surface: 38 72% 92%;
+  --warning-border: 36 56% 76%;
 
-  --border: 155 10% 88%;
-  --input: 155 10% 85%;
-  --ring: 160 50% 28%;
+  --destructive: 358 60% 45%;
+  --destructive-foreground: 0 0% 100%;
+  --destructive-hover: 358 60% 39%;
+  --destructive-surface: 356 62% 95%;
+  --destructive-border: 356 46% 84%;
 
-  --sidebar: 168 30% 11%;
-  --sidebar-foreground: 155 12% 80%;
-  --sidebar-accent: 164 30% 18%;
-  --sidebar-border: 166 22% 18%;
+  --info: 208 52% 38%;
+  --info-foreground: 205 40% 98%;
+  --info-surface: 206 52% 94%;
+  --info-border: 206 40% 80%;
 
-  --radius: 0.625rem;
+  /* The AI signal. A muted iris, kept clear of the green that means money and success
+     and clear of the red that means failure, so "the assistant did this" is never
+     confused with "this went well" or "this went wrong". */
+  --ai: 250 32% 48%;
+  --ai-foreground: 250 40% 98%;
+  --ai-surface: 250 44% 96%;
+  --ai-border: 250 32% 85%;
 
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Menlo', monospace;
+  --border: 154 11% 87%;
+  --border-strong: 156 12% 78%;
+  --input: 154 11% 82%;
+  --ring: 164 58% 25%;
 
-  /* Glass & gradient tokens for premium effects */
-  --glass-bg: 0 0% 100% / 0.7;
-  --glass-border: 0 0% 100% / 0.2;
-  --gradient-primary: linear-gradient(135deg, hsl(160 50% 28%), hsl(170 44% 34%));
-  --gradient-hero: linear-gradient(180deg, hsl(155 20% 96%) 0%, hsl(150 14% 98%) 100%);
+  /* ── Chrome ───────────────────────────────────────────────────────────────────
+     The sidebar is ink rather than another shade of paper: it frames the workspace
+     and never competes with the content for attention. */
+  --sidebar: 172 28% 10%;
+  --sidebar-foreground: 152 12% 78%;
+  --sidebar-muted: 152 8% 56%;
+  --sidebar-accent: 168 24% 16%;
+  --sidebar-selected: 166 30% 19%;
+  --sidebar-border: 168 20% 18%;
+  /* Display type on ink. The body foreground above is deliberately dimmed so a nav list
+     recedes; a heading set in it looks tired. This is the one step brighter that a
+     headline needs, and having it as a token is what keeps `text-white` out of the
+     markup — pure white on a dark teal reads blue-cold, this does not. */
+  --sidebar-strong: 150 20% 96%;
+  /* The accent used *inside* the ink panel — the marker rail and the active row's icon.
+     It cannot be --primary: that moss is tuned to carry white text on paper and vanishes
+     against ink. Same hue family, lifted until it reads. */
+  --sidebar-primary: 158 46% 48%;
+
+  /* ── Charts ───────────────────────────────────────────────────────────────────
+     Five series colours, ordered so the first two — the pair almost every chart
+     uses — are the brand green and the AI iris. Read at runtime through CSS
+     variables so a chart follows the theme instead of assuming a light page. */
+  --chart-1: 164 58% 32%;
+  --chart-2: 250 32% 52%;
+  --chart-3: 32 68% 44%;
+  --chart-4: 196 44% 38%;
+  --chart-5: 288 26% 46%;
+  --chart-grid: 154 11% 88%;
+  --chart-axis: 165 9% 48%;
+
+  /* ── Geometry ─────────────────────────────────────────────────────────────────
+     Four radii by role. Controls are crisper than the surfaces holding them, and
+     overlays are softest because they float free of the layout. */
+  --radius-xs: 0.25rem;
+  --radius-control: 0.4375rem;
+  --radius-surface: 0.625rem;
+  --radius-overlay: 0.8125rem;
+
+  /* ── Elevation ────────────────────────────────────────────────────────────────
+     Three levels, for things that float only. Cards use a border and the surface
+     step instead, which is why there is no `card` shadow here any more. */
+  --shadow-raised: 0 1px 2px 0 hsl(172 24% 10% / 0.05), 0 4px 12px -4px hsl(172 24% 10% / 0.1);
+  --shadow-overlay: 0 2px 4px -1px hsl(172 24% 10% / 0.06), 0 12px 32px -8px hsl(172 24% 10% / 0.16);
+  --shadow-sticky: 0 1px 0 0 hsl(154 11% 87%), 0 6px 16px -12px hsl(172 24% 10% / 0.2);
+
+  /* ── Motion ───────────────────────────────────────────────────────────────────
+     A hierarchy, not a set of options. Instant is for a control acknowledging a
+     pointer; fast for a component changing state; moderate for a panel arriving;
+     slow only for something that crosses the whole viewport. */
+  --motion-instant: 90ms;
+  --motion-fast: 150ms;
+  --motion-moderate: 220ms;
+  --motion-slow: 320ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasis: cubic-bezier(0.34, 1.32, 0.64, 1);
+
+  /* ── Measure ──────────────────────────────────────────────────────────────────
+     Line length is a typographic decision, so it belongs with the tokens. Prose
+     caps at a comfortable measure; forms sit narrow enough to scan in one column;
+     dense operational pages get the full width. */
+  --width-prose: 68ch;
+  --width-form: 34rem;
+  --width-page: 84rem;
 }
 
 .dark {
-  --background: 168 22% 7%;
-  --foreground: 155 10% 92%;
+  --background: 174 24% 7%;
+  --foreground: 152 10% 92%;
 
-  --card: 168 20% 9%;
-  --card-foreground: 155 10% 92%;
+  --surface-sunken: 174 22% 5%;
+  --surface-selected: 168 24% 14%;
 
-  --popover: 168 22% 8%;
-  --popover-foreground: 155 10% 92%;
+  --card: 172 20% 9%;
+  --card-foreground: 152 10% 92%;
 
-  --primary: 158 48% 42%;
-  --primary-foreground: 168 36% 6%;
+  --popover: 172 20% 11%;
+  --popover-foreground: 152 10% 92%;
 
-  --secondary: 164 14% 15%;
-  --secondary-foreground: 155 10% 90%;
+  --overlay: 174 30% 3% / 0.6;
 
-  --muted: 164 12% 14%;
-  --muted-foreground: 155 8% 58%;
+  /* Lifted and slightly desaturated: the light-mode moss is too dark to read as a
+     colour against an ink ground, and too saturated to sit calmly on one. */
+  --primary: 158 46% 44%;
+  --primary-foreground: 172 36% 6%;
+  --primary-hover: 158 46% 50%;
+  --primary-surface: 164 30% 16%;
+  --primary-border: 162 26% 26%;
 
-  --accent: 162 16% 17%;
-  --accent-foreground: 155 10% 92%;
+  --secondary: 168 14% 15%;
+  --secondary-foreground: 152 10% 90%;
 
-  --destructive: 0 58% 52%;
+  --muted: 168 12% 14%;
+  --muted-foreground: 152 8% 60%;
+
+  --accent: 166 16% 17%;
+  --accent-foreground: 152 10% 92%;
+
+  --success: 156 46% 44%;
+  --success-foreground: 172 36% 6%;
+  --success-surface: 158 32% 15%;
+  --success-border: 157 26% 26%;
+
+  --warning: 36 76% 56%;
+  --warning-foreground: 38 60% 8%;
+  --warning-surface: 34 40% 15%;
+  --warning-border: 34 34% 27%;
+
+  --destructive: 358 62% 56%;
   --destructive-foreground: 0 0% 100%;
+  --destructive-hover: 358 62% 62%;
+  --destructive-surface: 356 34% 17%;
+  --destructive-border: 356 30% 30%;
 
-  --success: 156 48% 42%;
-  --success-foreground: 168 36% 6%;
+  --info: 206 56% 58%;
+  --info-foreground: 208 40% 8%;
+  --info-surface: 206 34% 16%;
+  --info-border: 206 30% 28%;
 
-  --warning: 40 82% 54%;
-  --warning-foreground: 42 36% 10%;
+  --ai: 250 54% 68%;
+  --ai-foreground: 250 40% 10%;
+  --ai-surface: 250 26% 18%;
+  --ai-border: 250 24% 30%;
 
-  --border: 164 14% 19%;
-  --input: 164 14% 21%;
-  --ring: 158 48% 42%;
+  --border: 168 14% 18%;
+  --border-strong: 166 12% 27%;
+  --input: 168 14% 22%;
+  --ring: 158 46% 50%;
 
-  --sidebar: 170 26% 8%;
-  --sidebar-foreground: 155 10% 76%;
-  --sidebar-accent: 166 22% 15%;
-  --sidebar-border: 166 18% 14%;
+  --sidebar: 176 26% 6%;
+  --sidebar-foreground: 152 10% 76%;
+  --sidebar-muted: 152 7% 52%;
+  --sidebar-accent: 170 20% 13%;
+  --sidebar-selected: 166 24% 16%;
+  --sidebar-border: 170 18% 14%;
+  --sidebar-strong: 150 18% 95%;
+  --sidebar-primary: 158 46% 50%;
 
-  --glass-bg: 168 22% 10% / 0.7;
-  --glass-border: 155 10% 20% / 0.3;
-  --gradient-primary: linear-gradient(135deg, hsl(158 48% 42%), hsl(168 42% 38%));
-  --gradient-hero: linear-gradient(180deg, hsl(168 22% 9%) 0%, hsl(168 22% 7%) 100%);
+  --chart-1: 158 46% 48%;
+  --chart-2: 250 52% 68%;
+  --chart-3: 36 72% 56%;
+  --chart-4: 196 46% 52%;
+  --chart-5: 288 34% 62%;
+  --chart-grid: 168 14% 18%;
+  --chart-axis: 152 8% 58%;
+
+  /* A black shadow is invisible on an ink ground. Dark mode gets depth from a hairline
+     highlight on the top edge plus a deeper, more diffuse cast. */
+  --shadow-raised: 0 1px 0 0 hsl(152 10% 92% / 0.04), 0 6px 16px -6px hsl(0 0% 0% / 0.5);
+  --shadow-overlay: 0 1px 0 0 hsl(152 10% 92% / 0.05), 0 16px 40px -12px hsl(0 0% 0% / 0.66);
+  --shadow-sticky: 0 1px 0 0 hsl(168 14% 18%), 0 8px 20px -14px hsl(0 0% 0% / 0.7);
 }
 
 @layer base {
@@ -127,81 +266,129 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: var(--font-sans);
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
+    /* The family itself comes from next/font in app/layout.tsx, which owns
+       --font-sans. Declaring it here too would be a specificity race. */
+    font-family: var(--font-sans, ui-sans-serif), ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   /* A single, consistent focus treatment. Never removed without a replacement —
-     an invisible focus ring makes the product unusable by keyboard. */
+     an invisible focus ring makes the product unusable by keyboard. The offset
+     colour matches the ground so the ring reads as a halo rather than a smudge
+     when the focused control sits directly on a border. */
   :focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
   }
 
-  /* Numeric columns — money, counts, dates — line up only with tabular figures. */
+  /* Money, quantities and identifiers are set in the mono face. That is not
+     decoration: proportional digits do not align in a column, and an order book
+     whose totals do not line up is harder to read at a glance. */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
 
-  /* Premium text selection colour */
   ::selection {
-    background-color: hsl(var(--primary) / 0.15);
+    background-color: hsl(var(--primary) / 0.18);
     color: hsl(var(--foreground));
+  }
+}
+
+@layer components {
+  /**
+   * The marker rail — the product's one signature element.
+   *
+   * A two-pixel bar on the leading edge, in brand green, meaning exactly one thing
+   * wherever it appears: this is the item you are on. The active nav row, the open
+   * conversation, the current settings section, the order's present status. It is
+   * deliberately used nowhere else, because a marker that appears everywhere marks
+   * nothing.
+   *
+   * Implemented as an inset ring on one side rather than a border so it can be added
+   * to a row without shifting the row's content by two pixels.
+   */
+  .marker-rail {
+    box-shadow: inset 2px 0 0 0 hsl(var(--primary));
+  }
+
+  /* The same signal inside the ink sidebar, where the paper-tuned green would not read. */
+  .marker-rail-sidebar {
+    box-shadow: inset 2px 0 0 0 hsl(var(--sidebar-primary));
+  }
+
+  /**
+   * The eyebrow: a small, letterspaced, uppercase label that opens a block. Paired
+   * with a hairline rule it is how every section in the product introduces itself,
+   * which is cheaper visually than a heading and keeps the type hierarchy shallow.
+   */
+  .eyebrow {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
   }
 }
 
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--border)) transparent;
+    scrollbar-color: hsl(var(--border-strong)) transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--border));
+    background-color: hsl(var(--border-strong));
     border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--muted-foreground) / 0.3);
+    background-color: hsl(var(--muted-foreground) / 0.5);
   }
 
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  /* Glass morphism utility */
-  .glass {
-    background: hsl(var(--glass-bg));
-    backdrop-filter: blur(12px) saturate(1.2);
-    -webkit-backdrop-filter: blur(12px) saturate(1.2);
-    border: 1px solid hsl(var(--glass-border));
+  /* Hides the scrollbar on horizontally scrolling filter and tab strips, where the
+     bar itself would sit over the controls. The strip stays scrollable by wheel,
+     trackpad, touch and keyboard, so nothing becomes unreachable. */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 
-  /* Gradient text utility */
-  .text-gradient {
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 }
 
-/* Honour the OS-level request for less motion. Anyone who has set this has asked
-   for it, often for a vestibular condition, so it is not optional polish. */
+/* Honour the OS-level request for less motion. Anyone who has set this has asked for
+   it, often for a vestibular condition, so it is not optional polish. Collapsing the
+   duration tokens as well as the computed properties means a component that reads
+   var(--motion-*) inline is covered too. */
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-instant: 1ms;
+    --motion-fast: 1ms;
+    --motion-moderate: 1ms;
+    --motion-slow: 1ms;
+  }
+
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
+    animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 1ms !important;
     scroll-behavior: auto !important;
   }
 }

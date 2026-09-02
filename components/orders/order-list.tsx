@@ -1,7 +1,15 @@
-import { ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 
 import { OrderStatusBadge, PaymentStatusBadge } from '@/components/orders/order-badges';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { formatDate } from '@/lib/datetime';
 import { formatMoney } from '@/lib/money';
 import type { OrderSummary } from '@/server/services/order/order.service';
@@ -9,65 +17,92 @@ import type { OrderSummary } from '@/server/services/order/order.service';
 /**
  * The order book.
  *
- * Rows, not a table, for the reason `ProductList` gives: an order's number, customer,
- * status, payment and total either scroll sideways on a phone or shrink past reading. Each
- * row is one link into the order, with the two figures a shop owner scans the book for —
- * the total and whether it is paid — held at the end where the eye lands.
+ * A table, for the reason given in `product-list.tsx`: this screen exists to be read down
+ * its columns — which orders are unpaid, which totals are large, which have not moved — and
+ * stacked rows put every figure at a different horizontal position, which turns looking into
+ * reading.
+ *
+ * Below `md` two columns are drawn, the order and its total, with the customer and the date
+ * folded into the first cell and the two states shown as chips beneath. From `md` up the
+ * customer, date, status and payment each get a column and the folded line drops away, so no
+ * fact is drawn twice and nothing visible on a phone disappears on a laptop. The item count
+ * stays in the first cell as a quiet second line, the same place a product's size count sits:
+ * it qualifies the order rather than being a figure anyone reconciles a day's takings against.
  *
  * A server component: nothing here is interactive, so none of it ships as JavaScript.
  */
 export function OrderList({ orders }: { orders: OrderSummary[] }) {
   return (
-    <ul className="divide-y divide-border">
-      {orders.map((order) => (
-        <OrderRow key={order.id} order={order} />
-      ))}
-    </ul>
+    <TableContainer>
+      <Table aria-label="Orders">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Order</TableHead>
+            <TableHead className="hidden md:table-cell">Customer</TableHead>
+            <TableHead className="hidden md:table-cell">Placed</TableHead>
+            <TableHead numeric>Total</TableHead>
+            <TableHead className="hidden md:table-cell">Status</TableHead>
+            <TableHead className="hidden md:table-cell">Payment</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {orders.map((order) => (
+            <OrderRow key={order.id} order={order} />
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
-/**
- * The secondary line: customer, item count and when it was placed, joined only when
- * present so a row never renders a dangling separator.
- */
-function metaParts(order: OrderSummary): string[] {
-  const parts: string[] = [];
-  const customer = order.contactName ?? order.customerName;
-  if (customer) parts.push(customer);
-  parts.push(`${order.itemCount} ${order.itemCount === 1 ? 'item' : 'items'}`);
-  parts.push(formatDate(order.createdAt));
-  return parts;
-}
-
 function OrderRow({ order }: { order: OrderSummary }) {
-  const meta = metaParts(order);
+  // An order taken over WhatsApp is linked to a contact; one written up by hand may carry
+  // only a typed name. Either is the customer as far as this screen is concerned.
+  const customer = order.contactName ?? order.customerName;
+  const placedOn = formatDate(order.createdAt);
+  const items = `${order.itemCount} ${order.itemCount === 1 ? 'item' : 'items'}`;
 
   return (
-    <li>
-      <Link
-        href={`/orders/${order.id}`}
-        className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none sm:px-6"
-      >
-        <span
-          className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
-          aria-hidden
+    // `relative` so the order number's stretched overlay covers this row and nothing wider.
+    <TableRow interactive className="relative">
+      <TableCell>
+        <Link
+          href={`/orders/${order.id}`}
+          className="font-mono font-medium text-foreground after:absolute after:inset-0 after:content-['']"
         >
-          <ShoppingBag className="size-5" />
+          {order.orderNumber}
+        </Link>
+
+        <span className="mt-0.5 block text-xs text-muted-foreground md:hidden">
+          {customer ? `${customer} · ${placedOn} · ${items}` : `${placedOn} · ${items}`}
         </span>
+        <span className="mt-0.5 hidden text-xs text-muted-foreground md:block">{items}</span>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate font-medium text-foreground">{order.orderNumber}</span>
-            <OrderStatusBadge status={order.status} />
-          </div>
-          <p className="truncate text-sm text-muted-foreground">{meta.join(' · ')}</p>
-        </div>
-
-        <div className="flex flex-col items-end gap-1.5 text-end">
-          <span className="font-medium text-foreground">{formatMoney(order.money.total)}</span>
+        <span className="mt-1.5 flex flex-wrap items-center gap-1.5 md:hidden">
+          <OrderStatusBadge status={order.status} />
           <PaymentStatusBadge status={order.paymentStatus} />
-        </div>
-      </Link>
-    </li>
+        </span>
+      </TableCell>
+
+      <TableCell className="hidden md:table-cell">
+        {customer ?? <span className="text-muted-foreground">No name recorded</span>}
+      </TableCell>
+
+      <TableCell className="hidden whitespace-nowrap text-muted-foreground md:table-cell">
+        {placedOn}
+      </TableCell>
+
+      <TableCell className="font-medium text-foreground" numeric>
+        {formatMoney(order.money.total)}
+      </TableCell>
+
+      <TableCell className="hidden md:table-cell">
+        <OrderStatusBadge status={order.status} />
+      </TableCell>
+
+      <TableCell className="hidden md:table-cell">
+        <PaymentStatusBadge status={order.paymentStatus} />
+      </TableCell>
+    </TableRow>
   );
 }

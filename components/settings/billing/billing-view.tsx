@@ -2,16 +2,17 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+import type { PlanKey } from '@/config/plans';
+import { IDLE_FORM_STATE, type FormState } from '@/lib/form-state';
 import {
   cancelSubscriptionAction,
   changePlanAction,
   fetchBillingOverviewAction,
   resumeSubscriptionAction,
 } from '@/server/actions/subscription.actions';
-import type { PlanKey } from '@/config/plans';
 import type { WorkspaceBillingSummaryDTO } from '@/server/services/subscription/subscription.service';
+
 import { CurrentPlanCard } from './current-plan-card';
 import { PlanComparisonGrid } from './plan-comparison-grid';
 import { UsageOverviewCard } from './usage-overview-card';
@@ -20,36 +21,71 @@ interface BillingViewProps {
   initialData: WorkspaceBillingSummaryDTO;
 }
 
+/** Which action is in flight, so only the button that was pressed shows a spinner. */
+type PendingAction = 'plan' | 'cancel' | 'resume' | null;
+
+/**
+ * Which part of the screen an outcome belongs to.
+ *
+ * Every message used to render in one strip at the very top. On a screen this tall that put the
+ * result of pressing "Switch to Business" — a button near the bottom of the page — outside the
+ * viewport, so the action appeared to do nothing at all.
+ */
+type FeedbackScope = 'subscription' | 'plan';
+
 export function BillingView({ initialData }: BillingViewProps) {
   const router = useRouter();
   const [data, setData] = useState<WorkspaceBillingSummaryDTO>(initialData);
-  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [pendingPlanKey, setPendingPlanKey] = useState<PlanKey | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [scope, setScope] = useState<FeedbackScope>('plan');
+  const [feedback, setFeedback] = useState<FormState>(IDLE_FORM_STATE);
 
-  const clearMessages = () => {
-    setError(null);
-    setSuccess(null);
+  const isBusy = pendingAction !== null;
+
+  const begin = (action: Exclude<PendingAction, null>, forScope: FeedbackScope) => {
+    setFeedback(IDLE_FORM_STATE);
+    setScope(forScope);
+    setPendingAction(action);
   };
 
-  const refreshBillingData = async () => {
+  /**
+   * Pulls the summary again and re-renders the server tree. Returns whether the fresh numbers
+   * actually arrived — a failed refresh used to be swallowed, which left the old figures on screen
+   * under a success message.
+   */
+  const refreshBillingData = async (): Promise<boolean> => {
     const res = await fetchBillingOverviewAction();
     if (res.success) {
       setData(res.data);
     }
     router.refresh();
+    return res.success;
+  };
+
+  const succeed = async (message: string) => {
+    const fresh = await refreshBillingData();
+
+    setFeedback({
+      status: 'success',
+      message: fresh
+        ? message
+        : `${message} The figures on this page could not be reloaded — refresh to see them update.`,
+    });
   };
 
   const handleSelectPlan = async (planKey: PlanKey) => {
-    clearMessages();
-    setIsActionLoading(true);
+    begin('plan', 'plan');
     setPendingPlanKey(planKey);
+
+    // The plan's own name, not its key. This message used to read "Plan successfully changed to
+    // business", which is the string the database stores, not the one on the pricing page.
+    const planName = data.allPlans.find((plan) => plan.key === planKey)?.name ?? planKey;
 
     try {
       const res = await changePlanAction({ planKey });
       if (!res.success) {
-        setError(res.error);
+        setFeedback({ status: 'error', message: res.error });
         return;
       }
 
@@ -58,99 +94,87 @@ export function BillingView({ initialData }: BillingViewProps) {
         return;
       }
 
-      setSuccess(`Plan successfully changed to ${planKey}.`);
-      await refreshBillingData();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to update plan.');
+      await succeed(`You are now on ${planName}. Your new limits apply straight away.`);
+    } catch {
+      setFeedback({
+        status: 'error',
+        message: 'We could not change your plan just now. Please try again in a moment.',
+      });
     } finally {
-      setIsActionLoading(false);
+      setPendingAction(null);
       setPendingPlanKey(null);
     }
   };
 
-  const handleCancelSubscription = async () => {
-    if (!window.confirm('Are you sure you want to cancel your subscription at the end of the current billing period? You will retain access until the end date.')) {
-      return;
-    }
-
-    clearMessages();
-    setIsActionLoading(true);
+  const handleCancelSubscription = async (): Promise<boolean> => {
+    begin('cancel', 'subscription');
 
     try {
       const res = await cancelSubscriptionAction();
       if (!res.success) {
-        setError(res.error);
-        return;
+        setFeedback({ status: 'error', message: res.error });
+        return false;
       }
-      setSuccess('Subscription scheduled for cancellation at the end of the billing period.');
-      await refreshBillingData();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel subscription.');
+
+      await succeed(
+        'Your subscription will not renew. You keep everything until the end of the current billing period.',
+      );
+      return true;
+    } catch {
+      setFeedback({
+        status: 'error',
+        message: 'We could not cancel your subscription just now. Please try again in a moment.',
+      });
+      return false;
     } finally {
-      setIsActionLoading(false);
+      setPendingAction(null);
     }
   };
 
-  const handleResumeSubscription = async () => {
-    clearMessages();
-    setIsActionLoading(true);
+  const handleResumeSubscription = async (): Promise<boolean> => {
+    begin('resume', 'subscription');
 
     try {
       const res = await resumeSubscriptionAction();
       if (!res.success) {
-        setError(res.error);
-        return;
+        setFeedback({ status: 'error', message: res.error });
+        return false;
       }
-      setSuccess('Subscription successfully resumed.');
-      await refreshBillingData();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to resume subscription.');
+
+      await succeed('Your subscription will renew as normal. Nothing changes for your workspace.');
+      return true;
+    } catch {
+      setFeedback({
+        status: 'error',
+        message: 'We could not resume your subscription just now. Please try again in a moment.',
+      });
+      return false;
     } finally {
-      setIsActionLoading(false);
+      setPendingAction(null);
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Alert Messages */}
-      {error && (
-        <Alert variant="destructive" className="border-rose-200 bg-rose-50 text-rose-950">
-          <AlertCircle className="size-4 text-rose-600" />
-          <AlertTitle className="text-sm font-semibold">Error</AlertTitle>
-          <AlertDescription className="text-xs text-rose-900 mt-0.5">
-            {error}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {success && (
-        <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
-          <CheckCircle2 className="size-4 text-emerald-600" />
-          <AlertTitle className="text-sm font-semibold">Success</AlertTitle>
-          <AlertDescription className="text-xs text-emerald-900 mt-0.5">
-            {success}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Current Active Plan Details */}
+    <div className="flex flex-col gap-6">
       <CurrentPlanCard
         billing={data}
+        feedback={scope === 'subscription' ? feedback : IDLE_FORM_STATE}
         onCancelSubscription={handleCancelSubscription}
         onResumeSubscription={handleResumeSubscription}
-        isActionLoading={isActionLoading}
+        isCancelling={pendingAction === 'cancel'}
+        isResuming={pendingAction === 'resume'}
+        isBusy={isBusy}
       />
 
-      {/* Quota & Usage Metering Overview */}
       <UsageOverviewCard quotaUsage={data.quotaUsage} />
 
-      {/* Plan Catalogue & Upgrade Grid */}
       <PlanComparisonGrid
         plans={data.allPlans}
         activePlanKey={data.subscription.effectivePlanKey}
         canManage={data.canManage}
+        feedback={scope === 'plan' ? feedback : IDLE_FORM_STATE}
         onSelectPlan={handleSelectPlan}
-        isActionLoading={isActionLoading}
+        isBusy={isBusy}
         pendingPlanKey={pendingPlanKey}
       />
     </div>

@@ -51,14 +51,15 @@ export function WorkspaceSwitcher({
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          'flex w-full items-center gap-2.5 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/40 p-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          isPending && 'pointer-events-none opacity-70',
+          'flex w-full items-center gap-2.5 rounded-md border border-sidebar-border bg-sidebar-accent p-1.5 text-left',
+          'transition-colors duration-instant ease-out hover:bg-sidebar-selected',
+          isPending && 'pointer-events-none opacity-60',
         )}
-        aria-label="Switch workspace"
+        aria-label={`Current business: ${current.name}. Switch business.`}
       >
         <span
           aria-hidden
-          className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/20 text-sm font-semibold uppercase text-sidebar-foreground"
+          className="flex size-7 shrink-0 items-center justify-center rounded-sm bg-sidebar text-xs font-semibold uppercase text-sidebar-primary"
         >
           {current.name.trim().charAt(0) || '?'}
         </span>
@@ -66,11 +67,11 @@ export function WorkspaceSwitcher({
           <span className="truncate text-sm font-medium text-sidebar-foreground">
             {current.name}
           </span>
-          <span className="text-2xs text-sidebar-foreground/50">
-            {workspaces.length > 1 ? 'Switch workspace' : 'Workspace'}
+          <span className="eyebrow text-sidebar-muted">
+            {workspaces.length > 1 ? `${workspaces.length} businesses` : 'Business'}
           </span>
         </span>
-        <ChevronsUpDown className="size-4 shrink-0 text-sidebar-foreground/50" aria-hidden />
+        <ChevronsUpDown className="size-3.5 shrink-0 text-sidebar-muted" aria-hidden />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start" className="w-60">
@@ -85,7 +86,7 @@ export function WorkspaceSwitcher({
             >
               <span
                 aria-hidden
-                className="flex size-6 shrink-0 items-center justify-center rounded bg-muted text-2xs font-semibold uppercase text-muted-foreground"
+                className="flex size-5 shrink-0 items-center justify-center rounded-xs bg-muted text-3xs font-semibold uppercase text-muted-foreground"
               >
                 {workspace.name.trim().charAt(0) || '?'}
               </span>

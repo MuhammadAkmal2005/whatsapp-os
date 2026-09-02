@@ -54,17 +54,6 @@ export function LeadStageBadge({ stage }: { stage: LeadStage }) {
   return <Badge variant={STAGE_VARIANT[stage]}>{LEAD_STAGE_LABELS[stage]}</Badge>;
 }
 
-/** Two letters for the avatar fallback. Handles single-word names, which are
- *  common in Pakistan, without producing an empty circle. */
-export function initials(name: string | null): string {
-  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
-  const first = parts.at(0);
-  if (!first) return '?';
-  const last = parts.length > 1 ? parts.at(-1) : undefined;
-  const value = last ? `${first.slice(0, 1)}${last.slice(0, 1)}` : first.slice(0, 2);
-  return value.toUpperCase();
-}
-
 /**
  * What to call a customer who has not told us their name.
  *

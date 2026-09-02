@@ -46,7 +46,7 @@ export function ContactNotes({
       ) : (
         <ol className="flex flex-col gap-3">
           {notes.map((note) => (
-            <li key={note.id} className="rounded-md border border-border bg-muted/30 p-3">
+            <li key={note.id} className="rounded-md border border-border bg-surface-sunken p-3">
               {/* Pre-wrap, so the line breaks someone typed are the line breaks they
                   get. A note is often a short list and collapsing it costs meaning. */}
               <p className="whitespace-pre-wrap text-sm text-foreground">{note.body}</p>

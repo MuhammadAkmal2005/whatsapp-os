@@ -46,7 +46,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
-        <div className="flex size-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <div className="flex size-11 items-center justify-center rounded-md border border-primary-border bg-primary-surface text-primary">
           <Building2 className="size-5" aria-hidden />
         </div>
         <h1 className="text-2xl font-semibold tracking-tight">
@@ -81,13 +81,13 @@ function NotSignedIn({ token }: { token: string }) {
       </p>
       <Button asChild className="w-full">
         <Link href={`/signup${query}`}>
-          <UserPlus className="size-4" aria-hidden />
+          <UserPlus aria-hidden />
           Create your account
         </Link>
       </Button>
       <Button asChild variant="outline" className="w-full">
         <Link href={`/login${query}`}>
-          <LogIn className="size-4" aria-hidden />
+          <LogIn aria-hidden />
           I already have an account
         </Link>
       </Button>
@@ -113,7 +113,7 @@ function WrongAccount({
   return (
     <div className="flex flex-col gap-3">
       <Alert variant="warning">
-        <AlertCircle className="size-4" aria-hidden />
+        <AlertCircle aria-hidden />
         <AlertTitle>You are signed in as {signedInEmail}</AlertTitle>
         <AlertDescription>
           This invitation was sent to {invitedEmail}. Sign in with that account to accept it — an
@@ -136,7 +136,7 @@ function InviteUnavailable({ message }: { message: string }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
-        <div className="flex size-11 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+        <div className="flex size-11 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground">
           <AlertCircle className="size-5" aria-hidden />
         </div>
         <h1 className="text-2xl font-semibold tracking-tight">This invitation cannot be used</h1>

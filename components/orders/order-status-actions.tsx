@@ -75,7 +75,7 @@ export function OrderStatusActions({
   return (
     <div className="flex flex-col gap-3">
       {error ? (
-        <Alert variant="destructive">
+        <Alert variant="destructive" live="assertive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
@@ -177,7 +177,7 @@ function CancelOrderDialog({
 
         <div className="flex flex-col gap-4">
           {dialogError ? (
-            <Alert variant="destructive">
+            <Alert variant="destructive" live="assertive">
               <AlertDescription>{dialogError}</AlertDescription>
             </Alert>
           ) : null}

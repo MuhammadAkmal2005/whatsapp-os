@@ -1,20 +1,25 @@
 import { Mail, UserPlus, Users } from 'lucide-react';
+import { redirect } from 'next/navigation';
 
+import { InviteMemberForm } from '@/components/settings/team/invite-member-form';
+import { LeaveWorkspaceButton } from '@/components/settings/team/leave-workspace-button';
+import { MemberActions } from '@/components/settings/team/member-actions';
+import { RevokeInviteButton } from '@/components/settings/team/revoke-invite-button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { InviteMemberForm } from '@/components/settings/team/invite-member-form';
-import { LeaveWorkspaceButton } from '@/components/settings/team/leave-workspace-button';
-import { MemberActions } from '@/components/settings/team/member-actions';
-import { RevokeInviteButton } from '@/components/settings/team/revoke-invite-button';
 import { formatDate, formatRelativeTime } from '@/lib/datetime';
+import { initials } from '@/lib/names';
+import { ROLE_DESCRIPTIONS, ROLE_LABELS } from '@/server/authz/permissions';
+import {
+  getTeam,
+  type PendingInvite,
+  type TeamMember,
+} from '@/server/services/member/member.service';
 import { can } from '@/server/tenancy/context';
 import { getTenantContext } from '@/server/tenancy/resolve';
-import { redirect } from 'next/navigation';
-import { ROLE_DESCRIPTIONS, ROLE_LABELS } from '@/server/authz/permissions';
-import { getTeam, type PendingInvite, type TeamMember } from '@/server/services/member/member.service';
 
 export const metadata = { title: 'Team' };
 
@@ -51,7 +56,7 @@ export default async function TeamSettingsPage() {
               <InviteMemberForm assignableRoles={team.assignableRoles} />
             ) : (
               <Alert variant="warning">
-                <Users className="size-4" aria-hidden />
+                <Users aria-hidden />
                 <AlertTitle>No seats left on your plan</AlertTitle>
                 <AlertDescription>{team.canInvite.reason}</AlertDescription>
               </Alert>
@@ -99,7 +104,8 @@ export default async function TeamSettingsPage() {
                 icon={UserPlus}
                 title="No invitations waiting"
                 description="When you invite someone, their invitation appears here until they join."
-                className="border-0 py-10"
+                size="compact"
+                variant="plain"
               />
             )}
           </CardContent>
@@ -116,28 +122,33 @@ export default async function TeamSettingsPage() {
 
 function MemberRow({ member }: { member: TeamMember }) {
   return (
-    <li className="flex flex-wrap items-center gap-x-4 gap-y-3 px-6 py-4">
+    <li className="flex flex-wrap items-start gap-x-4 gap-y-3 px-5 py-4">
       <Avatar>
         {member.avatarUrl ? <AvatarImage src={member.avatarUrl} alt="" /> : null}
         <AvatarFallback>{initials(member.name)}</AvatarFallback>
       </Avatar>
 
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <span className="truncate font-medium text-foreground">{member.name}</span>
+          {/* The role is the most important fact in the row, so it is stated rather than
+              implied by the sentence underneath. */}
+          <Badge variant={member.role === 'OWNER' ? 'default' : 'muted'}>
+            {ROLE_LABELS[member.role]}
+          </Badge>
           {member.isYou ? <Badge variant="secondary">You</Badge> : null}
-          {member.role === 'OWNER' ? <Badge variant="default">Owner</Badge> : null}
           {member.status === 'SUSPENDED' ? <Badge variant="warning">Paused</Badge> : null}
         </div>
+
         <p className="truncate text-sm text-muted-foreground">{member.email}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {ROLE_DESCRIPTIONS[member.role]}{' '}
-          <span className="whitespace-nowrap">
-            Joined {formatDate(member.joinedAt)}
-            {member.lastActiveAt
-              ? ` · active ${formatRelativeTime(member.lastActiveAt)}`
-              : ' · not signed in yet'}
-          </span>
+        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+          {ROLE_DESCRIPTIONS[member.role]}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Joined {formatDate(member.joinedAt)}
+          {member.lastActiveAt
+            ? ` · last active ${formatRelativeTime(member.lastActiveAt)}`
+            : ' · has not signed in yet'}
         </p>
       </div>
 
@@ -158,15 +169,15 @@ function MemberRow({ member }: { member: TeamMember }) {
 
 function InviteRow({ invite }: { invite: PendingInvite }) {
   return (
-    <li className="flex flex-wrap items-center gap-x-4 gap-y-3 px-6 py-4">
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+    <li className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface-sunken text-muted-foreground">
         <Mail className="size-4" aria-hidden />
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <span className="truncate font-medium text-foreground">{invite.email}</span>
-          <Badge variant="outline">{ROLE_LABELS[invite.role]}</Badge>
+          <Badge variant="muted">{ROLE_LABELS[invite.role]}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">
           Invited by {invite.invitedByName} · expires {formatRelativeTime(invite.expiresAt)}
@@ -180,13 +191,3 @@ function InviteRow({ invite }: { invite: PendingInvite }) {
   );
 }
 
-/** Two letters from a name, for the avatar fallback. Handles single-word names,
- *  which are common in Pakistan, without producing an empty circle. */
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const first = parts.at(0);
-  if (!first) return '?';
-  const last = parts.length > 1 ? parts.at(-1) : undefined;
-  const value = last ? `${first.slice(0, 1)}${last.slice(0, 1)}` : first.slice(0, 2);
-  return value.toUpperCase();
-}

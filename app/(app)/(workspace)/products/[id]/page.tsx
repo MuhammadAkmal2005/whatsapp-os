@@ -1,4 +1,4 @@
-import { ArrowLeft, Package } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
@@ -14,6 +14,8 @@ import { ProductVariants } from '@/components/products/product-variants';
 import { StockControls } from '@/components/products/stock-controls';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
+import { Stat, StatBand } from '@/components/ui/stat';
 import { coerceCurrency } from '@/lib/money';
 import { NotFoundError } from '@/server/errors';
 import { getProduct, getProducts, type ProductDetail } from '@/server/services/product/product.service';
@@ -79,45 +81,31 @@ export default async function ProductDetailPage({ params }: { params: RouteParam
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-      <div>
-        <Button asChild variant="ghost" size="sm" className="-ml-3">
-          <Link href="/products">
-            <ArrowLeft className="size-4" aria-hidden />
-            All products
-          </Link>
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-4">
-          {/* A neutral tile, not a photo: image upload is not built yet, and a broken
-              thumbnail would read worse than an honest placeholder. */}
-          <span
-            className="flex size-14 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
-            aria-hidden
-          >
-            <Package className="size-6" />
-          </span>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
-                {product.name}
-              </h1>
-              <ProductStatusBadge status={product.status} />
-            </div>
-            <p className="mt-1 truncate text-sm text-muted-foreground">{headerMeta(product)}</p>
-          </div>
-        </div>
-
-        {product.can.delete ? (
-          <DeleteProductDialog productId={product.id} productName={product.name} />
-        ) : null}
-      </div>
+      <PageHeader
+        title={product.name}
+        description={headerMeta(product)}
+        badges={<ProductStatusBadge status={product.status} />}
+        breadcrumb={
+          // Pulled left by the button's own padding so the label lines up with the title
+          // below it rather than sitting a few pixels inside it.
+          <Button asChild variant="ghost" size="sm" className="-ml-2.5 self-start">
+            <Link href="/products">
+              <ArrowLeft aria-hidden />
+              All products
+            </Link>
+          </Button>
+        }
+        actions={
+          product.can.delete ? (
+            <DeleteProductDialog productId={product.id} productName={product.name} />
+          ) : undefined
+        }
+      />
 
       <Summary product={product} />
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-5">
           <EditProductForm
             product={product}
             categories={catalogue.categories}
@@ -151,7 +139,7 @@ export default async function ProductDetailPage({ params }: { params: RouteParam
       ) : null}
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-5">
           <ProductVariants
             productId={product.id}
             variants={product.variants}
@@ -174,47 +162,37 @@ function headerMeta(product: ProductDetail): string {
 }
 
 /**
- * The four figures worth seeing before scrolling: what it costs, whether it is about to
- * run out, how many sizes it comes in, and whether the AI may sell it. The stock and status
- * cells reuse the same badges the catalogue list uses, so a colour never means one thing
- * here and another there.
+ * The three facts worth seeing before the forms below: what it costs, whether it is about
+ * to run out, and how many sizes it comes in.
+ *
+ * Status is not among them — it is stated beside the name two lines above, and a fact
+ * repeated within one screenful reads as two facts that might disagree. The price and stock
+ * cells reuse the catalogue's own badges, so a colour never means one thing here and
+ * another there.
  */
 function Summary({ product }: { product: ProductDetail }) {
   const sizeCount = product.variants.length;
 
   return (
-    <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-      <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card px-4 py-3">
-        <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Price</dt>
-        <dd>
-          <ProductPrice price={product.price} />
-        </dd>
-      </div>
-
-      <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card px-4 py-3">
-        <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Stock</dt>
-        <dd>
+    <StatBand label="Product at a glance" columns={3}>
+      <Stat label="Price" value={<ProductPrice price={product.price} />} />
+      <Stat
+        label="Stock"
+        value={
           <StockBadge
             tracksStock={product.tracksStock}
             totalAvailable={product.totalAvailable}
             isLowStock={product.isLowStock}
           />
-        </dd>
-      </div>
-
-      <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card px-4 py-3">
-        <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Sizes</dt>
-        <dd className="text-lg font-semibold text-foreground">
-          {sizeCount === 0 ? 'One option' : `${sizeCount} ${sizeCount === 1 ? 'size' : 'sizes'}`}
-        </dd>
-      </div>
-
-      <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card px-4 py-3">
-        <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</dt>
-        <dd>
-          <ProductStatusBadge status={product.status} />
-        </dd>
-      </div>
-    </dl>
+        }
+      />
+      <Stat
+        label="Sizes"
+        value={
+          sizeCount === 0 ? 'One option' : `${sizeCount} ${sizeCount === 1 ? 'size' : 'sizes'}`
+        }
+        hint={sizeCount === 0 ? 'Sold as a single item' : undefined}
+      />
+    </StatBand>
   );
 }

@@ -19,6 +19,7 @@
 import { useActionState, useEffect, useRef, useState } from 'react';
 
 import { FormAlert } from '@/components/ui/form-alert';
+import { NativeSelect } from '@/components/ui/native-select';
 import { IDLE_FORM_STATE, type FormState } from '@/lib/form-state';
 import {
   assignContactAction,
@@ -35,9 +36,6 @@ import {
 type Option = { value: string; label: string };
 
 type ServerAction = (prev: FormState, formData: FormData) => Promise<FormState>;
-
-const SELECT_CLASS =
-  'h-9 w-full rounded-md border border-input bg-background px-2 text-sm shadow-soft transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:border-primary/30';
 
 export function ContactQuickControls({
   contactId,
@@ -144,10 +142,9 @@ function SaveOnChange({
         {label}
       </label>
 
-      <select
+      <NativeSelect
         id={`${name}-${contactId}`}
         name={name}
-        className={SELECT_CLASS}
         value={chosen ?? value}
         disabled={disabled || pending}
         onChange={(event) => {
@@ -162,7 +159,7 @@ function SaveOnChange({
             {option.label}
           </option>
         ))}
-      </select>
+      </NativeSelect>
 
       {state.status === 'error' ? <FormAlert state={state} /> : null}
     </form>

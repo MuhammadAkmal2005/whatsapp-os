@@ -17,11 +17,11 @@
 
 import { useActionState, useEffect } from 'react';
 
-import { SELECT_CLASS } from '@/components/products/product-core-fields';
 import { Button } from '@/components/ui/button';
 import { FormAlert } from '@/components/ui/form-alert';
 import { FormControl, FormDescription, FormField, FormLabel } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { SubmitButton } from '@/components/ui/submit-button';
 import type { SupportedCurrency } from '@/config/constants';
 import { IDLE_FORM_STATE } from '@/lib/form-state';
@@ -133,13 +133,13 @@ export function VariantForm({
           <FormField error={fieldErrors?.status?.[0]}>
             <FormLabel>Status</FormLabel>
             <FormControl>
-              <select name="status" defaultValue={variant?.status ?? 'ACTIVE'} className={SELECT_CLASS}>
+              <NativeSelect name="status" defaultValue={variant?.status ?? 'ACTIVE'}>
                 {PRODUCT_STATUSES.map((value) => (
                   <option key={value} value={value}>
                     {PRODUCT_STATUS_LABELS[value]}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </FormControl>
             <FormDescription>Archive a size you have stopped stocking.</FormDescription>
           </FormField>

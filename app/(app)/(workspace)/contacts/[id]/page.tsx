@@ -1,4 +1,4 @@
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, BellOff } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
@@ -7,12 +7,12 @@ import {
   ContactStatusBadge,
   LeadStageBadge,
   displayName,
-  initials,
 } from '@/components/contacts/contact-badges';
 import { ContactNotes } from '@/components/contacts/contact-notes';
 import { ContactQuickControls } from '@/components/contacts/contact-quick-controls';
 import { DeleteContactDialog } from '@/components/contacts/delete-contact-dialog';
 import { EditContactForm } from '@/components/contacts/edit-contact-form';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,8 +23,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
+import { Stat, StatBand } from '@/components/ui/stat';
 import type { SupportedCurrency } from '@/config/constants';
 import { formatDate, formatRelativeTime } from '@/lib/datetime';
+import { initials } from '@/lib/names';
 import { formatMoney, money } from '@/lib/money';
 import { NotFoundError } from '@/server/errors';
 import { getContact, type ContactDetail } from '@/server/services/contact/contact.service';
@@ -99,54 +102,64 @@ export default async function ContactDetailPage({ params }: { params: RouteParam
 
   const { contact } = detail;
   const name = displayName(contact);
+  // One clock for the whole page, so "Last order" and "Last spoke" are measured against the
+  // same instant rather than each reading its own slightly later one.
+  const now = new Date();
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <Button asChild variant="ghost" size="sm" className="-ml-3">
-          <Link href="/contacts">
-            <ArrowLeft className="size-4" aria-hidden />
-            All customers
-          </Link>
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-4">
-          <Avatar className="size-12 shrink-0">
+      <PageHeader
+        title={name}
+        description={
+          <>
+            {contact.phoneE164}
+            {contact.city ? ` · ${contact.city}` : ''}
+            {contact.source ? ` · from ${contact.source}` : ''}
+          </>
+        }
+        leading={
+          <Avatar className="size-11 shrink-0">
             <AvatarFallback>{initials(name)}</AvatarFallback>
           </Avatar>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
-                {name}
-              </h1>
-              <ContactStatusBadge status={contact.status} />
-              <LeadStageBadge stage={contact.leadStage} />
-              {contact.optedOutAt ? <Badge variant="muted">Opted out</Badge> : null}
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {contact.phoneE164}
-              {contact.city ? ` · ${contact.city}` : ''}
-              {contact.source ? ` · from ${contact.source}` : ''}
-            </p>
-          </div>
-        </div>
-
-        {detail.can.delete ? (
-          <DeleteContactDialog contactId={contact.id} contactName={name} />
-        ) : null}
-      </div>
+        }
+        badges={
+          <>
+            <ContactStatusBadge status={contact.status} />
+            <LeadStageBadge stage={contact.leadStage} />
+            {contact.optedOutAt ? <Badge variant="muted">Opted out</Badge> : null}
+          </>
+        }
+        breadcrumb={
+          // Pulled left by the button's own padding so the label lines up with the title
+          // below it rather than sitting a few pixels inside it.
+          <Button asChild variant="ghost" size="sm" className="-ml-2.5 self-start">
+            <Link href="/contacts">
+              <ArrowLeft aria-hidden />
+              All customers
+            </Link>
+          </Button>
+        }
+        actions={
+          detail.can.delete ? (
+            <DeleteContactDialog contactId={contact.id} contactName={name} />
+          ) : undefined
+        }
+      />
 
       {contact.optedOutAt ? (
-        <p className="rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-          This customer asked to stop receiving messages on{' '}
-          {formatDate(contact.optedOutAt)}. Your AI and your campaigns will not message
-          them, and you should only reply if they message you first.
-        </p>
+        // Not a warning surface: nothing has gone wrong, and the customer's own choice is
+        // not an error state. It is a rule the team needs to know before they reply.
+        <Alert>
+          <BellOff aria-hidden />
+          <AlertTitle>This customer asked to stop receiving messages</AlertTitle>
+          <AlertDescription>
+            They opted out on {formatDate(contact.optedOutAt)}. Your AI will not message them
+            first, and neither should you — only reply if they message you.
+          </AlertDescription>
+        </Alert>
       ) : null}
 
-      <Summary contact={contact} currency={context.currency} />
+      <Summary contact={contact} currency={context.currency} now={now} />
 
       <Card>
         <CardHeader>
@@ -167,7 +180,7 @@ export default async function ContactDetailPage({ params }: { params: RouteParam
       </Card>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-5">
           <EditContactForm contact={contact} canUpdate={detail.can.update} />
         </CardContent>
       </Card>
@@ -192,7 +205,7 @@ export default async function ContactDetailPage({ params }: { params: RouteParam
 }
 
 /**
- * The four numbers worth knowing before you reply.
+ * The four figures worth knowing before you reply.
  *
  * `totalOrders` and `totalSpentMinor` are stored on the contact rather than summed
  * here: they are read on every list row and every profile, and a sum over the order
@@ -201,41 +214,31 @@ export default async function ContactDetailPage({ params }: { params: RouteParam
 function Summary({
   contact,
   currency,
+  now,
 }: {
   contact: ContactDetail['contact'];
   currency: SupportedCurrency;
+  now: Date;
 }) {
-  const items = [
-    {
-      label: 'Orders',
-      value: contact.totalOrders === 0 ? 'None yet' : String(contact.totalOrders),
-    },
-    {
-      label: 'Total spent',
-      value: formatMoney(money(contact.totalSpentMinor, currency)),
-    },
-    {
-      label: 'Last order',
-      value: contact.lastOrderAt ? formatRelativeTime(contact.lastOrderAt) : 'Never ordered',
-    },
-    {
-      label: 'Last spoke',
-      value: contact.lastInteractionAt
-        ? formatRelativeTime(contact.lastInteractionAt)
-        : 'Not messaged yet',
-    },
-  ];
-
   return (
-    <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-      {items.map((item) => (
-        <div key={item.label} className="rounded-lg border border-border bg-card px-4 py-3">
-          <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {item.label}
-          </dt>
-          <dd className="mt-1 truncate text-lg font-semibold text-foreground">{item.value}</dd>
-        </div>
-      ))}
-    </dl>
+    <StatBand label="Customer at a glance" columns={4}>
+      <Stat
+        label="Orders"
+        value={contact.totalOrders === 0 ? 'None yet' : String(contact.totalOrders)}
+      />
+      <Stat label="Total spent" value={formatMoney(money(contact.totalSpentMinor, currency))} />
+      <Stat
+        label="Last order"
+        value={contact.lastOrderAt ? formatRelativeTime(contact.lastOrderAt, now) : 'Never ordered'}
+      />
+      <Stat
+        label="Last spoke"
+        value={
+          contact.lastInteractionAt
+            ? formatRelativeTime(contact.lastInteractionAt, now)
+            : 'Not messaged yet'
+        }
+      />
+    </StatBand>
   );
 }

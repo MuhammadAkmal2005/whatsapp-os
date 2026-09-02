@@ -87,6 +87,10 @@ export const PAYMENT_METHODS = [
 ] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
+/** Guards a route parameter before it reaches Prisma, which rejects a non-uuid as a driver
+ *  error — turning a mistyped URL into an error page instead of a not-found page. */
+export const orderId = z.string().uuid('That order reference is not valid.');
+
 /** An item in the order creation request. The service resolves product/variant to
  *  the current price and snapshots the name and SKU. */
 export const createOrderItemSchema = z.object({

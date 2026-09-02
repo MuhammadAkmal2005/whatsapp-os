@@ -1,7 +1,7 @@
 'use client';
 
-import { useActionState, useState } from 'react';
 import { LogOut } from 'lucide-react';
+import { useActionState, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,7 +60,7 @@ export function LeaveWorkspaceButton({
           // explained to a screen reader that jumped straight to the control.
           aria-describedby={blockedReason ? 'leave-blocked-reason' : undefined}
         >
-          <LogOut className="size-4" aria-hidden />
+          <LogOut aria-hidden />
           Leave {workspaceName}
         </Button>
         {blockedReason ? (

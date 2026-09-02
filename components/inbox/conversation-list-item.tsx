@@ -1,124 +1,159 @@
 'use client';
 
 /**
- * Individual conversation card in the inbox sidebar.
+ * One row in the conversation list.
  *
- * Highlights the active conversation, displays customer information, unread badges,
- * assignment state, and snippet of latest activity.
+ * The densest repeated surface in the product — a shop owner scans a few hundred of these
+ * a day — so it is built around what the eye needs in the half second before it commits to
+ * a click: who, how long ago, what about, and whether anyone is on it. Everything else is
+ * one click away in the thread header and does not earn its place here.
+ *
+ * Three deliberate reductions from the previous version. Unread is signalled once, by
+ * weight on the name plus a count, rather than by a dot *and* a count. The status chip
+ * appears only when the status is not Open, because in an inbox Open is the default and a
+ * column of identical chips is texture rather than information. And the channel is named
+ * only when it is not WhatsApp, so the label appears when it distinguishes something and
+ * stays out of the way while WhatsApp is the only channel connected.
+ *
+ * Everything below the name sits inside the flex column beside the avatar rather than being
+ * pushed across by a hand-measured left padding, which is how the old row's `pl-11` came to
+ * disagree with its own avatar size.
  */
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { User } from 'lucide-react';
+import { Bot, UserRound } from 'lucide-react';
 
+import { ChannelLabel, ConversationStatusBadge, PriorityBadge } from './conversation-badges';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-  ChannelBadge,
-  ConversationStatusBadge,
-  formatRelativeTime,
-  initials,
-  PriorityBadge,
-} from './conversation-badges';
+import { Badge } from '@/components/ui/badge';
+import { formatRelativeTimeCompact } from '@/lib/datetime';
+import { initials } from '@/lib/names';
+import { cn } from '@/lib/utils';
 import type { ConversationSummary } from '@/server/services/conversation/conversation.service';
 
 export function ConversationListItem({
   conversation,
   isSelected,
+  now,
 }: {
   conversation: ConversationSummary;
   isSelected: boolean;
+  /** Resolved once on the server so every row measures "3h" against the same instant. */
+  now: Date;
 }) {
   const searchParams = useSearchParams();
 
-  // Preserve existing filter params while switching selected conversation
-  const createQueryString = (conversationId: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('id', conversationId);
-    return params.toString();
-  };
+  // Switching conversation must keep the search and filters the reader set up, or the list
+  // they were working through reshuffles under them.
+  const params = new URLSearchParams(searchParams.toString());
+  params.set('id', conversation.id);
 
-  const displayName =
-    conversation.contact.name ||
-    conversation.contact.waProfileName ||
+  const name =
+    conversation.contact.name ??
+    conversation.contact.waProfileName ??
     conversation.contact.phoneE164;
 
-  const hasPriority = conversation.priority === 'HIGH' || conversation.priority === 'URGENT';
+  const hasUnread = conversation.unreadCount > 0;
+  const lastActivityAt = new Date(conversation.lastMessageAt ?? conversation.createdAt);
 
   return (
     <Link
-      href={`/conversations?${createQueryString(conversation.id)}`}
-      className={`group relative flex flex-col gap-1.5 p-3.5 transition-all duration-150 border-b last:border-b-0 hover:bg-accent/50 ${
+      href={`/conversations?${params.toString()}`}
+      // `aria-current` rather than `aria-selected`: the latter is only valid on an element
+      // with a role that supports selection, and a link is not one. This is the same
+      // pattern the sidebar navigation uses for the active page.
+      aria-current={isSelected ? 'page' : undefined}
+      className={cn(
+        'flex items-start gap-2.5 border-b border-border px-3 py-3 last:border-b-0',
+        'transition-colors duration-instant ease-out',
         isSelected
-          ? 'bg-accent/80 border-l-4 border-l-primary pl-[10px]'
-          : 'bg-card hover:bg-muted/40'
-      }`}
-      aria-selected={isSelected}
+          ? // The rail is an inset shadow, so it costs no layout and the row does not shift
+            // sideways by two pixels as the selection moves down the list.
+            'marker-rail bg-surface-selected'
+          : 'hover:bg-surface-sunken',
+      )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <Avatar className="size-9 shrink-0 border">
-            <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
-              {initials(displayName)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="truncate text-sm font-medium text-foreground">
-                {displayName}
-              </span>
-              {conversation.unreadCount > 0 ? (
-                <span className="inline-flex size-2 rounded-full bg-primary" aria-label="Unread" />
-              ) : null}
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <ChannelBadge channel={conversation.channel} />
-              {conversation.contact.phoneE164 && conversation.contact.name ? (
-                <>
-                  <span>•</span>
-                  <span className="truncate">{conversation.contact.phoneE164}</span>
-                </>
-              ) : null}
-            </div>
-          </div>
-        </div>
+      <Avatar className="mt-0.5 size-8 shrink-0">
+        <AvatarFallback className="text-2xs">{initials(name)}</AvatarFallback>
+      </Avatar>
 
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-            {formatRelativeTime(conversation.lastMessageAt ?? conversation.createdAt)}
-          </span>
-          {conversation.unreadCount > 0 ? (
-            <span className="inline-flex items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
-              {conversation.unreadCount}
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      {conversation.summary ? (
-        <p className="line-clamp-2 text-xs text-muted-foreground/90 pl-11">
-          {conversation.summary}
-        </p>
-      ) : null}
-
-      <div className="flex items-center justify-between gap-1.5 pl-11 pt-0.5">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <ConversationStatusBadge status={conversation.status} className="text-[10px] py-0 px-1.5" />
-          {hasPriority ? (
-            <PriorityBadge priority={conversation.priority} className="text-[10px] py-0 px-1.5" />
-          ) : null}
-        </div>
-
-        {conversation.assignedTo ? (
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex items-baseline gap-2">
           <span
-            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground truncate max-w-[120px]"
-            title={`Assigned to ${conversation.assignedTo.user.name}`}
+            className={cn(
+              'min-w-0 flex-1 truncate text-sm text-foreground',
+              hasUnread ? 'font-semibold' : 'font-medium',
+            )}
           >
-            <User className="size-3 shrink-0" aria-hidden />
-            <span className="truncate">{conversation.assignedTo.user.name}</span>
+            {name}
           </span>
-        ) : (
-          <span className="text-[10px] text-muted-foreground/70 italic">Unassigned</span>
-        )}
+          <time
+            dateTime={lastActivityAt.toISOString()}
+            className="shrink-0 text-2xs tabular-nums text-muted-foreground"
+          >
+            {formatRelativeTimeCompact(lastActivityAt, now)}
+          </time>
+        </div>
+
+        <div className="flex items-center gap-1.5 text-2xs text-muted-foreground">
+          {/* Only when it adds something. See the note at the top of the file. */}
+          {conversation.channel === 'WHATSAPP' ? null : (
+            <>
+              <ChannelLabel channel={conversation.channel} />
+              <span aria-hidden>·</span>
+            </>
+          )}
+          <span className="truncate">{conversation.contact.phoneE164}</span>
+        </div>
+
+        {conversation.summary ? (
+          /* This is the AI's running summary of the conversation, not the last message —
+             there is no stored preview column. It is the more useful of the two anyway:
+             what the conversation is about beats whatever the last word happened to be. */
+          <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
+            {conversation.summary}
+          </p>
+        ) : null}
+
+        <div className="flex items-center gap-1.5">
+          {conversation.status === 'OPEN' ? null : (
+            <ConversationStatusBadge status={conversation.status} size="sm" />
+          )}
+
+          {conversation.priority === 'HIGH' || conversation.priority === 'URGENT' ? (
+            <PriorityBadge priority={conversation.priority} size="sm" />
+          ) : null}
+
+          {/* Who is answering, as an icon rather than a chip: the thread header spells it
+              out, and at this size a third chip on the row costs more than it tells. */}
+          {conversation.aiEnabled ? (
+            <span className="inline-flex items-center text-ai">
+              <Bot className="size-3.5" aria-hidden />
+              <span className="sr-only">Your AI is replying</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center text-warning">
+              <UserRound className="size-3.5" aria-hidden />
+              <span className="sr-only">Your team is replying</span>
+            </span>
+          )}
+
+          <span className="ml-auto flex min-w-0 items-center gap-2">
+            {conversation.assignedTo ? (
+              <span className="min-w-0 truncate text-2xs text-muted-foreground">
+                {conversation.assignedTo.user.name}
+              </span>
+            ) : null}
+
+            {hasUnread ? (
+              <Badge size="sm" shape="pill" className="tabular-nums">
+                {conversation.unreadCount}
+                <span className="sr-only"> unread</span>
+              </Badge>
+            ) : null}
+          </span>
+        </div>
       </div>
     </Link>
   );

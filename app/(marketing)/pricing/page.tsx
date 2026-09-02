@@ -4,9 +4,15 @@ import { ArrowRight, Check } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { ORDERED_PLANS, type Plan } from '@/config/plans';
+import {
+  HEADLINE_LIMIT_NAMES,
+  formatLimitAllowance,
+  limitLabelWithPeriod,
+  planFeatureLabel,
+} from '@/lib/labels';
 import { formatMoney, money } from '@/lib/money';
-import { ORDERED_PLANS, type Plan, type PlanFeature, type PlanLimits } from '@/config/plans';
+import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
   title: 'Pricing',
@@ -14,119 +20,126 @@ export const metadata: Metadata = {
     'Simple, honest pricing for ConvoNexa. Start free, then upgrade as your shop grows.',
 };
 
-/** Shop-owner wording for each entitlement flag. */
-const FEATURE_LABELS: Record<PlanFeature, string> = {
-  ai_agent: 'AI employee',
-  knowledge_base: 'Knowledge base',
-  human_handoff: 'Human handoff',
-  automations: 'Automations',
-  analytics: 'Analytics',
-  advanced_analytics: 'Advanced analytics',
-  multiple_numbers: 'Multiple WhatsApp numbers',
-  campaigns: 'Campaigns',
-  appointments: 'Appointments',
-  api_access: 'API access',
-  priority_support: 'Priority support',
-  audit_log_export: 'Audit log export',
-};
-
-/** The handful of limits worth showing on a card, in the order they read best. */
-const HEADLINE_LIMITS: { key: keyof PlanLimits; label: string }[] = [
-  { key: 'aiRequestsPerMonth', label: 'AI replies / month' },
-  { key: 'teamMembers', label: 'Team members' },
-  { key: 'contacts', label: 'Customers' },
-  { key: 'whatsappNumbers', label: 'WhatsApp numbers' },
-];
-
-function formatLimit(value: number | null): string {
-  return value === null ? 'Unlimited' : value.toLocaleString('en-US');
-}
+/**
+ * The trial length actually configured on the paid plans, rather than a number typed into the copy.
+ *
+ * The page used to say "14-day trial" in two places while the length lived in `config/plans.ts`.
+ * A price page that quotes a term the product does not honour is the one kind of copy bug worth
+ * engineering around.
+ */
+const TRIAL_DAYS = Math.max(
+  0,
+  ...ORDERED_PLANS.filter((plan) => plan.priceMinor > 0).map((plan) => plan.trialDays),
+);
 
 export default function PricingPage() {
   return (
     <div className="container py-16 lg:py-24">
       <div className="mx-auto max-w-2xl text-center">
         <h1 className="text-4xl font-semibold tracking-tight">Pricing that grows with you</h1>
-        <p className="mt-4 text-lg text-muted-foreground">
-          Start free on one WhatsApp number. Every paid plan includes a 14-day trial — no card
-          needed to begin.
+        <p className="mt-4 max-w-prose text-lg leading-relaxed text-muted-foreground mx-auto">
+          Start free on one WhatsApp number.
+          {TRIAL_DAYS > 0
+            ? ` Every paid plan begins with a ${TRIAL_DAYS}-day trial — no card needed to start.`
+            : ' Upgrade whenever your shop is ready.'}
         </p>
       </div>
 
-      <div className="mx-auto mt-14 grid max-w-6xl gap-6 lg:grid-cols-4">
+      {/* Two-up on a tablet rather than four-up: four of these at 1024px are ~230px wide, which
+          wraps every limit row onto two lines. */}
+      <ul className="mx-auto mt-14 grid max-w-6xl grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {ORDERED_PLANS.map((plan) => (
-          <PlanCard key={plan.key} plan={plan} />
+          <li key={plan.key} className="flex">
+            <PlanCard plan={plan} />
+          </li>
         ))}
-      </div>
+      </ul>
 
-      <p className="mx-auto mt-10 max-w-2xl text-center text-sm text-muted-foreground">
-        All prices in Pakistani Rupees, billed monthly. Approaching a limit? We warn you well before
-        anything stops — we never delete your data.
+      <p className="mx-auto mt-10 max-w-prose text-center text-sm text-muted-foreground">
+        Billed monthly, cancel whenever you like. When you approach a limit we tell you well before
+        anything stops — and we never delete your customers, orders or messages.
       </p>
     </div>
   );
 }
 
 function PlanCard({ plan }: { plan: Plan }) {
-  const isHighlighted = plan.highlighted === true;
+  const isRecommended = plan.highlighted === true;
   const isFree = plan.priceMinor === 0;
-  const price = formatMoney(money(plan.priceMinor, plan.currency));
 
   return (
-    <div
+    <article
       className={cn(
-        'relative flex flex-col rounded-2xl border bg-card p-6',
-        isHighlighted ? 'border-primary shadow-lg ring-1 ring-primary' : 'border-border',
+        'flex w-full flex-col overflow-hidden rounded-lg border bg-card',
+        // The recommended plan is marked by its border and the rail on its leading edge — the same
+        // signal the product uses — rather than by a badge floating over the border with a ring
+        // behind it, which is the one arrangement every pricing template already has.
+        isRecommended ? 'marker-rail border-primary-border' : 'border-border',
       )}
     >
-      {isHighlighted && (
-        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Most popular</Badge>
-      )}
+      <header className="flex flex-col gap-3 p-5">
+        <div className="flex min-h-6 flex-wrap items-center gap-2">
+          <h2 className="text-md font-semibold tracking-tight">{plan.name}</h2>
+          {isRecommended ? (
+            <Badge variant="default" size="sm">
+              Most chosen
+            </Badge>
+          ) : null}
+        </div>
 
-      <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold">{plan.name}</h2>
-        <p className="min-h-10 text-sm text-muted-foreground">{plan.tagline}</p>
-      </div>
+        <p className="flex items-baseline gap-1">
+          <span className="text-3xl font-semibold tracking-tight tabular-nums">
+            {isFree ? 'Free' : formatMoney(money(plan.priceMinor, plan.currency))}
+          </span>
+          {isFree ? null : (
+            <span className="text-sm text-muted-foreground">
+              / {plan.interval === 'year' ? 'year' : 'month'}
+            </span>
+          )}
+        </p>
 
-      <div className="mt-4 flex items-baseline gap-1">
-        {isFree ? (
-          <span className="text-3xl font-semibold tracking-tight">Free</span>
-        ) : (
-          <>
-            <span className="text-3xl font-semibold tracking-tight">{price}</span>
-            <span className="text-sm text-muted-foreground">/month</span>
-          </>
-        )}
-      </div>
+        {/* A fixed two-line box, so prices and limits line up across all four cards. */}
+        <p className="line-clamp-2 min-h-9 text-sm leading-snug text-muted-foreground">
+          {plan.tagline}
+        </p>
 
-      <Button
-        asChild
-        className="mt-6"
-        variant={isHighlighted ? 'default' : 'outline'}
-      >
-        <Link href="/signup">
-          {isFree ? 'Start free' : 'Start 14-day trial'}
-          <ArrowRight className="size-4" aria-hidden />
-        </Link>
-      </Button>
+        <Button asChild className="mt-1 w-full" variant={isRecommended ? 'default' : 'outline'}>
+          <Link href="/signup">
+            {isFree || plan.trialDays === 0
+              ? 'Start free'
+              : `Start your ${plan.trialDays}-day trial`}
+            <ArrowRight className="size-4" aria-hidden />
+          </Link>
+        </Button>
+      </header>
 
-      <dl className="mt-6 flex flex-col gap-2 border-t border-border pt-6">
-        {HEADLINE_LIMITS.map((item) => (
-          <div key={item.key} className="flex items-center justify-between text-sm">
-            <dt className="text-muted-foreground">{item.label}</dt>
-            <dd className="font-medium tabular-nums">{formatLimit(plan.limits[item.key])}</dd>
+      <dl className="border-t border-border">
+        {HEADLINE_LIMIT_NAMES.map((name) => (
+          <div
+            key={name}
+            className="flex items-baseline justify-between gap-2 border-b border-border px-5 py-2.5"
+          >
+            <dt className="min-w-0 truncate text-sm text-muted-foreground">
+              {limitLabelWithPeriod(name)}
+            </dt>
+            <dd className="shrink-0 font-mono text-sm font-medium tabular-nums">
+              {formatLimitAllowance(name, plan.limits[name])}
+            </dd>
           </div>
         ))}
       </dl>
 
-      <ul className="mt-6 flex flex-col gap-2.5 border-t border-border pt-6">
-        {plan.features.map((feature) => (
-          <li key={feature} className="flex items-start gap-2.5 text-sm">
-            <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-            <span>{FEATURE_LABELS[feature]}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
+      <div className="flex flex-1 flex-col gap-2.5 p-5">
+        <h3 className="eyebrow">Included</h3>
+        <ul className="flex flex-col gap-2">
+          {plan.features.map((feature) => (
+            <li key={feature} className="flex items-start gap-2.5 text-sm leading-snug">
+              <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+              <span>{planFeatureLabel(feature)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </article>
   );
 }

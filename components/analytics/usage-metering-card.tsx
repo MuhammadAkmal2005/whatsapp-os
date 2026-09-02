@@ -1,113 +1,67 @@
-import { AlertTriangle, ShieldAlert } from 'lucide-react';
-
+import { PlanLimitList, type PlanLimitRow } from '@/components/billing/plan-limit-list';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { UsageLimitStatus } from '@/server/services/analytics/analytics.service';
+import { Card, CardDescription, CardTitle, CardToolbar } from '@/components/ui/card';
 import type { LimitName } from '@/config/plans';
+import type { UsageLimitStatus } from '@/server/services/analytics/analytics.service';
 
 interface UsageMeteringCardProps {
   status: UsageLimitStatus;
 }
 
-const LIMIT_TITLES: Record<LimitName, string> = {
-  whatsappNumbers: 'WhatsApp Phone Numbers',
-  teamMembers: 'Active Team Members',
-  contacts: 'Customer Contacts',
-  products: 'Catalogue Products',
-  aiRequestsPerMonth: 'Monthly AI Requests',
-  messagesPerMonth: 'Monthly WhatsApp Messages',
-  knowledgeDocuments: 'Knowledge Documents',
-  storageMegabytes: 'File Storage (MB)',
-  automations: 'Active Workflows',
-  campaignsPerMonth: 'Monthly Broadcast Campaigns',
-};
-
+/**
+ * What the workspace is allowed on its plan, and how much of it is gone.
+ *
+ * The rows themselves are `PlanLimitList`, shared with the billing screen, which shows the same
+ * ten allowances — they were two separate inventions of the same panel, disagreeing on both the
+ * wording and the colour of a nearly-full bar.
+ */
 export function UsageMeteringCard({ status }: UsageMeteringCardProps) {
-  const limitEntries = Object.entries(status.limits) as [
-    LimitName,
-    (typeof status.limits)[LimitName],
-  ][];
+  const rows: PlanLimitRow[] = (Object.keys(status.limits) as LimitName[]).map((name) => {
+    const check = status.limits[name];
+
+    return {
+      name,
+      used: check.used,
+      limit: check.limit,
+      nearLimit: check.nearLimit,
+      exceeded: !check.allowed,
+    };
+  });
 
   return (
     <Card>
-      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-base font-medium">Subscription & Usage Metering</CardTitle>
-            <Badge variant="outline" className="uppercase font-semibold tracking-wider">
-              {status.planName} Plan
-            </Badge>
-          </div>
-          <CardDescription>
-            Billing cycle period: <span className="font-mono font-medium">{status.periodKey}</span>
+      <CardToolbar>
+        <div className="min-w-0">
+          <CardTitle>Plan limits</CardTitle>
+          <CardDescription className="mt-1">
+            What your plan allows, and how much of it you have used. Monthly allowances start
+            again at the beginning of each month.
           </CardDescription>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {limitEntries.map(([limitKey, check]) => {
-            const label = LIMIT_TITLES[limitKey] ?? limitKey;
-            const isUnlimited = check.limit === null;
-            const percentage = isUnlimited ? 0 : Math.min(100, Math.round(check.ratio * 100));
+        <Badge variant="outline" size="lg" className="uppercase tracking-wide">
+          {status.planName}
+        </Badge>
+      </CardToolbar>
 
-            return (
-              <div key={limitKey} className="flex flex-col gap-1.5 rounded-lg border p-3.5 bg-card">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-foreground">{label}</span>
-                  {isUnlimited ? (
-                    <Badge variant="secondary" className="text-xs">
-                      Unlimited
-                    </Badge>
-                  ) : check.allowed ? (
-                    check.nearLimit ? (
-                      <Badge variant="outline" className="text-xs border-amber-500 text-amber-600 dark:text-amber-400 gap-1">
-                        <AlertTriangle className="h-3 w-3" />
-                        Near Quota
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs text-muted-foreground">
-                        {check.remaining} remaining
-                      </Badge>
-                    )
-                  ) : (
-                    <Badge variant="danger" className="text-xs gap-1">
-                      <ShieldAlert className="h-3 w-3" />
-                      Limit Exceeded
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>
-                    Used: <strong className="text-foreground">{check.used.toLocaleString()}</strong>
-                  </span>
-                  <span>
-                    Quota: {isUnlimited ? '∞' : (check.limit?.toLocaleString() ?? '—')}
-                  </span>
-                </div>
-
-                {/* Progress bar */}
-                {!isUnlimited ? (
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted mt-1">
-                    <div
-                      className={`h-full transition-all duration-300 ${
-                        !check.allowed
-                          ? 'bg-rose-500'
-                          : check.nearLimit
-                            ? 'bg-amber-500'
-                            : 'bg-primary'
-                      }`}
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                ) : (
-                  <div className="h-2 w-full rounded-full bg-muted/50 mt-1" />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </CardContent>
+      <PlanLimitList rows={rows} monthlyHeading={`This month · ${formatPeriod(status.periodKey)}`} />
     </Card>
   );
+}
+
+/**
+ * The billing period as a month a person would say out loud, rather than the `2026-09` key the
+ * usage records are filed under.
+ */
+function formatPeriod(periodKey: string): string {
+  const [year, month] = periodKey.split('-');
+  const monthIndex = Number(month) - 1;
+
+  if (!year || Number.isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+    return periodKey;
+  }
+
+  return new Date(Number(year), monthIndex, 1).toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  });
 }

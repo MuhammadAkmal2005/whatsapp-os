@@ -20,6 +20,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { NativeSelect } from '@/components/ui/native-select';
 import {
   PRODUCT_FIELD_MAX,
   PRODUCT_STATUSES,
@@ -29,9 +30,6 @@ import {
 /** Long enough that normal typing produces one request per word rather than one per
  *  keystroke, short enough that it does not feel laggy. */
 const SEARCH_DEBOUNCE_MS = 350;
-
-const SELECT_CLASS =
-  'h-9 rounded-md border border-input bg-background px-2 text-sm shadow-soft transition-all duration-150 hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
 
 type Category = { id: string; name: string };
 
@@ -125,11 +123,11 @@ export function ProductFilters({ categories }: { categories: Category[] }) {
         <label className="sr-only" htmlFor="product-status-filter">
           Filter by status
         </label>
-        <select
+        <NativeSelect
           id="product-status-filter"
           value={status}
           onChange={(event) => apply({ status: event.target.value })}
-          className={SELECT_CLASS}
+          wrapperClassName="w-auto"
         >
           <option value="">All statuses</option>
           {PRODUCT_STATUSES.map((value) => (
@@ -137,18 +135,18 @@ export function ProductFilters({ categories }: { categories: Category[] }) {
               {PRODUCT_STATUS_LABELS[value]}
             </option>
           ))}
-        </select>
+        </NativeSelect>
 
         {categories.length > 0 ? (
           <>
             <label className="sr-only" htmlFor="product-category-filter">
               Filter by category
             </label>
-            <select
+            <NativeSelect
               id="product-category-filter"
               value={categoryId}
               onChange={(event) => apply({ categoryId: event.target.value })}
-              className={SELECT_CLASS}
+              wrapperClassName="w-auto"
             >
               <option value="">All categories</option>
               {categories.map((category) => (
@@ -156,7 +154,7 @@ export function ProductFilters({ categories }: { categories: Category[] }) {
                   {category.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </>
         ) : null}
 

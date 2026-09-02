@@ -6,6 +6,7 @@ import { CreateProductForm } from '@/components/products/create-product-form';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { getProducts } from '@/server/services/product/product.service';
 import { getTenantContext } from '@/server/tenancy/resolve';
 import { listProductsSchema } from '@/server/validation/product';
@@ -35,25 +36,25 @@ export default async function NewProductPage() {
   const atLimit = page.usage.limit !== null && page.usage.used >= page.usage.limit;
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <Link
-          href="/products"
-          className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Products
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Add a product</h1>
-        <p className="text-sm text-muted-foreground">
-          A name, a price and how many you have is enough to start. You can add sizes and photos
-          from the product page afterwards.
-        </p>
-      </div>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+      <PageHeader
+        title="Add a product"
+        description="A name, a price and how many you have is enough to start. You can add sizes and photos from the product page afterwards."
+        breadcrumb={
+          // Pulled left by the button's own padding so the label lines up with the heading
+          // below it rather than sitting a few pixels inside it.
+          <Button asChild variant="ghost" size="sm" className="-ml-2.5 self-start">
+            <Link href="/products">
+              <ArrowLeft aria-hidden />
+              All products
+            </Link>
+          </Button>
+        }
+      />
 
       {atLimit ? (
         <Alert variant="warning">
-          <Package className="size-4" aria-hidden />
+          <Package aria-hidden />
           <AlertTitle>You have reached your plan&apos;s product limit</AlertTitle>
           <AlertDescription>
             Your plan includes {page.usage.limit} products. Upgrade to add more, or archive one you
@@ -65,17 +66,11 @@ export default async function NewProductPage() {
         </Alert>
       ) : (
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-5">
             <CreateProductForm categories={page.categories} currency={context.currency} />
           </CardContent>
         </Card>
       )}
-
-      {atLimit ? (
-        <Button asChild variant="outline" className="w-fit">
-          <Link href="/products">Back to products</Link>
-        </Button>
-      ) : null}
     </div>
   );
 }

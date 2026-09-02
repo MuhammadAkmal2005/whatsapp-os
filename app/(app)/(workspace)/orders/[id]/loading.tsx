@@ -10,7 +10,7 @@ const ITEM_KEYS = ['i1', 'i2', 'i3'] as const;
  */
 export default function OrderDetailLoading() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-live="polite">
+    <div className="flex flex-col gap-6" role="status" aria-busy="true">
       <span className="sr-only">Loading order…</span>
 
       <div className="flex flex-col gap-4">

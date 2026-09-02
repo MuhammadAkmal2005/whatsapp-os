@@ -1,68 +1,82 @@
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Stable keys for the placeholder rows — a static skeleton has no data to key
-// on, and array indexes would trip the lint rule against them.
-const KPI_KEYS = ['revenue', 'orders', 'conversations', 'customers'] as const;
+// Stable keys for the placeholder rows. A static skeleton has no data to key on, and array
+// indexes would trip the lint rule against them.
+const FIGURE_KEYS = ['orders', 'conversations', 'customers', 'leads'] as const;
 const ACTIVITY_KEYS = ['a1', 'a2', 'a3', 'a4', 'a5'] as const;
-const CHECKLIST_KEYS = ['c1', 'c2', 'c3', 'c4', 'c5'] as const;
 
 /**
  * Fallback for the workspace content area while a page's server data resolves.
- * It renders inside the app shell — the sidebar is already painted — and mirrors
- * the dashboard's shape: a header, a four-up KPI row, and the activity/checklist
- * split. Matching the real layout keeps it from shifting under the reader when
- * the content arrives.
+ *
+ * It renders inside the app shell — the sidebar and header are already painted — and stands in
+ * for the dashboard, which is the one screen in this group without a skeleton of its own.
+ *
+ * The geometry is the dashboard's: the page header, then one card holding a lead figure that
+ * spans the band with four supporting figures beneath it, then the activity feed. The previous
+ * version drew four separate bordered KPI cards each with an icon tile, which is what the
+ * dashboard looked like before `StatBand` — so the whole band visibly rearranged itself when the
+ * numbers arrived instead of simply filling in.
+ *
+ * Two regions are deliberately absent. The worklist above the figures and the setup checklist
+ * beside the feed each render only in some workspaces, and a placeholder for a panel that turns
+ * out not to exist guarantees a jump for everyone who does not have it. Leaving them out costs
+ * only a downward reflow, which does not move anything the reader has already started reading.
  */
 export default function WorkspaceLoading() {
   return (
-    <div className="flex flex-col gap-8" aria-busy="true" aria-live="polite">
-      <span className="sr-only">Loading…</span>
+    <div className="flex flex-col gap-6" role="status" aria-busy="true">
+      <span className="sr-only">Loading your workspace…</span>
 
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-7 w-64" />
+      {/* Mirrors `PageHeader`: the title, then its one-line summary. */}
+      <div className="flex flex-col gap-1.5">
+        <Skeleton className="h-8 w-64 max-w-full" />
         <Skeleton className="h-4 w-80 max-w-full" />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {KPI_KEYS.map((key) => (
-          <Card key={key} className="flex flex-col gap-3 p-5">
-            <div className="flex items-center justify-between gap-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="size-8 rounded-lg" />
-            </div>
-            <Skeleton className="h-8 w-28" />
-            <Skeleton className="h-3 w-20" />
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="flex flex-col gap-4 p-6 lg:col-span-2">
-          <Skeleton className="h-5 w-36" />
-          {ACTIVITY_KEYS.map((key) => (
-            <div key={key} className="flex items-center gap-3">
-              <Skeleton className="size-8 shrink-0 rounded-full" />
-              <div className="flex flex-1 flex-col gap-1.5">
-                <Skeleton className="h-4 w-40 max-w-full" />
-                <Skeleton className="h-3 w-24" />
-              </div>
-              <Skeleton className="h-3 w-12 shrink-0" />
+      {/* One card, five cells sharing it. Each cell draws its own leading hairlines pulled a
+          pixel outside itself, so the band's outer rules are clipped by the card. */}
+      <Card className="overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="-ml-px -mt-px flex flex-col gap-1.5 border-l border-t border-border px-5 py-5 sm:col-span-2 lg:col-span-4">
+            <Skeleton className="h-3 w-32" />
+            <Skeleton className="h-9 w-44 max-w-full" />
+            <Skeleton className="h-3 w-40 max-w-full" />
+          </div>
+          {FIGURE_KEYS.map((key) => (
+            <div
+              key={key}
+              className="-ml-px -mt-px flex flex-col gap-1.5 border-l border-t border-border px-5 py-4"
+            >
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-7 w-16" />
+              <Skeleton className="h-3 w-full max-w-36" />
             </div>
           ))}
-        </Card>
+        </div>
+      </Card>
 
-        <Card className="flex flex-col gap-4 p-6">
+      <Card>
+        <CardHeader>
           <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-1.5 w-full rounded-full" />
-          {CHECKLIST_KEYS.map((key) => (
-            <div key={key} className="flex items-center gap-3">
-              <Skeleton className="size-5 shrink-0 rounded-full" />
-              <Skeleton className="h-4 flex-1" />
-            </div>
-          ))}
-        </Card>
-      </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col divide-y divide-border">
+            {ACTIVITY_KEYS.map((key) => (
+              <div key={key} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                {/* The feed's icons sit bare rather than in a filled disc, so this is a glyph-
+                    sized square and not a `size-8` avatar. */}
+                <Skeleton className="size-4 shrink-0" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <Skeleton className="h-4 w-40 max-w-full" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="h-3 w-12 shrink-0" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

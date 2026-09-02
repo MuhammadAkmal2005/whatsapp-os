@@ -13,11 +13,20 @@ import type { FormState } from '@/lib/form-state';
  * When a request id is present it is shown quietly: it means something
  * unexpected failed, and it is the string a user can quote to support so the
  * incident can be found in the logs.
+ *
+ * Both outcomes drop in rather than appearing instantly. This component renders `null` until
+ * a form comes back, so the alert is genuinely new when it mounts — and on a long form the
+ * short movement is what tells the reader something arrived above where they were typing.
+ * `prefers-reduced-motion` collapses it to nothing, globally.
+ *
+ * Both are announced, because in both cases the outcome is the answer to something the user
+ * just did and their attention may be at the button rather than here. A failure interrupts; a
+ * confirmation waits for a pause.
  */
 export function FormAlert({ state, successTitle }: { state: FormState; successTitle?: string }) {
   if (state.status === 'error' && state.message) {
     return (
-      <Alert variant="destructive">
+      <Alert variant="destructive" live="assertive" className="animate-slide-down">
         <AlertCircle aria-hidden />
         <AlertTitle>Something needs your attention</AlertTitle>
         <AlertDescription>
@@ -34,7 +43,7 @@ export function FormAlert({ state, successTitle }: { state: FormState; successTi
 
   if (state.status === 'success' && (state.message || successTitle)) {
     return (
-      <Alert variant="success">
+      <Alert variant="success" live="polite" className="animate-slide-down">
         <CheckCircle2 aria-hidden />
         {successTitle ? <AlertTitle>{successTitle}</AlertTitle> : null}
         {state.message ? <AlertDescription>{state.message}</AlertDescription> : null}

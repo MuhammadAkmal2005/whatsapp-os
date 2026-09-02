@@ -208,7 +208,7 @@ export function CreateOrderForm({
   return (
     <div className="flex flex-col gap-6">
       {error ? (
-        <Alert variant="destructive">
+        <Alert variant="destructive" live="assertive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
@@ -499,7 +499,9 @@ export function CreateOrderForm({
                     </FormControl>
                   </FormField>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* Side by side once there is room for both. On a phone a 132px-wide city
+                      field shows about eight characters, so they stack instead. */}
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <FormField>
                       <FormLabel>City</FormLabel>
                       <FormControl>

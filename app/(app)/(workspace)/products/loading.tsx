@@ -16,7 +16,7 @@ const ROW_KEYS = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8'] as const;
  */
 export default function ProductsLoading() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-live="polite">
+    <div className="flex flex-col gap-6" role="status" aria-busy="true">
       <span className="sr-only">Loading products…</span>
 
       <div className="flex flex-wrap items-start justify-between gap-4">

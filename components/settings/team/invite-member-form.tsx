@@ -1,13 +1,14 @@
 'use client';
 
-import { useActionState, useState } from 'react';
 import { Check, Copy, Link2 } from 'lucide-react';
+import { useActionState, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FormAlert } from '@/components/ui/form-alert';
 import { FormControl, FormDescription, FormField, FormLabel } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { IDLE_FORM_STATE } from '@/lib/form-state';
 import { inviteMemberAction, type InviteFormState } from '@/server/actions/member.actions';
@@ -62,20 +63,13 @@ export function InviteMemberForm({ assignableRoles }: { assignableRoles: Workspa
           <FormField error={fieldErrors?.role?.[0]}>
             <FormLabel>Role</FormLabel>
             <FormControl>
-              {/* A native select: it is keyboard- and screen-reader-correct without
-                  work, and on a phone it opens the platform picker, which is a
-                  better experience than any custom listbox. */}
-              <select
-                name="role"
-                defaultValue={defaultRole}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-soft transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-44 hover:border-primary/30"
-              >
+              <NativeSelect name="role" defaultValue={defaultRole} wrapperClassName="sm:w-44">
                 {assignableRoles.map((role) => (
                   <option key={role} value={role}>
                     {ROLE_LABELS[role]}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </FormControl>
             <FormDescription className="sm:max-w-44">
               {defaultRole ? ROLE_DESCRIPTIONS[defaultRole] : null}
@@ -111,8 +105,8 @@ function InviteLinkPanel({ email, url }: { email: string; url: string }) {
   }
 
   return (
-    <Alert variant="success">
-      <Link2 className="size-4" aria-hidden />
+    <Alert variant="success" live="polite">
+      <Link2 aria-hidden />
       <AlertTitle>Invitation ready for {email}</AlertTitle>
       <AlertDescription className="flex flex-col gap-3">
         <p>
@@ -131,7 +125,7 @@ function InviteLinkPanel({ email, url }: { email: string; url: string }) {
             className="font-mono text-xs"
           />
           <Button type="button" variant="outline" onClick={copy} className="shrink-0">
-            {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
+            {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
             <span className="sr-only sm:not-sr-only">{copied ? 'Copied' : 'Copy'}</span>
           </Button>
         </div>

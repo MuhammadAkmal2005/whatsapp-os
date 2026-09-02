@@ -22,27 +22,38 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="w-full max-w-sm">{children}</div>
         </main>
         <footer className="text-xs text-muted-foreground">
-          © {new Date().getFullYear()} {APP_NAME}. AI-powered conversations that grow your business.
+          © {new Date().getFullYear()} {APP_NAME}
         </footer>
       </div>
 
-      <aside className="relative hidden overflow-hidden bg-sidebar px-12 py-16 text-sidebar-foreground lg:flex lg:flex-col lg:justify-center">
-        <div className="max-w-md">
-          <p className="text-2xl font-semibold leading-snug text-white">
+      <aside
+        aria-labelledby="auth-panel-heading"
+        className="hidden bg-sidebar px-12 py-16 text-sidebar-foreground lg:flex lg:flex-col lg:justify-center"
+      >
+        <div className="max-w-form">
+          <h2
+            id="auth-panel-heading"
+            className="text-2xl font-semibold leading-snug text-sidebar-strong"
+          >
             Your AI-powered sales and support team on WhatsApp.
-          </p>
-          <p className="mt-4 text-sidebar-foreground/90">
+          </h2>
+          <p className="mt-4">
             Answer customers instantly, capture every lead, and turn chats into orders — all from
             one dashboard, in the language your customers actually write in.
           </p>
-          <ul className="mt-10 space-y-4 text-sm">
+          <ul className="mt-10 flex flex-col gap-4 text-sm">
             {[
               'Replies grounded in your real prices and stock — never guessed.',
               'Every conversation, contact and order in one place.',
               'Step in and take over any chat the moment you want to.',
             ].map((point) => (
               <li key={point} className="flex items-start gap-3">
-                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
+                {/* --sidebar-primary, not --primary: this panel is ink in both themes and the
+                    paper-tuned moss disappears against it. */}
+                <span
+                  className="mt-1.5 size-1.5 shrink-0 rounded-full bg-sidebar-primary"
+                  aria-hidden
+                />
                 <span>{point}</span>
               </li>
             ))}

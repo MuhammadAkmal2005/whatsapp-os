@@ -32,7 +32,7 @@ export default function RootError({
     <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background px-6 text-center">
       <span
         aria-hidden
-        className="flex size-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive"
+        className="flex size-14 items-center justify-center rounded-lg border border-destructive-border bg-destructive-surface text-destructive"
       >
         <TriangleAlert className="size-7" />
       </span>
@@ -40,7 +40,7 @@ export default function RootError({
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           Something went wrong
         </h1>
-        <p className="mx-auto max-w-md text-sm text-muted-foreground">
+        <p className="mx-auto max-w-form text-sm text-muted-foreground">
           An unexpected error stopped this page from loading. Please try again — if it keeps
           happening, get in touch with our team.
         </p>
@@ -53,7 +53,7 @@ export default function RootError({
       </div>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Button onClick={reset}>
-          <RefreshCw className="size-4" aria-hidden />
+          <RefreshCw aria-hidden />
           Try again
         </Button>
         <Button asChild variant="outline">

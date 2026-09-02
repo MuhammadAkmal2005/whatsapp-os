@@ -1,10 +1,10 @@
+import { Lock } from 'lucide-react';
 import { redirect } from 'next/navigation';
 
 import { firstAvailableSettingsHref } from '@/components/app-shell/settings-nav-config';
 import { EmptyState } from '@/components/ui/empty-state';
 import { can } from '@/server/tenancy/context';
 import { getTenantContext } from '@/server/tenancy/resolve';
-import { Lock } from 'lucide-react';
 
 /**
  * `/settings` has no content of its own — it forwards to the first section the

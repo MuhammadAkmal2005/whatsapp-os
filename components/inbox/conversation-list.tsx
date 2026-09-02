@@ -1,118 +1,160 @@
 'use client';
 
 /**
- * Left conversation list pane.
+ * The conversation list pane.
  *
- * Provides live search, status filter tabs, assignment filtering, and list rendering
- * with pagination indicators.
+ * A search field, a status filter, and the rows — in that order, because that is the order a
+ * shop owner uses them in. Three things were rebuilt rather than restyled.
+ *
+ * Search is debounced instead of waiting for Enter. The old field looked live and was not,
+ * so typing a customer's name appeared to do nothing.
+ *
+ * The status filter is one segmented control rather than five loose buttons, and its counts
+ * are shown only when they are true. `statusCounts` and `total` are counted across the whole
+ * workspace, ignoring the search term and the assignee filter — so a number beside "Open"
+ * while a search is active describes a different set from the rows underneath it, and for a
+ * teammate who can only see their own conversations it describes a set they cannot see at
+ * all. Both cases hide the numbers rather than print a plausible wrong one.
+ *
+ * And a filter change now shows that it is working. Previously only the pagination button
+ * knew about `isPending`, so changing status looked frozen for the length of a round trip.
  */
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MessageSquare, Plus, Search, UserX, X } from 'lucide-react';
+import { MessageSquare, Plus, Search, SearchX, X } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ConversationListItem } from './conversation-list-item';
 import { MockSimulatorDialog } from './mock-simulator-dialog';
 import { NewConversationDialog } from './new-conversation-dialog';
-import type {
-  ConversationListPage,
-  ConversationSummary,
-} from '@/server/services/conversation/conversation.service';
-import type { ConversationStatus } from '@/server/validation/conversation';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
+import { cn } from '@/lib/utils';
+import type { ConversationListPage } from '@/server/services/conversation/conversation.service';
+import { CONVERSATION_STATUSES, type ConversationStatus } from '@/server/validation/conversation';
 
-type StatusTab = 'ALL' | ConversationStatus;
+type StatusFilter = 'ALL' | ConversationStatus;
+
+const STATUS_LABELS: Record<ConversationStatus, string> = {
+  OPEN: 'Open',
+  PENDING: 'Pending',
+  RESOLVED: 'Resolved',
+  CLOSED: 'Closed',
+};
+
+/** Long enough to finish a word, short enough that the list feels attached to the keyboard. */
+const SEARCH_DEBOUNCE_MS = 350;
+
+/**
+ * The service reads this exact string as "conversations nobody has picked up", so it is not
+ * an id and must not be passed through anything that expects one.
+ */
+const UNASSIGNED = 'unassigned';
 
 export function ConversationList({
   page,
   selectedId,
   assignees,
   contacts,
+  now,
 }: {
   page: ConversationListPage;
   selectedId?: string | null;
   assignees: { id: string; name: string }[];
   contacts: { id: string; name: string | null; phoneE164: string }[];
+  now: Date;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  const currentSearch = searchParams.get('search') ?? '';
+  // A stable string, so the debounce effect below can depend on the query without depending
+  // on an object identity that changes on every render.
+  const query = searchParams.toString();
+
+  const activeSearch = searchParams.get('search') ?? '';
+  const activeAssignee = searchParams.get('assignedTo') ?? '';
   const rawStatus = searchParams.get('status');
-  const currentStatus: StatusTab =
-    rawStatus === 'OPEN' || rawStatus === 'PENDING' || rawStatus === 'RESOLVED' || rawStatus === 'CLOSED'
-      ? rawStatus
-      : 'ALL';
-  const currentAssignee = searchParams.get('assignedTo') ?? '';
+  const activeStatus: StatusFilter = CONVERSATION_STATUSES.includes(rawStatus as ConversationStatus)
+    ? (rawStatus as ConversationStatus)
+    : 'ALL';
 
-  const [searchTerm, setSearchTerm] = useState(currentSearch);
-  const [newDialogOpen, setNewDialogOpen] = useState(false);
+  const [searchDraft, setSearchDraft] = useState(activeSearch);
+  const [isNewDialogOpen, setNewDialogOpen] = useState(false);
 
-  const updateFilters = (updates: Record<string, string | null>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    for (const [key, val] of Object.entries(updates)) {
-      if (val === null || val === '' || val === 'ALL') {
-        params.delete(key);
-      } else {
-        params.set(key, val);
-      }
+  const applyFilters = (updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(query);
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null || value === '' || value === 'ALL') params.delete(key);
+      else params.set(key, value);
     }
-    // Remove pagination cursor when updating search or filters
-    if ('search' in updates || 'status' in updates || 'assignedTo' in updates) {
+
+    // A cursor belongs to the previous result set. Carrying it into a new filter would
+    // page from a row that is no longer in the list.
+    params.delete('cursor');
+
+    startTransition(() => router.push(`/conversations?${params.toString()}`));
+  };
+
+  // Debounced search. The comparison against the URL is what stops this from pushing the
+  // same query again after the navigation it just caused: once the push lands, `activeSearch`
+  // equals the draft and the effect returns before setting another timer.
+  useEffect(() => {
+    if (searchDraft.trim() === activeSearch) return;
+
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(query);
+      const next = searchDraft.trim();
+
+      if (next) params.set('search', next);
+      else params.delete('search');
       params.delete('cursor');
-    }
 
-    startTransition(() => {
-      router.push(`/conversations?${params.toString()}`);
-    });
-  };
+      startTransition(() => router.push(`/conversations?${params.toString()}`));
+    }, SEARCH_DEBOUNCE_MS);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateFilters({ search: searchTerm.trim() || null });
-  };
+    return () => clearTimeout(timer);
+  }, [searchDraft, activeSearch, query, router]);
 
-  const clearSearch = () => {
-    setSearchTerm('');
-    updateFilters({ search: null });
-  };
+  // Keeps the box in step with the back button, which changes the URL without touching state.
+  useEffect(() => setSearchDraft(activeSearch), [activeSearch]);
 
-  const statusCounts = page.statusCounts;
-  const totalCount = page.total;
+  const isFiltered = Boolean(activeSearch || activeAssignee || activeStatus !== 'ALL');
 
-  const STATUS_TABS: { id: StatusTab; label: string; count?: number }[] = [
-    { id: 'ALL', label: 'All', count: totalCount },
-    { id: 'OPEN', label: 'Open', count: statusCounts['OPEN'] ?? 0 },
-    { id: 'PENDING', label: 'Pending', count: statusCounts['PENDING'] ?? 0 },
-    { id: 'RESOLVED', label: 'Resolved', count: statusCounts['RESOLVED'] ?? 0 },
-    { id: 'CLOSED', label: 'Closed', count: statusCounts['CLOSED'] ?? 0 },
+  // See the note at the top of the file: the counts describe the whole workspace, so they
+  // are only shown to someone who can see the whole workspace, and only when no other
+  // filter is narrowing the rows they sit above.
+  const showCounts = page.can.readAll && !activeSearch && !activeAssignee;
+
+  const statusFilters: { id: StatusFilter; label: string; count: number }[] = [
+    { id: 'ALL', label: 'All', count: page.total },
+    ...CONVERSATION_STATUSES.map((status) => ({
+      id: status,
+      label: STATUS_LABELS[status],
+      count: page.statusCounts[status] ?? 0,
+    })),
   ];
 
-  const isFiltered = Boolean(currentSearch || (currentStatus && currentStatus !== 'ALL') || currentAssignee);
-
   return (
-    <div className="flex h-full flex-col border-r bg-card/60">
-      {/* Top Header */}
-      <div className="flex items-center justify-between p-3.5 border-b gap-2">
-        <div>
-          <h2 className="text-base font-semibold tracking-tight text-foreground">Inbox</h2>
-          <p className="text-xs text-muted-foreground">
-            {totalCount} {totalCount === 1 ? 'conversation' : 'conversations'}
-          </p>
-        </div>
+    <div className="flex h-full min-h-0 flex-col border-border bg-card md:border-r">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+        {/* The page's own `<h1>Inbox</h1>` is in the shell, hidden, because on a phone this
+            pane is removed from the layout while a thread is open. This names the pane. */}
+        <h2 className="text-md font-semibold tracking-tight text-foreground">Conversations</h2>
 
         <div className="flex items-center gap-1.5">
           <MockSimulatorDialog />
           {page.can.create ? (
             <>
-              <Button size="sm" onClick={() => setNewDialogOpen(true)} className="gap-1 h-8 text-xs">
-                <Plus className="size-3.5" aria-hidden />
+              <Button size="sm" onClick={() => setNewDialogOpen(true)}>
+                <Plus aria-hidden />
                 New chat
               </Button>
               <NewConversationDialog
-                open={newDialogOpen}
+                open={isNewDialogOpen}
                 onOpenChange={setNewDialogOpen}
                 contacts={contacts}
                 assignees={assignees}
@@ -122,117 +164,169 @@ export function ConversationList({
         </div>
       </div>
 
-      {/* Search Input */}
-      <div className="p-3 border-b">
-        <form onSubmit={handleSearchSubmit} className="relative">
-          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" aria-hidden />
-          <Input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by customer or phone..."
-            className="pl-8 pr-8 h-9 text-xs"
+      <div className="shrink-0 border-b border-border px-3 py-2.5">
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
           />
-          {searchTerm ? (
-            <button
+          <label htmlFor="inbox-search" className="sr-only">
+            Search conversations
+          </label>
+          <Input
+            id="inbox-search"
+            type="search"
+            value={searchDraft}
+            onChange={(event) => setSearchDraft(event.target.value)}
+            placeholder="Search name or number"
+            // `type="search"` earns the mobile keyboard's search key, but WebKit also draws
+            // its own cancel glyph, which would sit underneath the clear button below it.
+            className="px-9 [&::-webkit-search-cancel-button]:appearance-none"
+          />
+          {searchDraft ? (
+            <Button
               type="button"
-              onClick={clearSearch}
-              className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setSearchDraft('')}
               aria-label="Clear search"
+              className="absolute right-1 top-1/2 -translate-y-1/2"
             >
-              <X className="size-4" />
-            </button>
+              <X aria-hidden />
+            </Button>
           ) : null}
-        </form>
+        </div>
       </div>
 
-      {/* Status Tabs Filter */}
-      <div className="flex items-center gap-1 p-2 border-b overflow-x-auto no-scrollbar">
-        {STATUS_TABS.map((tab) => {
-          const isActive = (currentStatus === 'ALL' && tab.id === 'ALL') || currentStatus === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => updateFilters({ status: tab.id === 'ALL' ? null : tab.id })}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
-                isActive
-                  ? 'bg-primary text-primary-foreground shadow-soft'
-                  : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground'
-              }`}
-            >
-              <span>{tab.label}</span>
-              {tab.count !== undefined && tab.count > 0 ? (
-                <span
-                  className={`text-[10px] rounded-full px-1.5 py-0.2 ${
-                    isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
+      {/* One control, one row. `scrollbar-none` because a horizontal scrollbar under five
+          chips is louder than the chips. */}
+      <div className="shrink-0 border-b border-border px-3 py-2">
+        <div
+          className="flex gap-0.5 overflow-x-auto rounded-md border border-border bg-surface-sunken p-0.5 scrollbar-none"
+          role="group"
+          aria-label="Filter by status"
+        >
+          {statusFilters.map((filter) => {
+            const isActive = activeStatus === filter.id;
+
+            return (
+              <button
+                key={filter.id}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => applyFilters({ status: filter.id })}
+                className={cn(
+                  'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-sm px-2 py-1',
+                  'text-2xs font-medium transition-colors duration-instant ease-out',
+                  isActive
+                    ? 'bg-card text-foreground shadow-raised'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {filter.label}
+                {showCounts && filter.count > 0 ? (
+                  <span
+                    className={cn(
+                      'tabular-nums',
+                      isActive ? 'text-muted-foreground' : 'text-muted-foreground/70',
+                    )}
+                  >
+                    {filter.count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Conversation List / Feed */}
-      <div className="flex-1 overflow-y-auto divide-y min-h-0">
+      {/* Only worth a row when there is more than one person it could be assigned to. A
+          one-person business would otherwise carry a permanent control with one option. */}
+      {page.can.readAll && assignees.length > 1 ? (
+        <div className="shrink-0 border-b border-border px-3 py-2">
+          <label htmlFor="inbox-filter-assignee" className="sr-only">
+            Filter by who it is assigned to
+          </label>
+          <NativeSelect
+            id="inbox-filter-assignee"
+            value={activeAssignee}
+            onChange={(event) => applyFilters({ assignedTo: event.target.value })}
+            className="h-control-sm text-xs"
+          >
+            <option value="">Anyone on the team</option>
+            <option value={UNASSIGNED}>Nobody yet</option>
+            {assignees.map((assignee) => (
+              <option key={assignee.id} value={assignee.id}>
+                {assignee.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      ) : null}
+
+      <div
+        className={cn(
+          'min-h-0 flex-1 overflow-y-auto scrollbar-thin',
+          'transition-opacity duration-fast ease-out',
+          isPending && 'opacity-60',
+        )}
+        aria-busy={isPending}
+      >
         {page.conversations.length > 0 ? (
-          page.conversations.map((conv: ConversationSummary) => (
+          page.conversations.map((conversation) => (
             <ConversationListItem
-              key={conv.id}
-              conversation={conv}
-              isSelected={conv.id === selectedId}
+              key={conversation.id}
+              conversation={conversation}
+              isSelected={conversation.id === selectedId}
+              now={now}
             />
           ))
+        ) : isFiltered ? (
+          <EmptyState
+            icon={SearchX}
+            title="Nothing matches those filters"
+            description="Try a different name or number, or widen the status filter."
+            variant="plain"
+            size="compact"
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchDraft('');
+                  applyFilters({ search: null, status: null, assignedTo: null });
+                }}
+              >
+                Clear filters
+              </Button>
+            }
+          />
         ) : (
-          <div className="flex flex-col items-center justify-center p-8 text-center h-full">
-            {isFiltered ? (
-              <>
-                <UserX className="size-8 text-muted-foreground/60 mb-2" aria-hidden />
-                <p className="text-sm font-medium text-foreground">No conversations found</p>
-                <p className="text-xs text-muted-foreground mt-1 mb-3">
-                  No chats match the current search or status filter.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSearchTerm('');
-                    updateFilters({ search: null, status: null, assignedTo: null });
-                  }}
-                  className="text-xs h-8"
-                >
-                  Clear filters
+          <EmptyState
+            icon={MessageSquare}
+            title="No conversations yet"
+            description="When a customer messages your WhatsApp number, their conversation appears here."
+            variant="plain"
+            size="compact"
+            action={
+              page.can.create ? (
+                <Button size="sm" onClick={() => setNewDialogOpen(true)}>
+                  Start a conversation
                 </Button>
-              </>
-            ) : (
-              <>
-                <MessageSquare className="size-8 text-muted-foreground/60 mb-2" aria-hidden />
-                <p className="text-sm font-medium text-foreground">No conversations yet</p>
-                <p className="text-xs text-muted-foreground mt-1 mb-3">
-                  When customers send a WhatsApp message, threads will appear here.
-                </p>
-                {page.can.create ? (
-                  <Button size="sm" onClick={() => setNewDialogOpen(true)} className="text-xs h-8">
-                    Start a conversation
-                  </Button>
-                ) : null}
-              </>
-            )}
-          </div>
+              ) : undefined
+            }
+          />
         )}
       </div>
 
-      {/* Cursor Pagination Bar */}
       {page.nextCursor ? (
-        <div className="p-2 border-t bg-muted/20 flex justify-center">
+        <div className="shrink-0 border-t border-border px-3 py-2">
           <Button
             variant="ghost"
             size="sm"
-            disabled={isPending}
-            onClick={() => updateFilters({ cursor: page.nextCursor })}
-            className="text-xs h-7 w-full text-muted-foreground"
+            isLoading={isPending}
+            onClick={() => applyFilters({ cursor: page.nextCursor })}
+            className="w-full text-muted-foreground"
           >
             Load older conversations
           </Button>

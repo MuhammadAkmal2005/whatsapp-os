@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { formatRelativeTime } from '@/lib/datetime';
 import type { ActivityEntry } from '@/server/repositories/metrics.repository';
 
@@ -79,22 +80,24 @@ export function RecentActivity({
       </CardHeader>
       <CardContent>
         {entries.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            No activity yet. New orders, customer messages and changes to your catalogue will show
-            up here.
-          </p>
+          <EmptyState
+            icon={Activity}
+            title="No activity yet"
+            description="New orders, customer messages and changes to your catalogue show up here as they happen."
+            size="compact"
+            variant="plain"
+          />
         ) : (
           <ul className="flex flex-col divide-y divide-border">
             {entries.map((entry) => {
               const Icon = iconFor(entry.action);
               return (
-                <li key={entry.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                  <span
-                    aria-hidden
-                    className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
-                  >
-                    <Icon className="size-4" />
-                  </span>
+                <li key={entry.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                  {/* The icon sits bare rather than in a filled disc. A feed is a column of
+                      identically-sized tiles, so a disc behind each one turns the left edge into
+                      a strip of grey blobs and makes every row taller than the text needs. */}
+                  <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm font-medium text-foreground">
                       {humanizeAction(entry.action)}
@@ -105,7 +108,7 @@ export function RecentActivity({
                   </div>
                   <time
                     dateTime={entry.createdAt.toISOString()}
-                    className="shrink-0 text-xs text-muted-foreground"
+                    className="shrink-0 text-xs tabular-nums text-muted-foreground"
                   >
                     {formatRelativeTime(entry.createdAt, now)}
                   </time>

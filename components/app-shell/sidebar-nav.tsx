@@ -3,7 +3,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { NAV_SECTIONS, type NavItem } from '@/components/app-shell/nav-config';
+import {
+  NAV_FOOTER_ITEMS,
+  NAV_SECTIONS,
+  type NavItem,
+} from '@/components/app-shell/nav-config';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { roleHasPermission, type WorkspaceRole } from '@/server/authz/permissions';
 import { cn } from '@/lib/utils';
@@ -17,6 +21,11 @@ import { cn } from '@/lib/utils';
  * decide visibility. Permission gating runs here for the affordance and again in
  * every service for the actual control; hiding a link is never the security
  * boundary.
+ *
+ * Rows are full-bleed rather than inset pills. That is what lets the active row carry the
+ * marker rail on the panel's own edge, which is the product's one signature: a 2px rule on
+ * the leading edge always means "this is the one". Pills floating inside a padded panel
+ * would put the rail 12px adrift of the edge and lose that.
  */
 export function SidebarNav({
   role,
@@ -29,17 +38,17 @@ export function SidebarNav({
 
   return (
     <TooltipProvider delayDuration={200}>
-      <nav className="flex flex-col gap-5" aria-label="Main">
-        {NAV_SECTIONS.map((section) => {
+      <nav className="flex flex-col gap-4" aria-label="Main">
+        {NAV_SECTIONS.map((section, index) => {
           const items = section.items.filter((item) => roleHasPermission(role, item.permission));
           if (items.length === 0) return null;
 
           return (
-            <div key={section.label} className="flex flex-col gap-1">
-              <p className="px-3 text-2xs font-medium uppercase tracking-wider text-sidebar-foreground/50">
-                {section.label}
-              </p>
-              <ul className="flex flex-col gap-0.5">
+            <div key={section.label ?? `section-${index}`} className="flex flex-col gap-0.5">
+              {section.label ? (
+                <p className="eyebrow px-4 pb-1 text-sidebar-muted">{section.label}</p>
+              ) : null}
+              <ul className="flex flex-col">
                 {items.map((item) => (
                   <li key={item.href}>
                     <NavRow item={item} pathname={pathname} onNavigate={onNavigate} />
@@ -54,12 +63,40 @@ export function SidebarNav({
   );
 }
 
+/**
+ * The footer links, rendered by the shell below the scrolling list. Same row treatment,
+ * so Settings does not look like a different kind of thing than Orders.
+ */
+export function SidebarFooterNav({
+  role,
+  onNavigate,
+}: {
+  role: WorkspaceRole;
+  onNavigate?: () => void;
+}) {
+  const pathname = usePathname();
+  const items = NAV_FOOTER_ITEMS.filter((item) => roleHasPermission(role, item.permission));
+  if (items.length === 0) return null;
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <ul className="flex flex-col" aria-label="Workspace settings">
+        {items.map((item) => (
+          <li key={item.href}>
+            <NavRow item={item} pathname={pathname} onNavigate={onNavigate} />
+          </li>
+        ))}
+      </ul>
+    </TooltipProvider>
+  );
+}
+
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 const rowStyles =
-  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 [&_svg]:size-4 [&_svg]:shrink-0';
+  'flex items-center gap-2.5 px-4 py-2 text-sm transition-colors duration-instant ease-out [&_svg]:size-4 [&_svg]:shrink-0';
 
 function NavRow({
   item,
@@ -76,16 +113,10 @@ function NavRow({
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span
-            aria-disabled
-            className={cn(
-              rowStyles,
-              'cursor-not-allowed text-sidebar-foreground/40 select-none',
-            )}
-          >
+          <span aria-disabled className={cn(rowStyles, 'cursor-default select-none text-sidebar-muted')}>
             <Icon aria-hidden />
             <span className="flex-1">{item.label}</span>
-            <span className="rounded bg-sidebar-foreground/10 px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide text-sidebar-foreground/50">
+            <span className="eyebrow rounded-xs border border-sidebar-border px-1 py-px text-sidebar-muted">
               Soon
             </span>
           </span>
@@ -105,11 +136,11 @@ function NavRow({
       className={cn(
         rowStyles,
         active
-          ? 'bg-sidebar-accent text-sidebar-foreground'
-          : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
+          ? 'marker-rail-sidebar bg-sidebar-selected font-medium text-sidebar-foreground'
+          : 'text-sidebar-foreground/75 hover:bg-sidebar-selected/60 hover:text-sidebar-foreground',
       )}
     >
-      <Icon aria-hidden />
+      <Icon aria-hidden className={active ? 'text-sidebar-primary' : undefined} />
       <span>{item.label}</span>
     </Link>
   );

@@ -13,18 +13,24 @@
 
 import 'server-only';
 
-import { DEFAULT_LOW_STOCK_THRESHOLD } from '@/config/constants';
 import type { Db } from '@/db/prisma';
+import { countLowStockProducts } from '@/server/repositories/inventory.repository';
 
 export type DashboardMetrics = {
   openConversations: number;
   totalConversations: number;
   aiEnabledConversations: number;
-  humanHandoffs: number;
+  /** Conversations a person took over that are still live. All-time handoffs is a
+   *  historical fact, not something anyone can act on; this is the working number the
+   *  dashboard surfaces under "needs your attention". */
+  openHandoffs: number;
   totalContacts: number;
   newContacts30d: number;
   leads: number;
   totalProducts: number;
+  /** Products with at least one variant at or below *its own* reorder level — the same
+   *  question, asked the same way, as the catalogue's low-stock filter. The two have to
+   *  agree, because the dashboard links straight to that filter. */
   lowStockItems: number;
   totalOrders: number;
   pendingOrders: number;
@@ -47,7 +53,7 @@ export async function getDashboardMetrics(
     openConversations,
     totalConversations,
     aiEnabledConversations,
-    humanHandoffs,
+    openHandoffs,
     totalContacts,
     newContacts30d,
     leads,
@@ -61,15 +67,14 @@ export async function getDashboardMetrics(
     db.conversation.count({ where: { workspaceId, status: 'OPEN' } }),
     db.conversation.count({ where: { workspaceId } }),
     db.conversation.count({ where: { workspaceId, aiEnabled: true } }),
-    db.conversation.count({ where: { workspaceId, handoffAt: { not: null } } }),
+    db.conversation.count({
+      where: { workspaceId, handoffAt: { not: null }, status: { in: ['OPEN', 'PENDING'] } },
+    }),
     db.contact.count({ where: { workspaceId, deletedAt: null } }),
     db.contact.count({ where: { workspaceId, deletedAt: null, createdAt: { gte: thirtyDaysAgo } } }),
     db.contact.count({ where: { workspaceId, deletedAt: null, status: 'LEAD' } }),
     db.product.count({ where: { workspaceId, deletedAt: null } }),
-    // Items at or below the default low-stock line. A per-item threshold exists
-    // on the row; the KPI uses the shared default, which is close enough for a
-    // headline count and avoids a column-to-column comparison here.
-    db.inventoryItem.count({ where: { workspaceId, available: { lte: DEFAULT_LOW_STOCK_THRESHOLD } } }),
+    countLowStockProducts(db, workspaceId),
     db.order.count({ where: { workspaceId, deletedAt: null } }),
     db.order.count({ where: { workspaceId, deletedAt: null, status: 'PENDING' } }),
     db.order.count({ where: { workspaceId, deletedAt: null, createdAt: { gte: monthStart } } }),
@@ -83,7 +88,7 @@ export async function getDashboardMetrics(
     openConversations,
     totalConversations,
     aiEnabledConversations,
-    humanHandoffs,
+    openHandoffs,
     totalContacts,
     newContacts30d,
     leads,

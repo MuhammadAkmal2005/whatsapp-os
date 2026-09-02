@@ -208,10 +208,16 @@ export const updateAutomationSchema = z
 
 export type UpdateAutomationInput = z.infer<typeof updateAutomationSchema>;
 
+/**
+ * Field lengths the list's search box needs to know about, so the input stops where the
+ * schema does rather than letting someone type past the limit and get a rejection.
+ */
+export const AUTOMATION_FIELD_MAX = { search: 100 } as const;
+
 export const listAutomationsSchema = z.object({
   isActive: z.boolean().optional(),
   triggerType: triggerTypeSchema.optional(),
-  search: z.string().max(100).optional().nullable(),
+  search: z.string().max(AUTOMATION_FIELD_MAX.search).optional().nullable(),
   cursor: uuidSchema.optional(),
   limit: z.number().int().min(1).max(100).default(50),
 });

@@ -7,16 +7,19 @@ import { ContactList } from '@/components/contacts/contact-list';
 import { CreateContactDialog } from '@/components/contacts/create-contact-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
+import { CursorPagination } from '@/components/ui/cursor-pagination';
 import { EmptyState } from '@/components/ui/empty-state';
-import { firstParam } from '@/lib/search-params';
+import { PageHeader } from '@/components/ui/page-header';
+import { firstParam, type SearchParams } from '@/lib/search-params';
 import { getContacts } from '@/server/services/contact/contact.service';
 import { getTenantContext } from '@/server/tenancy/resolve';
 import { listContactsSchema } from '@/server/validation/contact';
 
 export const metadata = { title: 'Customers' };
 
-type SearchParams = Record<string, string | string[] | undefined>;
+/** The filters that survive paging. `cursor` is handled by the pagination footer itself. */
+const PRESERVED_FILTERS = ['search', 'status', 'leadStage', 'assignedTo'] as const;
 
 /**
  * The customer list.
@@ -55,19 +58,17 @@ export default async function ContactsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Customers</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Everyone who has messaged you, and everyone you have added. {summarise(page.usage)}
-          </p>
-        </div>
-        {page.can.create && !atLimit ? <CreateContactDialog assignees={page.assignees} /> : null}
-      </div>
+      <PageHeader
+        title="Customers"
+        description={`Everyone who has messaged you, and everyone you have added. ${summarise(page.usage)}`}
+        actions={
+          page.can.create && !atLimit ? <CreateContactDialog assignees={page.assignees} /> : undefined
+        }
+      />
 
       {atLimit ? (
         <Alert variant="warning">
-          <Users className="size-4" aria-hidden />
+          <Users aria-hidden />
           <AlertTitle>You have reached your plan&apos;s customer limit</AlertTitle>
           <AlertDescription>
             Your plan includes {page.usage.limit} customers. Existing customers keep working and
@@ -109,16 +110,26 @@ export default async function ContactsPage({
           }
         />
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <ContactList contacts={page.contacts} currency={context.currency} />
-          </CardContent>
+        // `overflow-hidden` so the heading row's sunken fill is clipped by the card's
+        // corners instead of squaring them off.
+        <Card className="overflow-hidden">
+          <ContactList
+            contacts={page.contacts}
+            currency={context.currency}
+            // Resolved once here so every row on the page measures "3h ago" against the
+            // same instant, rather than each row reading its own slightly later clock.
+            now={new Date()}
+          />
+          <CursorPagination
+            basePath="/contacts"
+            params={params}
+            preserve={PRESERVED_FILTERS}
+            cursor={page.nextCursor}
+            isPastFirstPage={Boolean(input.cursor)}
+            itemsLabel="customers"
+          />
         </Card>
       )}
-
-      {page.nextCursor || input.cursor ? (
-        <Pagination cursor={page.nextCursor} params={params} showFirst={Boolean(input.cursor)} />
-      ) : null}
     </div>
   );
 }
@@ -127,46 +138,4 @@ function summarise(usage: { used: number; limit: number | null }): string {
   const noun = usage.used === 1 ? 'customer' : 'customers';
   if (usage.limit === null) return `${usage.used} ${noun}.`;
   return `${usage.used} of ${usage.limit} ${noun} on your plan.`;
-}
-
-/**
- * Cursor pagination, so a list that changes while it is being read never shows the
- * same customer on two pages. There is no "previous": the browser's back button is
- * the previous page, and it is the control people already reach for.
- */
-function Pagination({
-  cursor,
-  params,
-  showFirst,
-}: {
-  cursor: string | null;
-  params: SearchParams;
-  showFirst: boolean;
-}) {
-  const preserved = new URLSearchParams();
-  for (const key of ['search', 'status', 'leadStage', 'assignedTo']) {
-    const value = firstParam(params[key]);
-    if (value) preserved.set(key, value);
-  }
-
-  const firstHref = preserved.toString() ? `/contacts?${preserved.toString()}` : '/contacts';
-  const nextParams = new URLSearchParams(preserved.toString());
-  if (cursor) nextParams.set('cursor', cursor);
-
-  return (
-    <div className="flex items-center justify-between gap-3">
-      {showFirst ? (
-        <Button asChild variant="ghost" size="sm">
-          <Link href={firstHref}>Back to the start</Link>
-        </Button>
-      ) : (
-        <span />
-      )}
-      {cursor ? (
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/contacts?${nextParams.toString()}`}>Show more customers</Link>
-        </Button>
-      ) : null}
-    </div>
-  );
 }

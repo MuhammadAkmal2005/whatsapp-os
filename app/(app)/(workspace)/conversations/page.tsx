@@ -6,8 +6,9 @@ import { getContacts } from '@/server/services/contact/contact.service';
 import {
   getConversation,
   listConversations,
+  type ConversationDetail,
 } from '@/server/services/conversation/conversation.service';
-import { listMessages } from '@/server/services/conversation/message.service';
+import { listMessages, type MessageView } from '@/server/services/conversation/message.service';
 import { getTenantContext } from '@/server/tenancy/resolve';
 import { listConversationsSchema } from '@/server/validation/conversation';
 
@@ -54,8 +55,8 @@ export default async function ConversationsPage({
   }));
 
   // If a conversation ID was requested in search params, load its details and messages
-  let activeConversation = null;
-  let messages: never[] = [];
+  let activeConversation: ConversationDetail | null = null;
+  let messages: MessageView[] = [];
 
   const targetId = selectedId || (page.conversations.length > 0 ? page.conversations[0]?.id : null);
 
@@ -66,29 +67,29 @@ export default async function ConversationsPage({
         listMessages(context, { conversationId: targetId, limit: 50 }),
       ]);
       activeConversation = detail;
-      messages = messagePage.rows as never[];
+      messages = messagePage.rows;
     } catch {
       // Stale or cross-tenant ID in query string degrades safely to null
       activeConversation = null;
     }
   }
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Inbox</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Real-time customer conversations across WhatsApp and supported channels.
-        </p>
-      </div>
+  // One instant for the whole screen, resolved here rather than in each row, so that "3h"
+  // on one conversation and "4h" on the next are measured from the same moment and the
+  // server's markup matches the client's first render.
+  const now = new Date();
 
-      <InboxShell
-        page={page}
-        activeConversation={activeConversation}
-        messages={messages}
-        assignees={assignees}
-        contacts={contacts}
-      />
-    </div>
+  // No page header. This screen is the full height of the viewport by design, and the
+  // heading it would carry — "Inbox" — is already in the sidebar as the active nav item and
+  // inside the pane as its own title. A band above it would only push the composer down.
+  return (
+    <InboxShell
+      page={page}
+      activeConversation={activeConversation}
+      messages={messages}
+      assignees={assignees}
+      contacts={contacts}
+      now={now}
+    />
   );
 }

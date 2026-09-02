@@ -2,33 +2,50 @@ import type { Config } from 'tailwindcss';
 import animate from 'tailwindcss-animate';
 
 /**
- * Colours are declared as CSS custom properties in app/globals.css and
- * referenced here through hsl(var(--token)). That indirection is what lets a
- * single `dark` class flip the whole palette without duplicating every utility.
+ * ConvoNexa theme.
+ *
+ * Every value here is a reference to a CSS custom property declared in
+ * app/globals.css. Nothing is defined twice, and no utility class knows which theme
+ * is active — that is what lets a single `dark` class on <html> repaint the product.
+ *
+ * The scales are deliberately narrow. A dense operational interface is easier to keep
+ * coherent with eight type sizes and four radii than with twenty of each, and a
+ * missing option is a prompt to reuse an existing one rather than to invent a
+ * one-off.
  */
 const config: Config = {
   darkMode: 'class',
-  content: [
-    './app/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './features/**/*.{ts,tsx}',
-  ],
+  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './features/**/*.{ts,tsx}'],
   theme: {
     container: {
       center: true,
-      padding: { DEFAULT: '1rem', sm: '1.5rem', lg: '2rem' },
-      screens: { '2xl': '1280px' },
+      padding: { DEFAULT: '1.25rem', sm: '1.5rem', lg: '2rem' },
+      screens: { '2xl': '80rem' },
     },
     extend: {
       colors: {
-        border: 'hsl(var(--border))',
+        border: {
+          DEFAULT: 'hsl(var(--border))',
+          strong: 'hsl(var(--border-strong))',
+        },
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+
+        /* The two extra surface steps that let depth be expressed without shadow:
+           a well that sits below the page, and the tint a selected row takes. */
+        surface: {
+          sunken: 'hsl(var(--surface-sunken))',
+          selected: 'hsl(var(--surface-selected))',
+        },
+
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
+          hover: 'hsl(var(--primary-hover))',
+          surface: 'hsl(var(--primary-surface))',
+          border: 'hsl(var(--primary-border))',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
@@ -42,18 +59,45 @@ const config: Config = {
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--accent-foreground))',
         },
+
+        /* Status families. Each carries a solid fill for emphasis, a readable
+           foreground, and a surface/border pair for banners and chips — so a tinted
+           status block never has to reach for a raw palette hue that would be wrong
+           in the other theme. */
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
+          hover: 'hsl(var(--destructive-hover))',
+          surface: 'hsl(var(--destructive-surface))',
+          border: 'hsl(var(--destructive-border))',
         },
         success: {
           DEFAULT: 'hsl(var(--success))',
           foreground: 'hsl(var(--success-foreground))',
+          surface: 'hsl(var(--success-surface))',
+          border: 'hsl(var(--success-border))',
         },
         warning: {
           DEFAULT: 'hsl(var(--warning))',
           foreground: 'hsl(var(--warning-foreground))',
+          surface: 'hsl(var(--warning-surface))',
+          border: 'hsl(var(--warning-border))',
         },
+        info: {
+          DEFAULT: 'hsl(var(--info))',
+          foreground: 'hsl(var(--info-foreground))',
+          surface: 'hsl(var(--info-surface))',
+          border: 'hsl(var(--info-border))',
+        },
+        /* Kept distinct from success so "the assistant handled this" never reads as
+           "this went well", and from destructive so it never reads as a failure. */
+        ai: {
+          DEFAULT: 'hsl(var(--ai))',
+          foreground: 'hsl(var(--ai-foreground))',
+          surface: 'hsl(var(--ai-surface))',
+          border: 'hsl(var(--ai-border))',
+        },
+
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
@@ -62,70 +106,127 @@ const config: Config = {
           DEFAULT: 'hsl(var(--popover))',
           foreground: 'hsl(var(--popover-foreground))',
         },
+        /* The scrim behind a dialog. The token carries its own alpha so the two themes
+           can dim by different amounts — an ink page needs a heavier scrim than a paper
+           one to read as "the page behind is out of reach". */
+        overlay: 'hsl(var(--overlay))',
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar))',
           foreground: 'hsl(var(--sidebar-foreground))',
+          muted: 'hsl(var(--sidebar-muted))',
           accent: 'hsl(var(--sidebar-accent))',
+          selected: 'hsl(var(--sidebar-selected))',
           border: 'hsl(var(--sidebar-border))',
+          /* Display type on ink — one step brighter than the dimmed body foreground. */
+          strong: 'hsl(var(--sidebar-strong))',
+          /* The sidebar is ink in both themes, so it cannot borrow --primary: the
+             light-mode moss is tuned for contrast against paper and disappears here. */
+          primary: 'hsl(var(--sidebar-primary))',
+        },
+
+        chart: {
+          1: 'hsl(var(--chart-1))',
+          2: 'hsl(var(--chart-2))',
+          3: 'hsl(var(--chart-3))',
+          4: 'hsl(var(--chart-4))',
+          5: 'hsl(var(--chart-5))',
         },
       },
+
+      /* Radius by role. The legacy sm/md/lg names are mapped onto the new roles so
+         existing markup lands in the right place: a control that says rounded-md gets
+         the control radius, a card that says rounded-lg gets the surface radius. */
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        xs: 'var(--radius-xs)',
+        sm: 'calc(var(--radius-control) - 2px)',
+        md: 'var(--radius-control)',
+        lg: 'var(--radius-surface)',
+        xl: 'var(--radius-overlay)',
+        '2xl': 'calc(var(--radius-overlay) + 5px)',
       },
+
       fontFamily: {
         sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
+
+      /* Eight steps with paired line-height and tracking. Tight tracking on the large
+         sizes and slightly loose on the small ones is what stops a grotesque from
+         looking cramped in a heading and mushy in a caption. */
       fontSize: {
-        // A tighter scale than the default. Dense operational UI reads better
-        // when the steps between sizes are small.
-        '2xs': ['0.6875rem', { lineHeight: '1rem' }],
+        '3xs': ['0.625rem', { lineHeight: '0.875rem', letterSpacing: '0.01em' }],
+        '2xs': ['0.6875rem', { lineHeight: '1rem', letterSpacing: '0.005em' }],
+        xs: ['0.75rem', { lineHeight: '1.0625rem' }],
+        sm: ['0.8125rem', { lineHeight: '1.25rem' }],
+        base: ['0.875rem', { lineHeight: '1.375rem' }],
+        md: ['1rem', { lineHeight: '1.5rem' }],
+        lg: ['1.125rem', { lineHeight: '1.625rem', letterSpacing: '-0.005em' }],
+        xl: ['1.3125rem', { lineHeight: '1.75rem', letterSpacing: '-0.01em' }],
+        '2xl': ['1.625rem', { lineHeight: '2rem', letterSpacing: '-0.015em' }],
+        '3xl': ['2rem', { lineHeight: '2.375rem', letterSpacing: '-0.02em' }],
+        '4xl': ['2.5rem', { lineHeight: '2.875rem', letterSpacing: '-0.025em' }],
+        '5xl': ['3.25rem', { lineHeight: '3.5rem', letterSpacing: '-0.03em' }],
       },
+
+      /* Control heights as named spacing, so h-control, w-control and size-control all
+         resolve and a form and a table cannot quietly disagree about how tall a button
+         is. */
+      spacing: {
+        control: '2.125rem',
+        'control-sm': '1.75rem',
+        'control-lg': '2.5rem',
+      },
+      maxWidth: {
+        prose: 'var(--width-prose)',
+        form: 'var(--width-form)',
+        page: 'var(--width-page)',
+      },
+
+      /* Three levels, for layers that genuinely float. A card is not one of them. */
       boxShadow: {
-        // Subtler shadows for a polished, premium feel
-        'soft': '0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
-        'card': '0 1px 3px 0 rgb(0 0 0 / 0.06), 0 2px 8px -2px rgb(0 0 0 / 0.05)',
-        'elevated': '0 4px 16px -2px rgb(0 0 0 / 0.08), 0 2px 4px -1px rgb(0 0 0 / 0.04)',
-        'glow': '0 0 20px -4px hsl(var(--primary) / 0.15)',
+        raised: 'var(--shadow-raised)',
+        overlay: 'var(--shadow-overlay)',
+        sticky: 'var(--shadow-sticky)',
+        none: 'none',
       },
+
+      transitionDuration: {
+        instant: 'var(--motion-instant)',
+        fast: 'var(--motion-fast)',
+        moderate: 'var(--motion-moderate)',
+        slow: 'var(--motion-slow)',
+      },
+      transitionTimingFunction: {
+        out: 'var(--ease-out)',
+        'in-out': 'var(--ease-in-out)',
+        emphasis: 'var(--ease-emphasis)',
+      },
+
+      /* Three, deliberately. Overlays animate with `tailwindcss-animate`'s own
+         `data-[state]` utilities, so a second set of scale and slide keyframes would be
+         two vocabularies for one job. What is left is what the product actually uses:
+         a fade for an empty state, a short drop for a message that has just arrived,
+         and the skeleton sweep. */
       keyframes: {
         'fade-in': {
           from: { opacity: '0' },
           to: { opacity: '1' },
         },
-        'fade-in-up': {
-          from: { opacity: '0', transform: 'translateY(8px)' },
-          to: { opacity: '1', transform: 'translateY(0)' },
-        },
-        'slide-up': {
-          from: { opacity: '0', transform: 'translateY(4px)' },
-          to: { opacity: '1', transform: 'translateY(0)' },
-        },
         'slide-down': {
           from: { opacity: '0', transform: 'translateY(-4px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
-        'scale-in': {
-          from: { opacity: '0', transform: 'scale(0.96)' },
-          to: { opacity: '1', transform: 'scale(1)' },
-        },
-        'shimmer': {
+        /* Sweeps a highlight across a skeleton. Paired with an `animation` entry
+           below — without one, Tailwind never emits the keyframes and the shimmer
+           silently does nothing. */
+        shimmer: {
           '100%': { transform: 'translateX(100%)' },
-        },
-        'pulse-subtle': {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.7' },
         },
       },
       animation: {
-        'fade-in': 'fade-in 200ms ease-out',
-        'fade-in-up': 'fade-in-up 300ms ease-out',
-        'slide-up': 'slide-up 200ms ease-out',
-        'slide-down': 'slide-down 200ms ease-out',
-        'scale-in': 'scale-in 200ms ease-out',
-        'pulse-subtle': 'pulse-subtle 2s ease-in-out infinite',
+        'fade-in': 'fade-in var(--motion-moderate) var(--ease-out)',
+        'slide-down': 'slide-down var(--motion-fast) var(--ease-out)',
+        shimmer: 'shimmer 1.6s var(--ease-in-out) infinite',
       },
     },
   },

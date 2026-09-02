@@ -238,6 +238,32 @@ export function formatMoney(value: Money, options: FormatMoneyOptions = {}): str
 }
 
 /**
+ * Formats a US-dollar amount held in micros — a millionth of a dollar — which is how AI
+ * provider spend is recorded. It is not a `Money`: at these magnitudes a cent is far too
+ * coarse a unit, since a single cheap model turn can cost a few hundred micros.
+ *
+ * Rounding to cents would print "$0.00" beside a real charge and make the AI look free, so
+ * a non-zero amount below a cent says so in words instead. `precise` keeps four decimal
+ * places for the per-model breakdown, where the reader is comparing two small numbers and
+ * the difference between them is the entire point.
+ */
+export function formatUsdMicros(micros: number, options: { precise?: boolean } = {}): string {
+  const dollars = micros / 1_000_000;
+  const fractionDigits = options.precise === true ? 4 : 2;
+
+  if (micros > 0 && dollars < 10 ** -fractionDigits) {
+    return `under $${(10 ** -fractionDigits).toFixed(fractionDigits)}`;
+  }
+
+  const digits = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(Math.abs(dollars));
+
+  return `${dollars < 0 ? '-' : ''}$${digits}`;
+}
+
+/**
  * Parses free-text money input — a form field, or a number the AI extracted
  * from a customer message. Returns null rather than throwing, because invalid
  * input here is expected and belongs in a validation message.

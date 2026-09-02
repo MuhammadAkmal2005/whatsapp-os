@@ -29,8 +29,10 @@ export function SettingsNav({ role }: { role: WorkspaceRole }) {
       <nav aria-label="Settings sections">
         <ul
           className={cn(
-            'flex gap-1 overflow-x-auto pb-2 -mx-1 px-1',
-            'lg:mx-0 lg:flex-col lg:overflow-visible lg:pb-0 lg:px-0',
+            // The -mx-1/px-1 pair gives the focus outline room to breathe inside the
+            // scroll container, which would otherwise clip it on the first and last chip.
+            'flex gap-1 overflow-x-auto -mx-1 px-1 pb-2 scrollbar-none',
+            'lg:mx-0 lg:flex-col lg:gap-0.5 lg:overflow-visible lg:px-0 lg:pb-0',
           )}
         >
           {items.map((item) => (
@@ -44,8 +46,14 @@ export function SettingsNav({ role }: { role: WorkspaceRole }) {
   );
 }
 
-const rowStyles =
-  'flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors [&_svg]:size-4 [&_svg]:shrink-0 lg:w-full';
+const rowStyles = cn(
+  'flex items-center gap-2.5 whitespace-nowrap rounded-md px-3 py-2 text-sm',
+  'transition-colors duration-instant ease-out [&_svg]:size-4 [&_svg]:shrink-0',
+  // A vertical rail from lg up, so the active section can carry the marker rail on its
+  // leading edge. The left corners square off there or the 2px rail would be clipped by
+  // the radius; on the mobile strip the rows stay fully rounded chips.
+  'lg:w-full lg:rounded-l-none',
+);
 
 function SettingsNavRow({ item, pathname }: { item: SettingsNavItem; pathname: string }) {
   const Icon = item.icon;
@@ -56,13 +64,11 @@ function SettingsNavRow({ item, pathname }: { item: SettingsNavItem; pathname: s
         <TooltipTrigger asChild>
           <span
             aria-disabled
-            className={cn(rowStyles, 'cursor-not-allowed select-none text-muted-foreground/50')}
+            className={cn(rowStyles, 'cursor-default select-none text-muted-foreground')}
           >
             <Icon aria-hidden />
             <span className="flex-1">{item.label}</span>
-            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
-              Soon
-            </span>
+            <span className="eyebrow rounded-xs border border-border px-1 py-px">Soon</span>
           </span>
         </TooltipTrigger>
         <TooltipContent side="right">{item.reason}</TooltipContent>
@@ -79,11 +85,11 @@ function SettingsNavRow({ item, pathname }: { item: SettingsNavItem; pathname: s
       className={cn(
         rowStyles,
         active
-          ? 'bg-accent text-accent-foreground'
-          : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+          ? 'bg-surface-selected font-medium text-foreground lg:marker-rail'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
       )}
     >
-      <Icon aria-hidden />
+      <Icon aria-hidden className={active ? 'text-primary' : undefined} />
       <span>{item.label}</span>
     </Link>
   );

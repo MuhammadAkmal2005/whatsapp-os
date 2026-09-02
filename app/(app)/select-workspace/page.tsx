@@ -36,7 +36,9 @@ export default async function SelectWorkspacePage() {
         <div className="flex flex-col gap-2 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">Choose a workspace</h1>
           <p className="text-sm text-muted-foreground">
-            You&apos;re a member of {workspaces.length} businesses. Pick the one you want to work in.
+            {workspaces.length === 1
+              ? 'Open your business to get to its inbox, orders and customers.'
+              : `You belong to ${workspaces.length} businesses. Pick the one you want to work in.`}
           </p>
         </div>
 
@@ -47,11 +49,11 @@ export default async function SelectWorkspacePage() {
                 <input type="hidden" name="slug" value={workspace.slug} />
                 <button
                   type="submit"
-                  className="group flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group flex w-full items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-colors duration-fast hover:bg-surface-sunken"
                 >
                   <span
                     aria-hidden
-                    className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold uppercase text-primary"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-semibold uppercase text-muted-foreground"
                   >
                     {workspace.name.trim().charAt(0) || '?'}
                   </span>
@@ -68,7 +70,7 @@ export default async function SelectWorkspacePage() {
                   ) : null}
                   <ChevronRight
                     aria-hidden
-                    className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                    className="size-4 shrink-0 text-muted-foreground transition-transform duration-fast group-hover:translate-x-0.5"
                   />
                 </button>
               </form>
@@ -78,7 +80,7 @@ export default async function SelectWorkspacePage() {
 
         <Link
           href="/onboarding"
-          className="inline-flex items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors duration-fast hover:text-foreground"
         >
           <Plus className="size-4" aria-hidden />
           Create another business

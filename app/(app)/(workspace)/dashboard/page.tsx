@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import type { LucideIcon } from 'lucide-react';
-import { Clock, Headset, MessageSquare, PackageX, ShoppingBag, Users, Wallet } from 'lucide-react';
+import { Clock, Headset, PackageX } from 'lucide-react';
 
+import { NeedsAttention, type AttentionItem } from '@/components/dashboard/needs-attention';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { RecentActivity } from '@/components/dashboard/recent-activity';
-import { StatCard, type StatTone } from '@/components/dashboard/stat-card';
-import { DEFAULT_LOW_STOCK_THRESHOLD } from '@/config/constants';
+import { PageHeader } from '@/components/ui/page-header';
+import { Stat, StatBand } from '@/components/ui/stat';
 import { formatMoney, money } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import { getDashboardData } from '@/server/services/dashboard/dashboard.service';
@@ -18,24 +18,19 @@ function firstName(fullName: string): string {
   return fullName.trim().split(/\s+/)[0] || 'there';
 }
 
-function plural(count: number, singular: string): string {
-  return count === 1 ? singular : `${singular}s`;
-}
-
-type AlertCard = {
-  label: string;
-  value: string;
-  icon: LucideIcon;
-  hint: string;
-  tone: StatTone;
-};
-
 /**
- * The workspace home. Every figure is a real, tenant-scoped count from the
- * dashboard service — a brand-new workspace shows honest zeros, not invented
- * numbers to look busy. The page re-resolves its own `TenantContext` (memoised,
- * so it shares the layout's lookup) rather than trusting anything from the
- * client, and it never links a card to a screen that does not exist yet.
+ * The workspace home.
+ *
+ * Ordered by what a shop owner opens it to find out. First *what needs me* — the worklist,
+ * which is absent entirely when nothing does. Then *how are we doing* — one headline figure
+ * with its supporting counts, sharing a single surface so they read as one set rather than
+ * as five things competing. Then setup progress and recent activity.
+ *
+ * Every figure is a real, tenant-scoped count from the dashboard service, so a brand-new
+ * workspace shows honest zeros rather than invented numbers to look busy. The page
+ * re-resolves its own `TenantContext` (memoised, so it shares the layout's lookup) rather
+ * than trusting anything from the client, and a figure links to a screen only when that
+ * screen shows exactly the same set of records.
  */
 export default async function DashboardPage() {
   const context = await getTenantContext();
@@ -45,96 +40,92 @@ export default async function DashboardPage() {
 
   const revenue = formatMoney(money(metrics.revenueThisMonthMinor, context.currency));
 
-  // Attention cards appear only when there is something to act on — the
-  // dashboard never shows a row of reassuring zeros dressed up as alerts.
-  const alerts: AlertCard[] = [];
-  if (metrics.pendingOrders > 0) {
-    alerts.push({
-      label: 'Pending orders',
-      value: String(metrics.pendingOrders),
-      icon: Clock,
-      hint: 'Waiting to be processed',
+  // Ordered by who is waiting: a customer whose conversation is sitting with a person,
+  // then a customer waiting for their order to be confirmed, then stock that will cost
+  // sales but is not blocking anyone yet. Tone says what happens if it is ignored, which
+  // is why the last row is the loudest one.
+  const attention: AttentionItem[] = [];
+  if (metrics.openHandoffs > 0) {
+    attention.push({
+      label: 'Waiting for a person',
+      count: metrics.openHandoffs,
+      detail: 'Taken over from your AI and still open',
+      icon: Headset,
       tone: 'warning',
+    });
+  }
+  if (metrics.pendingOrders > 0) {
+    attention.push({
+      label: 'Orders to confirm',
+      count: metrics.pendingOrders,
+      detail: 'Placed, but not confirmed yet',
+      icon: Clock,
+      tone: 'warning',
+      href: '/orders?status=PENDING',
     });
   }
   if (metrics.lowStockItems > 0) {
-    alerts.push({
-      label: 'Low on stock',
-      value: String(metrics.lowStockItems),
+    attention.push({
+      label: 'Running low on stock',
+      count: metrics.lowStockItems,
+      detail: 'At or below the reorder level you set',
       icon: PackageX,
-      hint: `${DEFAULT_LOW_STOCK_THRESHOLD} or fewer left`,
       tone: 'danger',
-    });
-  }
-  if (metrics.humanHandoffs > 0) {
-    alerts.push({
-      label: 'Handed to you',
-      value: String(metrics.humanHandoffs),
-      icon: Headset,
-      hint: 'Conversations taken over from the AI',
-      tone: 'warning',
+      href: '/products?lowStock=true',
     });
   }
 
   const showChecklist = onboarding.completedAt === null;
 
   return (
-    <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Welcome back, {firstName(context.user.name)}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Here&apos;s what&apos;s happening at {context.workspaceName} today.
-        </p>
-      </header>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title={`Welcome back, ${firstName(context.user.name)}`}
+        description={`Here's what's happening at ${context.workspaceName} today.`}
+      />
 
-      <section aria-label="Key metrics" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
+      <NeedsAttention items={attention} />
+
+      <StatBand columns={4} label="Key figures">
+        {/* The headline spans the band. Revenue is the one number a shop owner came to
+            see, and giving it the same weight as a contact count is what made the old
+            four-up grid read as a wall. It does not link: no screen shows paid revenue
+            for this calendar month specifically, and a link to an approximation of a
+            figure is worse than no link at all. */}
+        <Stat
+          emphasis="lead"
+          className="sm:col-span-2 lg:col-span-4"
           label="Revenue this month"
           value={revenue}
-          icon={Wallet}
-          hint={`${metrics.ordersThisMonth} ${plural(metrics.ordersThisMonth, 'order')} this month`}
+          hint="From orders marked paid"
         />
-        <StatCard
+        <Stat
           label="Orders"
-          value={String(metrics.totalOrders)}
-          icon={ShoppingBag}
-          hint={`${metrics.ordersThisMonth} this month`}
+          value={metrics.totalOrders.toLocaleString()}
+          hint={`${metrics.ordersThisMonth.toLocaleString()} this month`}
+          href="/orders"
         />
-        <StatCard
+        <Stat
           label="Open conversations"
-          value={String(metrics.openConversations)}
-          icon={MessageSquare}
-          hint={`${metrics.totalConversations} total`}
+          value={metrics.openConversations.toLocaleString()}
+          hint={`${metrics.totalConversations.toLocaleString()} in total`}
+          href="/conversations?status=OPEN"
         />
-        <StatCard
+        <Stat
           label="Customers"
-          value={String(metrics.totalContacts)}
-          icon={Users}
-          hint={`${metrics.newContacts30d} new in 30 days`}
+          value={metrics.totalContacts.toLocaleString()}
+          hint={`${metrics.newContacts30d.toLocaleString()} new in the last 30 days`}
+          href="/contacts"
         />
-      </section>
+        <Stat
+          label="Leads"
+          value={metrics.leads.toLocaleString()}
+          hint="Also counted in customers"
+          href="/contacts?status=LEAD"
+        />
+      </StatBand>
 
-      {alerts.length > 0 ? (
-        <section aria-label="Needs attention" className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-muted-foreground">Needs attention</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {alerts.map((alert) => (
-              <StatCard
-                key={alert.label}
-                label={alert.label}
-                value={alert.value}
-                icon={alert.icon}
-                hint={alert.hint}
-                tone={alert.tone}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <div className={cn('grid grid-cols-1 gap-6', showChecklist && 'lg:grid-cols-3')}>
+      <div className={cn('grid grid-cols-1 gap-4', showChecklist && 'lg:grid-cols-3')}>
         {showChecklist ? (
           // DOM order puts the checklist first so mobile leads with the actionable
           // card; on desktop it moves to the right rail beside the activity feed.

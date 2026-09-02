@@ -1,7 +1,7 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import { useActionState, useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -44,7 +44,7 @@ export function RevokeInviteButton({ inviteId, email }: { inviteId: string; emai
         onClick={() => setOpen(true)}
         aria-label={`Cancel the invitation for ${email}`}
       >
-        <X className="size-4" aria-hidden />
+        <X aria-hidden />
         Cancel
       </Button>
 

@@ -22,11 +22,7 @@ import {
 } from '@/config/plans';
 import { type Db, prisma } from '@/db/prisma';
 import { ForbiddenError, LimitExceededError } from '@/server/errors';
-import { createNotification } from '@/server/repositories/notification.repository';
-import {
-  findSubscription,
-  resolveEffectivePlanKey,
-} from '@/server/repositories/subscription.repository';
+import { resolveEffectivePlanKey } from '@/server/repositories/subscription.repository';
 import { ensureWorkspaceSubscription } from '@/server/services/subscription/subscription.service';
 import type { TenantContext } from '@/server/tenancy/context';
 
@@ -224,9 +220,16 @@ export async function assertPlanHasFeature(
   }
 }
 
+/**
+ * One quota metric's current standing.
+ *
+ * Deliberately carries no display label. It used to, and the wording drifted from the wording
+ * the analytics screen used for the same ten numbers — "AI Requests (mo)" against "Monthly AI
+ * Requests". Copy for a `LimitName` lives in `lib/labels.ts`, which is the layer that gets
+ * translated; a billing service has no business holding English strings.
+ */
 export type QuotaMetricUsage = {
   metric: LimitName;
-  label: string;
   used: number;
   limit: number | null;
   remaining: number | null;
@@ -243,26 +246,25 @@ export async function getAllQuotaUsage(
   db: Db = prisma,
 ): Promise<QuotaMetricUsage[]> {
   const plan = await getEffectivePlan(ctx, db);
-  const metrics: { name: LimitName; label: string }[] = [
-    { name: 'whatsappNumbers', label: 'WhatsApp Numbers' },
-    { name: 'teamMembers', label: 'Team Members' },
-    { name: 'contacts', label: 'Contacts' },
-    { name: 'products', label: 'Products' },
-    { name: 'automations', label: 'Automations' },
-    { name: 'aiRequestsPerMonth', label: 'AI Requests (mo)' },
-    { name: 'messagesPerMonth', label: 'Messages Sent (mo)' },
-    { name: 'knowledgeDocuments', label: 'Knowledge Documents' },
-    { name: 'storageMegabytes', label: 'Storage (MB)' },
-    { name: 'campaignsPerMonth', label: 'Campaigns (mo)' },
+  const metrics: LimitName[] = [
+    'whatsappNumbers',
+    'teamMembers',
+    'contacts',
+    'products',
+    'automations',
+    'aiRequestsPerMonth',
+    'messagesPerMonth',
+    'knowledgeDocuments',
+    'storageMegabytes',
+    'campaignsPerMonth',
   ];
 
   const results = await Promise.all(
-    metrics.map(async (m) => {
-      const used = await getCurrentLimitUsage(ctx, m.name, db);
-      const check = checkLimit(plan.key, m.name, used, 0);
+    metrics.map(async (metric) => {
+      const used = await getCurrentLimitUsage(ctx, metric, db);
+      const check = checkLimit(plan.key, metric, used, 0);
       return {
-        metric: m.name,
-        label: m.label,
+        metric,
         used,
         limit: check.limit,
         remaining: check.remaining,

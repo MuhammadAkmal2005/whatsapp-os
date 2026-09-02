@@ -5,16 +5,19 @@ import { redirect } from 'next/navigation';
 import { OrderFilters } from '@/components/orders/order-filters';
 import { OrderList } from '@/components/orders/order-list';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
+import { CursorPagination } from '@/components/ui/cursor-pagination';
 import { EmptyState } from '@/components/ui/empty-state';
-import { firstParam } from '@/lib/search-params';
+import { PageHeader } from '@/components/ui/page-header';
+import { firstParam, type SearchParams } from '@/lib/search-params';
 import { listOrders } from '@/server/services/order/order.service';
 import { getTenantContext } from '@/server/tenancy/resolve';
 import { orderFiltersSchema } from '@/server/validation/order';
 
 export const metadata = { title: 'Orders' };
 
-type SearchParams = Record<string, string | string[] | undefined>;
+/** The filters that survive paging. `cursor` is handled by the pagination footer itself. */
+const PRESERVED_FILTERS = ['search', 'status', 'paymentStatus'] as const;
 
 /**
  * The order book.
@@ -52,7 +55,7 @@ export default async function OrdersPage({
   const addButton = (
     <Button asChild>
       <Link href="/orders/new">
-        <Plus className="size-4" aria-hidden />
+        <Plus aria-hidden />
         New order
       </Link>
     </Button>
@@ -60,15 +63,11 @@ export default async function OrdersPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Orders</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Every order your shop takes, from placed to delivered. {summarise(totalOrders)}
-          </p>
-        </div>
-        {page.can.create && totalOrders > 0 ? addButton : null}
-      </div>
+      <PageHeader
+        title="Orders"
+        description={`Every order your shop takes, from placed to delivered. ${summarise(totalOrders)}`}
+        actions={page.can.create && totalOrders > 0 ? addButton : undefined}
+      />
 
       {totalOrders > 0 ? <OrderFilters /> : null}
 
@@ -102,16 +101,20 @@ export default async function OrdersPage({
           }
         />
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <OrderList orders={page.orders} />
-          </CardContent>
+        // `overflow-hidden` so the heading row's sunken fill is clipped by the card's
+        // corners instead of squaring them off.
+        <Card className="overflow-hidden">
+          <OrderList orders={page.orders} />
+          <CursorPagination
+            basePath="/orders"
+            params={params}
+            preserve={PRESERVED_FILTERS}
+            cursor={page.nextCursor}
+            isPastFirstPage={Boolean(input.cursor)}
+            itemsLabel="orders"
+          />
         </Card>
       )}
-
-      {page.nextCursor || input.cursor ? (
-        <Pagination cursor={page.nextCursor} params={params} showFirst={Boolean(input.cursor)} />
-      ) : null}
     </div>
   );
 }
@@ -119,46 +122,4 @@ export default async function OrdersPage({
 function summarise(total: number): string {
   if (total === 0) return 'Your first order will appear here.';
   return `${total} ${total === 1 ? 'order' : 'orders'} so far.`;
-}
-
-/**
- * Cursor pagination, so a book that changes while it is being read never shows the same
- * order on two pages. There is no "previous": the browser's back button is the previous
- * page, and it is the control people already reach for.
- */
-function Pagination({
-  cursor,
-  params,
-  showFirst,
-}: {
-  cursor: string | null;
-  params: SearchParams;
-  showFirst: boolean;
-}) {
-  const preserved = new URLSearchParams();
-  for (const key of ['search', 'status', 'paymentStatus']) {
-    const value = firstParam(params[key]);
-    if (value) preserved.set(key, value);
-  }
-
-  const firstHref = preserved.toString() ? `/orders?${preserved.toString()}` : '/orders';
-  const nextParams = new URLSearchParams(preserved.toString());
-  if (cursor) nextParams.set('cursor', cursor);
-
-  return (
-    <div className="flex items-center justify-between gap-3">
-      {showFirst ? (
-        <Button asChild variant="ghost" size="sm">
-          <Link href={firstHref}>Back to the start</Link>
-        </Button>
-      ) : (
-        <span />
-      )}
-      {cursor ? (
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/orders?${nextParams.toString()}`}>Show more orders</Link>
-        </Button>
-      ) : null}
-    </div>
-  );
 }

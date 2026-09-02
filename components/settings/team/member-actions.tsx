@@ -1,8 +1,8 @@
 'use client';
 
+import { Crown, MoreHorizontal, PauseCircle, PlayCircle, UserMinus } from 'lucide-react';
 import { useActionState, useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Crown, MoreHorizontal, PauseCircle, PlayCircle, UserMinus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -22,9 +22,9 @@ import {
 import { FormAlert } from '@/components/ui/form-alert';
 import { FormControl, FormDescription, FormField, FormLabel } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { IDLE_FORM_STATE, type FormState } from '@/lib/form-state';
-import { cn } from '@/lib/utils';
 import {
   changeMemberRoleAction,
   removeMemberAction,
@@ -74,11 +74,9 @@ export function MemberActions(props: MemberActionsProps) {
   const hasMenu = props.can.suspend || props.can.remove || props.can.transferOwnership;
   const canEditRole = props.can.changeRole && props.assignableRoles.length > 0;
 
-  // A VIEWER or AGENT sees the team and no controls at all, rather than a menu
-  // that opens onto an empty list.
-  if (!canEditRole && !hasMenu) {
-    return <span className="text-sm text-muted-foreground">{ROLE_LABELS[props.role]}</span>;
-  }
+  // The row already states the role as a badge, so this column holds controls only. With no
+  // control to offer — a VIEWER or AGENT looking at the team — it contributes nothing.
+  if (!canEditRole && !hasMenu) return null;
 
   return (
     <div className="flex items-center justify-end gap-1">
@@ -89,24 +87,22 @@ export function MemberActions(props: MemberActionsProps) {
           current={props.role}
           options={props.assignableRoles}
         />
-      ) : (
-        <span className="text-sm text-muted-foreground">{ROLE_LABELS[props.role]}</span>
-      )}
+      ) : null}
 
       {hasMenu ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label={`More actions for ${props.name}`}>
-              <MoreHorizontal className="size-4" aria-hidden />
+              <MoreHorizontal aria-hidden />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             {props.can.suspend ? (
               <DropdownMenuItem onSelect={() => setDialog('status')}>
                 {props.status === 'ACTIVE' ? (
-                  <PauseCircle className="size-4" aria-hidden />
+                  <PauseCircle aria-hidden />
                 ) : (
-                  <PlayCircle className="size-4" aria-hidden />
+                  <PlayCircle aria-hidden />
                 )}
                 {props.status === 'ACTIVE' ? 'Pause access' : 'Restore access'}
               </DropdownMenuItem>
@@ -114,14 +110,14 @@ export function MemberActions(props: MemberActionsProps) {
 
             {props.can.transferOwnership ? (
               <DropdownMenuItem onSelect={() => setDialog('transfer')}>
-                <Crown className="size-4" aria-hidden />
+                <Crown aria-hidden />
                 Transfer ownership
               </DropdownMenuItem>
             ) : null}
 
             {props.can.remove ? (
               <DropdownMenuItem destructive onSelect={() => setDialog('remove')}>
-                <UserMinus className="size-4" aria-hidden />
+                <UserMinus aria-hidden />
                 Remove from team
               </DropdownMenuItem>
             ) : null}
@@ -211,7 +207,7 @@ function RoleSelectControl({
   const { pending } = useFormStatus();
 
   return (
-    <select
+    <NativeSelect
       id={id}
       ref={ref}
       name="role"
@@ -219,18 +215,16 @@ function RoleSelectControl({
       disabled={pending}
       aria-busy={pending}
       onChange={onChange}
-      className={cn(
-        'h-9 rounded-md border border-input bg-background px-2 text-sm shadow-soft transition-all duration-150 hover:border-primary/30',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-        'disabled:cursor-progress disabled:opacity-60',
-      )}
+      // A role change saves immediately, so the cursor says "working" rather than "blocked".
+      className="disabled:cursor-progress"
+      wrapperClassName="w-auto"
     >
       {choices.map((role) => (
         <option key={role} value={role}>
           {ROLE_LABELS[role]}
         </option>
       ))}
-    </select>
+    </NativeSelect>
   );
 }
 
@@ -253,7 +247,9 @@ function StatusDialog({ memberId, name, status, open, onClose }: DialogProps) {
     <Dialog open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{pausing ? `Pause ${name}'s access?` : `Restore ${name}'s access?`}</DialogTitle>
+          <DialogTitle>
+            {pausing ? `Pause ${name}'s access?` : `Restore ${name}'s access?`}
+          </DialogTitle>
           <DialogDescription>
             {pausing
               ? 'They stay on your team but cannot sign in to this business until you restore access. Useful for staff who are away.'

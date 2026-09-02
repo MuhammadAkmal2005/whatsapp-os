@@ -1,7 +1,18 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+/**
+ * Stops a number carrying messages.
+ *
+ * Reversible, but not cheaply: disconnecting deletes the encrypted access token, so coming back
+ * means fetching a fresh one from Meta. That is the fact worth saying out loud, so it is in the
+ * dialog rather than discovered afterwards — and it is why this asks for one deliberate
+ * confirmation instead of typed friction.
+ *
+ * Conversations, contacts and orders already recorded are untouched. Only the connection goes.
+ */
+
 import { AlertTriangle } from 'lucide-react';
+import { useActionState, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -35,44 +46,43 @@ export function DisconnectWhatsAppDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="text-destructive hover:bg-destructive/10">
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+        >
+          <AlertTriangle aria-hidden />
           Disconnect
         </Button>
       </DialogTrigger>
+
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <div className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="size-5" />
-            <DialogTitle>Disconnect WhatsApp Account</DialogTitle>
-          </div>
-          <DialogDescription className="pt-2 text-left">
-            Are you sure you want to disconnect WhatsApp account <strong>{wabaId}</strong>
-            {displayPhoneNumber ? ` (${displayPhoneNumber})` : ''}?
+          <DialogTitle>Disconnect {displayPhoneNumber ?? 'this number'}?</DialogTitle>
+          <DialogDescription>
+            Customer messages will stop arriving in your inbox and your AI will stop replying.
+            Everything already recorded — conversations, customers and orders — is kept.
           </DialogDescription>
         </DialogHeader>
 
         <p className="text-sm text-muted-foreground">
-          Disconnecting will remove the encrypted access token from this workspace. Your AI agent and
-          team will not be able to send or receive WhatsApp messages until reconnected.
+          Your saved access token is deleted, so reconnecting later means getting a new one from
+          Meta for account <span className="font-mono">{wabaId}</span>.
         </p>
 
-        {state.status === 'error' ? <FormAlert state={state} /> : null}
-
-        <form action={formAction} className="mt-2">
+        {/* Only a failure needs showing: on success the page revalidates and this card is
+            replaced by the connect form. */}
+        <form action={formAction}>
           <input type="hidden" name="accountId" value={accountId} />
-          <DialogFooter className="gap-2 sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
-              Cancel
+
+          {state.status === 'error' ? <FormAlert state={state} /> : null}
+
+          <DialogFooter className="mt-4">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Stay connected
             </Button>
-            <SubmitButton
-              variant="destructive"
-              pendingText="Disconnecting…"
-            >
-              Confirm Disconnect
+            <SubmitButton variant="destructive" pendingText="Disconnecting…">
+              Disconnect number
             </SubmitButton>
           </DialogFooter>
         </form>

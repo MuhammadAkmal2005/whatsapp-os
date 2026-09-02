@@ -182,47 +182,59 @@ export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 /**
  * Shop-owner-facing copy for each step. Deliberately not "configure webhook" or
  * "ingest knowledge" — the language a person who knows WhatsApp but not software
- * would use. `href` is where the checklist item links; steps whose screens land
- * in a later phase point at the closest place that exists today.
+ * would use.
+ *
+ * `href` names the step's real screen, spelled exactly as the navigation registries
+ * spell it, so whether a step can be acted on today is derived from
+ * `isNavDestinationAvailable` rather than from a second list that has to be kept in
+ * step by hand. `action` is the button label: a checklist row whose button says
+ * "Continue" makes the reader guess where it goes.
  */
 export const ONBOARDING_STEP_META: Record<
   OnboardingStep,
-  { title: string; description: string; href: string }
+  { title: string; description: string; href: string; action: string }
 > = {
   business_created: {
     title: 'Create your business',
     description: 'Give your workspace a name to get started.',
     href: '/dashboard',
+    action: 'Open dashboard',
   },
   business_profile: {
     title: 'Add your business details',
     description: 'Your hours, delivery charges and the basics customers ask about.',
     href: '/settings/business',
+    action: 'Add details',
   },
   whatsapp_connected: {
     title: 'Connect WhatsApp',
     description: 'Link your WhatsApp Business number so messages arrive here.',
     href: '/settings/whatsapp',
+    action: 'Connect WhatsApp',
   },
   ai_configured: {
     title: 'Set up your AI assistant',
     description: 'Choose its name, tone and the language it replies in.',
-    href: '/settings/ai',
+    href: '/settings/agent',
+    action: 'Set up your AI',
   },
   knowledge_added: {
     title: 'Teach your AI about your business',
     description: 'Add FAQs, delivery and return policies so answers are accurate.',
-    href: '/knowledge',
+    href: '/settings/knowledge',
+    action: 'Add knowledge',
   },
   product_added: {
     title: 'Add your first product',
     description: 'Prices and stock your assistant can quote from.',
     href: '/products',
+    action: 'Add a product',
   },
   ai_tested: {
     title: 'Test your AI',
     description: 'Ask it a customer question and see how it answers before going live.',
     href: '/playground',
+    action: 'Test your AI',
   },
 };
 

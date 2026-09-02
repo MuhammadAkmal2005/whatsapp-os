@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { Info } from 'lucide-react';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { APP_NAME } from '@/config/constants';
 
 export const metadata: Metadata = {
@@ -17,12 +19,17 @@ export default function PrivacyPage() {
         <p className="text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
       </header>
 
-      <div className="prose-legal mt-8 flex flex-col gap-8 text-sm leading-relaxed text-foreground">
-        <section className="rounded-lg border border-border bg-muted/40 p-4 text-muted-foreground">
-          This policy is a starting template provided with {APP_NAME}. Before you go live with
-          real customers, have it reviewed against your obligations and local law. It is not legal
-          advice.
-        </section>
+      <div className="mt-8 flex flex-col gap-8 text-sm leading-relaxed text-foreground">
+        {/* Flagged as a template in the product's own information banner rather than as a grey
+            box, so it reads as a notice to act on and not as an introduction to skim. */}
+        <Alert variant="info">
+          <Info aria-hidden />
+          <AlertTitle>This is a template, not legal advice</AlertTitle>
+          <AlertDescription>
+            This policy ships with {APP_NAME} as a starting point. Before you go live with real
+            customers, have it reviewed against your obligations and local law.
+          </AlertDescription>
+        </Alert>
 
         <Section title="Who we are">
           {APP_NAME} is a platform that lets a business connect its official WhatsApp Business
@@ -81,9 +88,9 @@ export default function PrivacyPage() {
 
         <Section title="Security">
           Access to data is scoped to its workspace and enforced on the server. Secrets are held
-          server-side and never exposed to the browser. Sensitive actions are recorded in an audit
-          log. No system is perfectly secure, but security is treated as a core part of the product,
-          not an afterthought.
+          server-side and never exposed to the browser. Sensitive actions are recorded, so there is
+          a history of who changed what. No system is perfectly secure, but security is treated as a
+          core part of the product, not an afterthought.
         </Section>
 
         <Section title="Contact">
