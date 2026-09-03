@@ -35,10 +35,10 @@ const ENTER = (delay: number) => ({ animationDelay: `${delay}ms` });
 
 export function Hero() {
   return (
-    <section className="marketing-band relative isolate overflow-hidden">
+    <section className="marketing-band relative isolate flex flex-col justify-center overflow-hidden lg:min-h-[calc(100dvh-4rem)]">
       <Atmosphere />
 
-      <div className="container relative grid gap-12 py-14 sm:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] lg:items-center lg:gap-12 lg:py-20 xl:gap-16 xl:py-24">
+      <div className="container relative grid gap-12 py-14 sm:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] lg:items-center lg:gap-12 lg:py-16 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,31rem)] xl:gap-16 xl:py-20">
         <div className="flex min-w-0 max-w-xl flex-col items-start">
           <p
             className="inline-flex animate-mk-enter items-center gap-2 rounded-full border border-border bg-secondary px-3 py-1 text-2xs font-medium text-foreground"
@@ -102,7 +102,7 @@ export function Hero() {
             className="absolute -right-6 -top-7 hidden animate-mk-enter xl:block"
             style={ENTER(680)}
           >
-            <FollowUpSatellite className="animate-mk-float-slow" />
+            <FollowUpSatellite className="animate-mk-float-slow [animation-delay:-1.8s]" />
           </div>
         </div>
       </div>

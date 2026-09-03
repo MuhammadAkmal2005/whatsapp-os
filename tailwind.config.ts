@@ -262,12 +262,12 @@ const config: Config = {
            and amplitudes so a pair of them never moves in lockstep — the giveaway that a
            float is decoration rather than life. Translation only, a few pixels, no rotation. */
         'mk-float': {
-          '0%, 100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-0.5rem)' },
+          '0%, 100%': { transform: 'translate(0, 0)' },
+          '50%': { transform: 'translate(-4px, -14px)' },
         },
         'mk-float-slow': {
-          '0%, 100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(0.4375rem)' },
+          '0%, 100%': { transform: 'translate(0, 0)' },
+          '50%': { transform: 'translate(4px, 12px)' },
         },
         /* The live indicator beside "AI replying" — an expanding ring rather than a
            blinking dot, so it reads as activity instead of an alert. */
@@ -286,8 +286,8 @@ const config: Config = {
            `animation-delay` under reduced motion. */
         'mk-enter': 'mk-enter 620ms var(--ease-out) both',
         'mk-atmosphere': 'mk-atmosphere 1100ms var(--ease-in-out) both',
-        'mk-float': 'mk-float 7s var(--ease-in-out) infinite',
-        'mk-float-slow': 'mk-float-slow 9s var(--ease-in-out) infinite',
+        'mk-float': 'mk-float 4.6s var(--ease-in-out) infinite',
+        'mk-float-slow': 'mk-float-slow 5.4s var(--ease-in-out) infinite',
         'mk-ring': 'mk-ring 2.6s var(--ease-out) infinite',
       },
     },
