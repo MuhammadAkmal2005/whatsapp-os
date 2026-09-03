@@ -16,5 +16,5 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const context = await getUserContext();
   if (!context) redirect('/login');
 
-  return <div className="min-h-dvh bg-background">{children}</div>;
+  return <div className="marketing marketing-band min-h-dvh bg-background">{children}</div>;
 }

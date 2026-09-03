@@ -488,6 +488,8 @@
   html {
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
   }
 
   body {
@@ -790,6 +792,10 @@
     --motion-fast: 1ms;
     --motion-moderate: 1ms;
     --motion-slow: 1ms;
+  }
+
+  html {
+    scroll-behavior: auto;
   }
 
   *,
