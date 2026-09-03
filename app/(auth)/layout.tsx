@@ -11,7 +11,7 @@ import { APP_NAME } from '@/config/constants';
  */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid min-h-dvh lg:grid-cols-2">
+    <div className="marketing marketing-band grid min-h-dvh lg:grid-cols-2">
       <div className="flex flex-col px-6 py-8 sm:px-10">
         <header>
           <Link href="/" aria-label={`${APP_NAME} home`} className="inline-flex">
