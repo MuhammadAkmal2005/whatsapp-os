@@ -1,0 +1,8 @@
+<svg viewBox="0 0 337 330" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g id="convoNexa-logo">
+    <path id="speech-bubble-outline" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="20" stroke-linejoin="round" stroke-linecap="round" d="M 304.5 162.0 L 304.5 292.0 A 7.5 7.5 0 0 1 291.7 297.7 L 256.5 262.5 A 128 128 0 1 1 304.5 162.0 Z" />
+    <path id="speech-bubble" fill="#29AE69" d="M 304.5 162.0 L 304.5 292.0 A 7.5 7.5 0 0 1 291.7 297.7 L 256.5 262.5 A 128 128 0 1 1 304.5 162.0 Z" />
+    <path id="inner-shadow" fill="none" stroke="#105036" stroke-width="27" stroke-linecap="round" d="M 234.5 217.5 A 76 76 0 1 1 234.5 125.5" />
+    <path id="letter-c" fill="none" stroke="#FFFFFF" stroke-width="27" stroke-linecap="round" d="M 237.0 208.0 A 76 76 0 1 1 237.0 116.0" />
+  </g>
+</svg>
