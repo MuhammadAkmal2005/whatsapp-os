@@ -1,24 +1,31 @@
 import Link from 'next/link';
 
 import { Logo } from '@/components/brand/logo';
-import { ThemeToggle } from '@/components/app-shell/theme-toggle';
-import { Button } from '@/components/ui/button';
+import { MarketingHeader } from '@/components/marketing/marketing-header';
 import { APP_NAME } from '@/config/constants';
 
-const NAV_LINKS = [
-  { label: 'Features', href: '/#features' },
-  { label: 'How it works', href: '/#how' },
-  { label: 'Pricing', href: '/pricing' },
-  { label: 'FAQ', href: '/#faq' },
-];
+/**
+ * The public site's frame.
+ *
+ * Two things here are load-bearing for everything inside it. `marketing` re-declares the
+ * primary colour tokens for this subtree, so the shared `Button`, `Badge` and `Card`
+ * primitives repaint in the site's palette without a single authenticated-app file changing.
+ * `mk-js` is what arms the scroll reveals: the rules that hide an unrevealed element are all
+ * written under `.mk-js`, so the `<noscript>` override below is enough to guarantee that a
+ * reader without JavaScript sees the whole page rather than a blank one.
+ *
+ * The footer is ink like the closing call to action above it, so the page darkens once and
+ * stays dark to the bottom instead of flashing back to white for a list of links.
+ */
 
 const FOOTER_SECTIONS = [
   {
     heading: 'Product',
     links: [
+      { label: 'How it works', href: '/#how' },
       { label: 'Features', href: '/#features' },
       { label: 'Pricing', href: '/pricing' },
-      { label: 'How it works', href: '/#how' },
+      { label: 'Questions', href: '/#faq' },
     ],
   },
   {
@@ -39,43 +46,18 @@ const FOOTER_SECTIONS = [
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-dvh flex-col">
-      {/* Solid rather than translucent-and-blurred: the same treatment the product's own
-          mobile header uses, and one less thing between the reader and the words. */}
-      <header className="sticky top-0 z-40 border-b border-border bg-background shadow-sticky">
-        <div className="container flex h-16 items-center justify-between gap-4">
-          <Link href="/" aria-label={`${APP_NAME} home`} className="inline-flex">
-            <Logo />
-          </Link>
+    <div className="marketing mk-js flex min-h-dvh flex-col">
+      {/* Unlayered, so it beats the layered rules in globals.css whatever their order. */}
+      <noscript>
+        <style>{`.mk-reveal{opacity:1!important;transform:none!important;filter:none!important}`}</style>
+      </noscript>
 
-          <nav className="hidden items-center gap-6 md:flex" aria-label="Primary">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-sm text-muted-foreground transition-colors duration-fast ease-out hover:text-foreground"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-1.5">
-            <ThemeToggle />
-            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-              <Link href="/login">Sign in</Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link href="/signup">Start free</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <MarketingHeader />
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t border-border bg-surface-sunken">
-        <div className="container grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
+      <footer className="marketing-ink border-t border-border">
+        <div className="container grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
           <div className="flex flex-col gap-3">
             <Logo />
             <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
@@ -83,6 +65,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               actually run on.
             </p>
           </div>
+
           {FOOTER_SECTIONS.map((section) => (
             <div key={section.heading} className="flex flex-col gap-3">
               <h2 className="eyebrow">{section.heading}</h2>
@@ -91,7 +74,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-muted-foreground transition-colors duration-fast ease-out hover:text-foreground"
+                      className="rounded-xs text-sm text-muted-foreground transition-colors duration-fast ease-out hover:text-foreground"
                     >
                       {link.label}
                     </Link>
@@ -101,12 +84,18 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             </div>
           ))}
         </div>
+
         <div className="border-t border-border">
-          <div className="container flex flex-col items-center justify-between gap-2 py-6 text-xs text-muted-foreground sm:flex-row">
+          <div className="container flex flex-col gap-3 py-6 text-xs leading-relaxed text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <p>
-              © {new Date().getFullYear()} {APP_NAME}. All rights reserved.
+              © {new Date().getFullYear()} {APP_NAME}. Built for businesses that run on WhatsApp.
             </p>
-            <p>Built for Pakistani businesses that run on WhatsApp.</p>
+            {/* Stated plainly because the product is named after someone else's platform, and a
+                reader deciding whether this is official deserves the answer without hunting. */}
+            <p className="sm:text-right">
+              An independent product, not affiliated with Meta. WhatsApp is a trademark of Meta
+              Platforms, Inc.
+            </p>
           </div>
         </div>
       </footer>

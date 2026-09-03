@@ -253,6 +253,117 @@
   --shadow-sticky: 0 1px 0 0 hsl(168 14% 18%), 0 8px 20px -14px hsl(0 0% 0% / 0.7);
 }
 
+/**
+ * ── The marketing scope ───────────────────────────────────────────────────────────
+ *
+ * The public site needs a louder, more saturated identity than the product: a shop
+ * owner deciding whether to trust us is a different reader from one working a shift in
+ * the inbox, and the moss green tuned for eight hours of order rows is too quiet to
+ * carry a first impression.
+ *
+ * So rather than a second component library, this is one scope that re-declares the
+ * existing tokens. `.marketing` wraps the public layout, every shared primitive inside
+ * it keeps reading `hsl(var(--primary))`, and not one authenticated screen changes —
+ * which is the whole reason the colours were put behind custom properties to begin
+ * with.
+ *
+ * The ramp is WhatsApp-adjacent by intent, because that is the workflow this product
+ * lives inside, but it is our own: hue held in the 146–158 band so it stays a sibling
+ * of the brand mark, saturation pushed up, and a near-black charcoal ground rather
+ * than the platform's own green.
+ */
+.marketing {
+  /* The ramp. Six greens from ink to accent, plus the two readable inks on top. */
+  --mk-ink: 158 44% 4%;
+  --mk-forest: 156 42% 7%;
+  --mk-forest-raised: 155 30% 11%;
+  --mk-green-deep: 152 62% 17%;
+  --mk-green: 151 68% 27%;
+  --mk-green-bright: 149 62% 42%;
+  --mk-emerald: 146 70% 52%;
+  --mk-on-ink: 150 22% 96%;
+  --mk-on-ink-muted: 152 13% 66%;
+  --mk-ink-border: 156 18% 15%;
+
+  /* Atmosphere. Kept as tokens so a glow's strength is one edit, not fourteen. */
+  --mk-glow-strong: hsl(var(--mk-emerald) / 0.18);
+  --mk-glow-soft: hsl(var(--mk-green-bright) / 0.1);
+  --mk-grid-line: hsl(var(--mk-emerald) / 0.07);
+  --mk-hairline: hsl(var(--mk-on-ink) / 0.09);
+
+  /* Standard tokens, re-pointed at the marketing ramp. A Button on the landing page is
+     the same component as a Button in the order form; only the value beneath it moves. */
+  --primary: var(--mk-green);
+  --primary-hover: var(--mk-green-deep);
+  --ring: var(--mk-green);
+}
+
+.dark .marketing {
+  --primary: var(--mk-green-bright);
+  --primary-hover: var(--mk-emerald);
+  --ring: var(--mk-green-bright);
+}
+
+/**
+ * A dark island inside the marketing scope — the hero, the workflow band, the closing
+ * call to action.
+ *
+ * It re-declares the full token set rather than restyling components, so a `Card`,
+ * `Badge` or `Button` dropped inside is correct without a single override class. This
+ * is the same mechanism as `.dark`, applied to a section instead of a document, and it
+ * is what keeps the product mockups honest: they are the real components, reading real
+ * tokens, on an ink ground.
+ */
+.marketing-ink {
+  --background: var(--mk-ink);
+  --foreground: var(--mk-on-ink);
+
+  --surface-sunken: 158 46% 3%;
+  --surface-selected: 155 28% 13%;
+
+  --card: var(--mk-forest);
+  --card-foreground: var(--mk-on-ink);
+
+  --popover: var(--mk-forest-raised);
+  --popover-foreground: var(--mk-on-ink);
+
+  --primary: var(--mk-green-bright);
+  --primary-foreground: 158 44% 5%;
+  --primary-hover: var(--mk-emerald);
+  --primary-surface: 154 40% 12%;
+  --primary-border: 152 32% 22%;
+
+  --secondary: 156 22% 12%;
+  --secondary-foreground: var(--mk-on-ink);
+
+  --muted: 156 20% 12%;
+  --muted-foreground: var(--mk-on-ink-muted);
+
+  --accent: 155 24% 14%;
+  --accent-foreground: var(--mk-on-ink);
+
+  --success: var(--mk-green-bright);
+  --success-foreground: 158 44% 5%;
+  --success-surface: 154 36% 12%;
+  --success-border: 152 28% 22%;
+
+  --ai: 250 60% 72%;
+  --ai-foreground: 250 40% 10%;
+  --ai-surface: 250 24% 16%;
+  --ai-border: 250 22% 28%;
+
+  --border: var(--mk-ink-border);
+  --border-strong: 154 16% 24%;
+  --input: 156 18% 20%;
+  --ring: var(--mk-green-bright);
+
+  --shadow-raised: 0 1px 0 0 hsl(var(--mk-on-ink) / 0.05), 0 8px 24px -8px hsl(0 0% 0% / 0.6);
+  --shadow-overlay: 0 1px 0 0 hsl(var(--mk-on-ink) / 0.06), 0 20px 48px -16px hsl(0 0% 0% / 0.72);
+
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
 @layer base {
   * {
     border-color: hsl(var(--border));
@@ -330,6 +441,100 @@
     text-transform: uppercase;
     color: hsl(var(--muted-foreground));
   }
+
+  /**
+   * Marketing display type.
+   *
+   * Fluid rather than stepped, because the landing page has to survive a 360px phone and
+   * a 1440px laptop with the same three-line headline. `clamp` on a vw basis means the
+   * headline reflows continuously instead of jumping a whole step at 640px, and the upper
+   * bound stops it becoming a poster on a wide monitor — the brief's "no exaggerated giant
+   * type everywhere".
+   *
+   * The product's own eight-step `fontSize` scale is untouched: these are two extra sizes
+   * that exist only above the fold of a public page.
+   */
+  .mk-display {
+    font-size: clamp(2.125rem, 1.35rem + 3.3vw, 4.125rem);
+    line-height: 1.06;
+    letter-spacing: -0.032em;
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  .mk-display-sm {
+    font-size: clamp(1.625rem, 1.2rem + 1.7vw, 2.625rem);
+    line-height: 1.14;
+    letter-spacing: -0.024em;
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  /* A hairline that fades out at both ends. A full-width 1px border across a dark
+     section reads as a hard seam; this reads as the edge of a lit surface. */
+  .mk-rule {
+    height: 1px;
+    border: 0;
+    background: linear-gradient(
+      to right,
+      transparent,
+      hsl(var(--mk-on-ink) / 0.14) 18%,
+      hsl(var(--mk-on-ink) / 0.14) 82%,
+      transparent
+    );
+  }
+
+  /* A navigation link's underline, drawn from the left. Keyed to :focus-visible as well as
+     :hover so a keyboard reader gets the same signal a mouse reader does — the focus ring
+     says "you are here", the underline says "this is the one you would follow". */
+  .mk-nav-link {
+    position: relative;
+  }
+
+  .mk-nav-link::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    bottom: -0.375rem;
+    height: 1px;
+    background-color: hsl(var(--primary));
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform var(--motion-fast) var(--ease-out);
+  }
+
+  .mk-nav-link:hover::after,
+  .mk-nav-link:focus-visible::after {
+    transform: scaleX(1);
+  }
+
+  /**
+   * The mobile navigation panel.
+   *
+   * Overlays instead of pushing, so opening it animates transform and opacity only and needs
+   * no measured height — a `max-height` guess would clip the day a sixth link is added.
+   * `visibility` is what keeps the closed panel out of the tab order; delaying its transition
+   * until the fade has finished is what stops it disappearing before the animation plays.
+   */
+  .mk-menu-panel {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-0.5rem);
+    transition:
+      opacity var(--motion-fast) var(--ease-out),
+      transform var(--motion-moderate) var(--ease-out),
+      visibility 0s linear var(--motion-moderate);
+  }
+
+  .mk-menu-panel[data-open='true'] {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+      opacity var(--motion-fast) var(--ease-out),
+      transform var(--motion-moderate) var(--ease-out),
+      visibility 0s;
+  }
 }
 
 @layer utilities {
@@ -369,6 +574,88 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+
+  /**
+   * ── Marketing atmosphere ────────────────────────────────────────────────────────
+   *
+   * Three ingredients, each doing one job, so a dark section reads as a lit room
+   * rather than as a flat black rectangle — and none of them is a full-bleed gradient
+   * wash, which is the tell of a generated page.
+   *
+   * `mk-grid` is a technical substrate: a 56px rule grid, barely visible, masked so it
+   * dissolves before it reaches the copy. It suggests precision, which is the claim the
+   * product is making.
+   */
+  .mk-grid {
+    background-image: linear-gradient(to right, var(--mk-grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--mk-grid-line) 1px, transparent 1px);
+    background-size: 56px 56px;
+    -webkit-mask-image: radial-gradient(ellipse 76% 62% at 50% 34%, #000 32%, transparent 78%);
+    mask-image: radial-gradient(ellipse 76% 62% at 50% 34%, #000 32%, transparent 78%);
+  }
+
+  /* A single soft light source. Applied to an absolutely positioned, aria-hidden div so
+     it never enters the layout or the accessibility tree. */
+  .mk-glow {
+    background: radial-gradient(circle at center, var(--mk-glow-strong) 0%, transparent 68%);
+  }
+
+  .mk-glow-soft {
+    background: radial-gradient(circle at center, var(--mk-glow-soft) 0%, transparent 70%);
+  }
+
+  /* Grain, at the threshold of visibility. Fractal noise as a data URI costs no request
+     and stops the large dark fields from banding on an 8-bit panel. */
+  .mk-noise {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+  }
+
+  /**
+   * ── The scroll-reveal vocabulary ────────────────────────────────────────────────
+   *
+   * One class, five variants, driven by a `data-shown` attribute that a single
+   * IntersectionObserver flips. Doing it in CSS rather than in JS means the browser
+   * animates on the compositor and the only work JavaScript does per element is set one
+   * attribute, once.
+   *
+   * The hidden state lives here rather than in the component so that a reader with
+   * JavaScript disabled is not left with an invisible page: `components/marketing/reveal.tsx`
+   * only ever adds `data-shown`, and the `:not([data-shown])` selector below is scoped to
+   * `.mk-js`, a class set by that same script. No script, no hiding.
+   */
+  .mk-reveal {
+    transition-property: opacity, transform, filter;
+    transition-duration: var(--motion-slow);
+    transition-timing-function: var(--ease-out);
+  }
+
+  .mk-js .mk-reveal:not([data-shown='true']) {
+    opacity: 0;
+  }
+
+  .mk-js .mk-reveal[data-variant='up']:not([data-shown='true']) {
+    transform: translateY(1.5rem);
+  }
+
+  .mk-js .mk-reveal[data-variant='left']:not([data-shown='true']) {
+    transform: translateX(-1.75rem);
+  }
+
+  .mk-js .mk-reveal[data-variant='right']:not([data-shown='true']) {
+    transform: translateX(1.75rem);
+  }
+
+  /* Blur-to-sharp, used once — on the hero's product frame — because it costs a real
+     repaint and is only worth it on the one element the eye lands on. */
+  .mk-js .mk-reveal[data-variant='blur']:not([data-shown='true']) {
+    opacity: 0;
+    filter: blur(12px);
+    transform: translateY(1rem) scale(0.99);
+  }
+
+  .mk-js .mk-reveal[data-variant='settle']:not([data-shown='true']) {
+    transform: scale(0.97) translateY(0.75rem);
+  }
 }
 
 /* Honour the OS-level request for less motion. Anyone who has set this has asked for
@@ -390,5 +677,19 @@
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
+    /* Zeroing the delays matters as much as the durations. A staggered entrance is built
+       from animation-delay with fill-mode both, whose first frame is opacity 0 — leave the
+       delay in place and a reduced-motion reader stares at blank space for the length of
+       the sequence, which is a worse outcome than the animation itself. */
+    animation-delay: 0ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  /* Reveals are switched off rather than sped up. At 1ms they would still depend on the
+     observer firing, so anything the reader never scrolls past would stay invisible. */
+  .mk-js .mk-reveal:not([data-shown='true']) {
+    opacity: 1;
+    transform: none;
+    filter: none;
   }
 }

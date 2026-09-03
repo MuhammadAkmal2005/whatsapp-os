@@ -222,11 +222,56 @@ const config: Config = {
         shimmer: {
           '100%': { transform: 'translateX(100%)' },
         },
+
+        /* ── Marketing motion ──────────────────────────────────────────────────────
+           Five, and each earns its place. The public page needs an entrance the product
+           does not, because a landing page is read once from the top while the inbox is
+           lived in; what it must not have is a different animation per element.
+
+           `mk-enter` is the only entrance keyframe. The staggered hero sequence is the
+           same animation at seven different `animation-delay` values, which is why it can
+           be pure CSS with no client component behind it. */
+        'mk-enter': {
+          from: { opacity: '0', transform: 'translateY(0.875rem)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        /* The atmosphere fades in on its own, slower curve. Lighting that arrives with the
+           headline reads as a flash; lighting that arrives behind it reads as a room. */
+        'mk-atmosphere': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        /* Ambient drift for the hero's satellite cards. Two variants at different periods
+           and amplitudes so a pair of them never moves in lockstep — the giveaway that a
+           float is decoration rather than life. Translation only, a few pixels, no rotation. */
+        'mk-float': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-0.5rem)' },
+        },
+        'mk-float-slow': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(0.4375rem)' },
+        },
+        /* The live indicator beside "AI replying" — an expanding ring rather than a
+           blinking dot, so it reads as activity instead of an alert. */
+        'mk-ring': {
+          '0%': { opacity: '0.5', transform: 'scale(0.9)' },
+          '70%, 100%': { opacity: '0', transform: 'scale(2.1)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in var(--motion-moderate) var(--ease-out)',
         'slide-down': 'slide-down var(--motion-fast) var(--ease-out)',
         shimmer: 'shimmer 1.6s var(--ease-in-out) infinite',
+
+        /* `both` fill mode is what makes the delayed steps hold their opening frame instead
+           of flashing in and then animating. It is also why globals.css has to zero
+           `animation-delay` under reduced motion. */
+        'mk-enter': 'mk-enter 620ms var(--ease-out) both',
+        'mk-atmosphere': 'mk-atmosphere 1100ms var(--ease-in-out) both',
+        'mk-float': 'mk-float 7s var(--ease-in-out) infinite',
+        'mk-float-slow': 'mk-float-slow 9s var(--ease-in-out) infinite',
+        'mk-ring': 'mk-ring 2.6s var(--ease-out) infinite',
       },
     },
   },
