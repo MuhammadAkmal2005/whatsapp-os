@@ -41,8 +41,8 @@ const RULES = [
 export function AiSafety() {
   return (
     <section className="marketing-band relative overflow-hidden">
-      <div className="container grid gap-12 py-16 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-16 lg:py-24">
-        <div>
+      <div className="container grid min-w-0 gap-12 py-16 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-16 lg:py-24">
+        <div className="min-w-0">
           <Reveal variant="left">
             <SectionHeading
               eyebrow="The part everyone worries about"
@@ -82,7 +82,7 @@ export function AiSafety() {
 
         {/* The refusal, then its consequence. Read top to bottom it is one event: a question
             with no saved answer becomes a person's job, in two steps and without a caption. */}
-        <Reveal variant="right" delay={120} className="lg:self-center">
+        <Reveal variant="right" delay={120} className="min-w-0 lg:self-center">
           <figure className="flex flex-col gap-4">
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="eyebrow">Live conversation</p>

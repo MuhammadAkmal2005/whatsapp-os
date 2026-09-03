@@ -71,7 +71,7 @@ export function InboxMock() {
           <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-surface text-2xs font-semibold text-primary">
             AK
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-medium text-foreground">Ayesha K.</p>
             <p className="truncate text-3xs text-muted-foreground">Karachi · Returning customer</p>
           </div>

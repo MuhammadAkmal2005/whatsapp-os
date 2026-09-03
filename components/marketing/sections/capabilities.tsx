@@ -67,8 +67,8 @@ export function Capabilities() {
           />
         </Reveal>
 
-        <div className="mt-14 grid gap-8 lg:grid-cols-2 lg:items-center lg:gap-14">
-          <Reveal variant="left">
+        <div className="mt-14 grid min-w-0 gap-8 lg:grid-cols-2 lg:items-center lg:gap-14">
+          <Reveal variant="left" className="min-w-0">
             <h3 className="mk-display-sm text-foreground">A customer record that writes itself</h3>
             <p className="mt-3 max-w-prose text-base leading-relaxed text-muted-foreground">
               You already know Ayesha buys twice a year and always asks about delivery first. Right
@@ -87,7 +87,7 @@ export function Capabilities() {
             </ul>
           </Reveal>
 
-          <Reveal variant="right" delay={90}>
+          <Reveal variant="right" delay={90} className="min-w-0">
             <AppFrame
               screen="Customers"
               label="A customer record showing orders, total spent, tags and a note from a team member"
@@ -97,8 +97,8 @@ export function Capabilities() {
           </Reveal>
         </div>
 
-        <div className="mt-16 grid gap-8 lg:mt-20 lg:grid-cols-2 lg:items-center lg:gap-14">
-          <Reveal variant="right">
+        <div className="mt-16 grid min-w-0 gap-8 lg:mt-20 lg:grid-cols-2 lg:items-center lg:gap-14">
+          <Reveal variant="right" className="min-w-0">
             <h3 className="mk-display-sm text-foreground">Teach it once, in your own words</h3>
             <p className="mt-3 max-w-prose text-base leading-relaxed text-muted-foreground">
               Write your delivery and payment answers the way you would type them to a customer.
@@ -111,7 +111,7 @@ export function Capabilities() {
             </p>
           </Reveal>
 
-          <Reveal variant="left" delay={90} className="lg:order-first">
+          <Reveal variant="left" delay={90} className="min-w-0 lg:order-first">
             <AppFrame
               screen="Knowledge"
               label="Four knowledge sources, three in use and one still being read"

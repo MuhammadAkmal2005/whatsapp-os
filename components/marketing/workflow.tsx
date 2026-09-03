@@ -56,8 +56,8 @@ export function Workflow({ steps }: { steps: readonly WorkflowStep[] }) {
   }, [steps.length]);
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] lg:gap-16">
-      <ol className="flex flex-col">
+    <div className="grid min-w-0 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] lg:gap-16">
+      <ol className="flex min-w-0 flex-col">
         {steps.map((step, index) => {
           const isActive = index === active;
 
@@ -67,7 +67,7 @@ export function Workflow({ steps }: { steps: readonly WorkflowStep[] }) {
               ref={(element) => {
                 stepRefs.current[index] = element;
               }}
-              className="border-t border-border py-7 first:border-t-0 first:pt-0 lg:py-12"
+              className="min-w-0 border-t border-border py-7 first:border-t-0 first:pt-0 lg:py-12"
             >
               <div
                 className={cn(
@@ -90,7 +90,7 @@ export function Workflow({ steps }: { steps: readonly WorkflowStep[] }) {
               </div>
 
               {/* The phone layout: the visual belongs to its step, so it sits with it. */}
-              <div className="mt-5 pl-5 lg:hidden">{step.visual}</div>
+              <div className="mt-5 min-w-0 pl-5 lg:hidden">{step.visual}</div>
             </li>
           );
         })}

@@ -28,7 +28,7 @@ export function ContactMock() {
         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-surface text-xs font-semibold text-primary">
           AK
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-foreground">Ayesha K.</p>
           <p className="truncate text-2xs text-muted-foreground">
             {SAMPLE_ORDER.city} · WhatsApp · +92 3•• ••• ••••

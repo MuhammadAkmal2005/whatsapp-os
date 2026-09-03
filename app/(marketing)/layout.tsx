@@ -47,7 +47,7 @@ const FOOTER_SECTIONS = [
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="marketing mk-js flex min-h-dvh flex-col">
+    <div className="marketing mk-js flex min-h-dvh flex-col overflow-x-clip">
       {/* Unlayered, so it beats the layered rules in globals.css whatever their order. */}
       <noscript>
         <style>{`.mk-reveal{opacity:1!important;transform:none!important;filter:none!important}`}</style>
@@ -55,7 +55,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
       <MarketingHeader />
 
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 overflow-x-clip">{children}</main>
 
       <footer className="marketing-band border-t border-border">
         <div className="container grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">

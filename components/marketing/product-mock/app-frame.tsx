@@ -30,7 +30,7 @@ export function AppFrame({ children, screen, label, className }: AppFrameProps) 
       role="img"
       aria-label={`${label}. Illustration of the ${APP_NAME} ${screen.toLowerCase()} screen.`}
       className={cn(
-        'overflow-hidden rounded-xl border border-border bg-card shadow-overlay',
+        'w-full min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-overlay',
         className,
       )}
     >
