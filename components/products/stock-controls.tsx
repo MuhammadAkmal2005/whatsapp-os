@@ -162,7 +162,10 @@ function StockForm({
       <FormField error={fieldError}>
         <FormLabel>{label}</FormLabel>
         <div className="flex items-start gap-2">
-          <div className="flex-1">
+          {/* `min-w-0` because the submit beside it is `shrink-0`: without it this track
+              takes the field's ~180px intrinsic width as its floor, and three of these
+              side by side in a `sm:grid-cols-3` overflow every width below 1280px. */}
+          <div className="min-w-0 flex-1">
             <FormControl>
               <Input
                 name={field}

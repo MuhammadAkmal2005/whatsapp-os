@@ -86,7 +86,7 @@ function SettingsNavRow({ item, pathname }: { item: SettingsNavItem; pathname: s
         rowStyles,
         active
           ? 'bg-surface-selected font-medium text-foreground lg:marker-rail'
-          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+          : 'text-muted-foreground hover:bg-surface-sunken hover:text-foreground',
       )}
     >
       <Icon aria-hidden className={active ? 'text-primary' : undefined} />

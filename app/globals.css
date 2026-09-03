@@ -26,9 +26,33 @@
  */
 
 :root {
+  /* ── The brand ramp ───────────────────────────────────────────────────────────
+     One green in eight steps, declared at the root so the public site and the
+     product draw from the same source instead of each keeping its own tuning. Hue
+     is held in the 146–158 band — WhatsApp-adjacent by intent, because that is the
+     workflow this product lives inside, but never the platform's own green.
+
+     Steps are named by lightness the way a type scale is named by size. Nothing in
+     the product consumes them directly; only the semantic tokens below do. That
+     indirection is the whole architecture: a theme, a scope or a section becomes a
+     different set of values pointing at the same ramp, never a different class in
+     the markup.
+
+     Every step is load-bearing, and a step with no consumer is deleted rather than
+     kept for symmetry — an unused 100 was removed for exactly that reason. */
+  --brand-950: 158 44% 4%;
+  --brand-900: 156 42% 7%;
+  --brand-850: 155 30% 11%;
+  --brand-800: 152 62% 17%;
+  --brand-700: 151 68% 27%;
+  --brand-500: 149 62% 42%;
+  --brand-400: 146 70% 52%;
+  --brand-50: 152 26% 93%;
+
   /* ── Ground and surfaces ──────────────────────────────────────────────────────
-     Six steps, darkest ground to lightest surface, so depth is legible without
-     shadow: sunken wells, the page itself, cards, and selected rows. */
+     Seven steps, darkest ground to lightest surface, so depth is legible without
+     shadow: sunken wells, the page itself, cards, what sits on a card, and the
+     tint a selected row takes. */
   --background: 150 16% 96%;
   --foreground: 172 24% 10%;
 
@@ -38,19 +62,30 @@
   --card: 0 0% 100%;
   --card-foreground: 172 24% 10%;
 
-  --popover: 0 0% 100%;
+  /* A surface stacked on a card — a nested panel, a mock frame, a floating menu. On
+     paper it cannot go lighter than the card it sits on, so here it is white and
+     separates by its border and its shadow; on ink it separates by value. Same token,
+     same meaning, different mechanism per theme.
+
+     Every floating panel in the product resolves through it, because a popover *is* an
+     elevated surface: one value, named for the role and again for the component that
+     is the role's most common instance. */
+  --surface-elevated: 0 0% 100%;
+
+  --popover: var(--surface-elevated);
   --popover-foreground: 172 24% 10%;
 
   --overlay: 172 24% 10% / 0.32;
 
   /* ── Brand ────────────────────────────────────────────────────────────────────
-     A deep moss green. Deliberately desaturated and dark enough to carry white text
-     at AA, so it can be both the brand mark and a working button colour. */
-  --primary: 164 58% 25%;
+     The deep step of the ramp: dark enough to carry white text at AA, saturated
+     enough to read as a colour rather than a grey-green, so it works as both the
+     brand mark and a working button fill. */
+  --primary: var(--brand-700);
   --primary-foreground: 150 40% 98%;
-  --primary-hover: 164 58% 21%;
-  --primary-surface: 160 34% 93%;
-  --primary-border: 162 30% 80%;
+  --primary-hover: var(--brand-800);
+  --primary-surface: 152 34% 92%;
+  --primary-border: 152 28% 78%;
 
   --secondary: 154 12% 93%;
   --secondary-foreground: 168 24% 17%;
@@ -60,6 +95,24 @@
 
   --accent: 154 16% 92%;
   --accent-foreground: 168 28% 15%;
+
+  /* ── Interactive states ───────────────────────────────────────────────────────
+     Hover and press for a control with no fill of its own — a ghost or outline
+     button, a menu item, a select option, an icon button.
+
+     `--accent` was already this and nothing else: it has no static consumer anywhere
+     in the product, only `hover:`, `focus:` and `data-[state=open]:`. So this is the
+     correct name for a value that already existed, aliased rather than copied — one
+     number, two names, no chance of the two drifting. The pressed step is genuinely
+     new, because `bg-accent` on both hover and press meant a press produced no
+     feedback at all.
+
+     Rows are not controls and keep their own answer, `surface-sunken`: a row sinks
+     toward the page, a control lifts off it. That distinction is deliberate; the
+     third answer that existed before this pass (`bg-muted` on three of them) was
+     not. */
+  --interactive-hover: var(--accent);
+  --interactive-pressed: 154 18% 87%;
 
   /* ── Status ───────────────────────────────────────────────────────────────────
      Each family carries a solid fill, its readable foreground, a tinted surface for
@@ -97,26 +150,33 @@
   --border: 154 11% 87%;
   --border-strong: 156 12% 78%;
   --input: 154 11% 82%;
-  --ring: 164 58% 25%;
+  --ring: var(--brand-700);
 
   /* ── Chrome ───────────────────────────────────────────────────────────────────
-     The sidebar is ink rather than another shade of paper: it frames the workspace
-     and never competes with the content for attention. */
-  --sidebar: 172 28% 10%;
-  --sidebar-foreground: 152 12% 78%;
-  --sidebar-muted: 152 8% 56%;
-  --sidebar-accent: 168 24% 16%;
-  --sidebar-selected: 166 30% 19%;
-  --sidebar-border: 168 20% 18%;
-  /* Display type on ink. The body foreground above is deliberately dimmed so a nav list
-     recedes; a heading set in it looks tired. This is the one step brighter that a
-     headline needs, and having it as a token is what keeps `text-white` out of the
-     markup — pure white on a dark teal reads blue-cold, this does not. */
-  --sidebar-strong: 150 20% 96%;
-  /* The accent used *inside* the ink panel — the marker rail and the active row's icon.
-     It cannot be --primary: that moss is tuned to carry white text on paper and vanishes
-     against ink. Same hue family, lifted until it reads. */
-  --sidebar-primary: 158 46% 48%;
+     The sidebar is a step *below* the page rather than above it: 92% under a 96%
+     page under 100% cards, so the navigation frames the workspace by receding
+     instead of by inverting. It used to be ink in both themes, which is what made
+     light mode read as "dark mode with a white page pasted in" — the one region a
+     user looks at on every screen stayed dark whatever they chose.
+
+     Foreground lightness is set by the dimmest thing drawn in it: inactive nav rows
+     render at 75% alpha, so 22% is the value at which those still clear 4.5:1
+     against the 92% ground. */
+  --sidebar: 154 22% 92%;
+  --sidebar-foreground: 170 20% 22%;
+  --sidebar-muted: 165 11% 38%;
+  --sidebar-accent: 154 18% 87%;
+  --sidebar-selected: 156 26% 85%;
+  --sidebar-border: 154 14% 84%;
+  /* Display type in the panel. The body foreground above is deliberately quiet so a
+     nav list recedes; a heading set in it looks tired. This is the one step further
+     that a headline needs, and having it as a token is what keeps a raw ink value
+     out of the markup. */
+  --sidebar-strong: 172 30% 12%;
+  /* The accent used *inside* the panel — the marker rail and the active row's icon.
+     On paper that is the same deep step as --primary; on ink it has to be lifted,
+     which is why this is a token and not an alias. */
+  --sidebar-primary: var(--brand-700);
 
   /* ── Charts ───────────────────────────────────────────────────────────────────
      Five series colours, ordered so the first two — the pair almost every chart
@@ -176,13 +236,20 @@
   --card: 172 20% 9%;
   --card-foreground: 152 10% 92%;
 
-  --popover: 172 20% 11%;
+  /* On ink, elevation is value: a panel inside a card genuinely gets lighter. This is the
+     mechanism that cannot exist in light mode, where the card is already white — same
+     token, and the reason it is a token at all rather than one more shade of `card`. */
+  --surface-elevated: 172 20% 11%;
+
+  --popover: var(--surface-elevated);
   --popover-foreground: 152 10% 92%;
 
   --overlay: 174 30% 3% / 0.6;
 
-  /* Lifted and slightly desaturated: the light-mode moss is too dark to read as a
-     colour against an ink ground, and too saturated to sit calmly on one. */
+  /* Lifted and deliberately quieter than --brand-500, the step the landing page uses on
+     the same ground. A saturated green is right for a first impression and wrong for a
+     dense interface a shift is spent inside, where the accent repeats a hundred times
+     down a page. Same ramp, same hue family, one step of restraint. */
   --primary: 158 46% 44%;
   --primary-foreground: 172 36% 6%;
   --primary-hover: 158 46% 50%;
@@ -197,6 +264,9 @@
 
   --accent: 166 16% 17%;
   --accent-foreground: 152 10% 92%;
+
+  --interactive-hover: var(--accent);
+  --interactive-pressed: 166 18% 22%;
 
   --success: 156 46% 44%;
   --success-foreground: 172 36% 6%;
@@ -256,80 +326,126 @@
 /**
  * ── The marketing scope ───────────────────────────────────────────────────────────
  *
- * The public site needs a louder, more saturated identity than the product: a shop
- * owner deciding whether to trust us is a different reader from one working a shift in
- * the inbox, and the moss green tuned for eight hours of order rows is too quiet to
- * carry a first impression.
+ * What is genuinely specific to the public site is *atmosphere* — the lighting, the
+ * grid, the grain — and nothing else. The colour is the same brand ramp the product
+ * uses, so this scope no longer re-declares a palette; it declares the four values
+ * the decorative layers read, once per theme, and stops there.
  *
- * So rather than a second component library, this is one scope that re-declares the
- * existing tokens. `.marketing` wraps the public layout, every shared primitive inside
- * it keeps reading `hsl(var(--primary))`, and not one authenticated screen changes —
- * which is the whole reason the colours were put behind custom properties to begin
- * with.
- *
- * The ramp is WhatsApp-adjacent by intent, because that is the workflow this product
- * lives inside, but it is our own: hue held in the 146–158 band so it stays a sibling
- * of the brand mark, saturation pushed up, and a near-black charcoal ground rather
- * than the platform's own green.
+ * That shrinkage is the point. The scope started out re-pointing `--primary`, which
+ * meant the landing page and the product were two tunings of one green that had to be
+ * kept in step by hand. With the ramp at the root, light mode needs no override at
+ * all: `--primary` already *is* the landing page's green. Only dark mode still
+ * deviates, and deliberately — see the note on `--primary` in `.dark`.
  */
 .marketing {
-  /* The ramp. Six greens from ink to accent, plus the two readable inks on top. */
-  --mk-ink: 158 44% 4%;
-  --mk-forest: 156 42% 7%;
-  --mk-forest-raised: 155 30% 11%;
-  --mk-green-deep: 152 62% 17%;
-  --mk-green: 151 68% 27%;
-  --mk-green-bright: 149 62% 42%;
-  --mk-emerald: 146 70% 52%;
+  /* The readable pair on an ink ground, used by the dark band below and by the
+     hairline. Not `--foreground`: that follows the document theme, and these two
+     values are fixed properties of ink regardless of it. */
   --mk-on-ink: 150 22% 96%;
   --mk-on-ink-muted: 152 13% 66%;
   --mk-ink-border: 156 18% 15%;
 
-  /* Atmosphere. Kept as tokens so a glow's strength is one edit, not fourteen. */
-  --mk-glow-strong: hsl(var(--mk-emerald) / 0.18);
-  --mk-glow-soft: hsl(var(--mk-green-bright) / 0.1);
-  --mk-grid-line: hsl(var(--mk-emerald) / 0.07);
-  --mk-hairline: hsl(var(--mk-on-ink) / 0.09);
-
-  /* Standard tokens, re-pointed at the marketing ramp. A Button on the landing page is
-     the same component as a Button in the order form; only the value beneath it moves. */
-  --primary: var(--mk-green);
-  --primary-hover: var(--mk-green-deep);
-  --ring: var(--mk-green);
+  /* Atmosphere, light-tuned. On paper the model inverts: the glows drop to a wash
+     that tints rather than illuminates, and the grid and hairlines become dark lines
+     on a light ground instead of light lines on a dark one. Kept as tokens so a
+     glow's strength is one edit, not fourteen. */
+  --mk-glow-strong: hsl(var(--brand-500) / 0.1);
+  --mk-glow-soft: hsl(var(--brand-700) / 0.06);
+  --mk-grid-line: hsl(var(--brand-800) / 0.07);
+  --mk-hairline: hsl(var(--brand-950) / 0.11);
+  /* Grain exists to stop a large dark area banding on an eight-bit panel. Paper does
+     not band, so light mode needs barely any — but not none, or the ink bands and the
+     paper bands look like different materials. */
+  --mk-noise-opacity: 0.02;
 }
 
 .dark .marketing {
-  --primary: var(--mk-green-bright);
-  --primary-hover: var(--mk-emerald);
-  --ring: var(--mk-green-bright);
+  /* The one deliberate deviation: a landing page is read once and wants the saturated
+     step; the product is lived in and gets the quieter one. */
+  --primary: var(--brand-500);
+  --primary-hover: var(--brand-400);
+  --ring: var(--brand-500);
+
+  --mk-glow-strong: hsl(var(--brand-400) / 0.18);
+  --mk-glow-soft: hsl(var(--brand-500) / 0.1);
+  --mk-grid-line: hsl(var(--brand-400) / 0.07);
+  --mk-hairline: hsl(var(--mk-on-ink) / 0.14);
+  --mk-noise-opacity: 0.035;
 }
 
 /**
- * A dark island inside the marketing scope — the hero, the workflow band, the closing
- * call to action.
+ * A contrast band inside the marketing scope — the header, the hero, the proof strip,
+ * the safety section, the pricing teaser, the closing call to action, the footer.
  *
- * It re-declares the full token set rather than restyling components, so a `Card`,
- * `Badge` or `Button` dropped inside is correct without a single override class. This
- * is the same mechanism as `.dark`, applied to a section instead of a document, and it
- * is what keeps the product mockups honest: they are the real components, reading real
- * tokens, on an ink ground.
+ * It re-declares tokens rather than restyling components, so a `Card`, `Badge` or
+ * `Button` dropped inside is correct without a single override class. This is the same
+ * mechanism as `.dark`, applied to a section instead of a document, and it is what
+ * keeps the product mockups honest: they are the real components, reading real tokens,
+ * on the band's own ground.
+ *
+ * It used to be `.marketing-ink` and unconditionally dark, which is why light mode read
+ * as a dark site with four light sections wedged into it. A band's job is to *separate*
+ * from the page around it, not to be dark — so on paper it separates by becoming a
+ * deeper, more saturated wash of the brand tint (93% under a 96% page, with cards still
+ * at 100%), and on ink it separates by dropping to near-black. Same structure, same
+ * rhythm, same components; the mechanism follows the theme.
  */
-.marketing-ink {
-  --background: var(--mk-ink);
+.marketing-band {
+  --background: var(--brand-50);
+  --foreground: 172 30% 9%;
+
+  --surface-sunken: 152 24% 90%;
+  --surface-selected: 154 30% 90%;
+
+  /* Cards stay white. On a tinted ground that is what makes them read as objects
+     resting on the band rather than panels cut out of it. */
+  --card: 0 0% 100%;
+  --card-foreground: 172 30% 9%;
+  --surface-elevated: 0 0% 100%;
+
+  --popover: var(--surface-elevated);
+  --popover-foreground: 172 30% 9%;
+
+  --secondary: 152 18% 89%;
+  --secondary-foreground: 168 26% 15%;
+
+  --muted: 152 18% 90%;
+  --muted-foreground: 165 12% 38%;
+
+  --accent: 152 22% 89%;
+  --accent-foreground: 168 30% 13%;
+
+  --interactive-hover: var(--accent);
+  --interactive-pressed: 152 24% 84%;
+
+  /* Borders step down with the ground. The page's 87% hairline is invisible on a 93%
+     band; everything here is one step darker than its root counterpart. */
+  --border: 152 16% 84%;
+  --border-strong: 152 16% 74%;
+  --input: 152 14% 80%;
+
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.dark .marketing-band {
+  --background: var(--brand-950);
   --foreground: var(--mk-on-ink);
 
   --surface-sunken: 158 46% 3%;
   --surface-selected: 155 28% 13%;
 
-  --card: var(--mk-forest);
+  --card: var(--brand-900);
   --card-foreground: var(--mk-on-ink);
 
-  --popover: var(--mk-forest-raised);
+  --surface-elevated: var(--brand-850);
+
+  --popover: var(--surface-elevated);
   --popover-foreground: var(--mk-on-ink);
 
-  --primary: var(--mk-green-bright);
+  --primary: var(--brand-500);
   --primary-foreground: 158 44% 5%;
-  --primary-hover: var(--mk-emerald);
+  --primary-hover: var(--brand-400);
   --primary-surface: 154 40% 12%;
   --primary-border: 152 32% 22%;
 
@@ -342,7 +458,10 @@
   --accent: 155 24% 14%;
   --accent-foreground: var(--mk-on-ink);
 
-  --success: var(--mk-green-bright);
+  --interactive-hover: var(--accent);
+  --interactive-pressed: 155 24% 19%;
+
+  --success: var(--brand-500);
   --success-foreground: 158 44% 5%;
   --success-surface: 154 36% 12%;
   --success-border: 152 28% 22%;
@@ -355,13 +474,10 @@
   --border: var(--mk-ink-border);
   --border-strong: 154 16% 24%;
   --input: 156 18% 20%;
-  --ring: var(--mk-green-bright);
+  --ring: var(--brand-500);
 
   --shadow-raised: 0 1px 0 0 hsl(var(--mk-on-ink) / 0.05), 0 8px 24px -8px hsl(0 0% 0% / 0.6);
   --shadow-overlay: 0 1px 0 0 hsl(var(--mk-on-ink) / 0.06), 0 20px 48px -16px hsl(0 0% 0% / 0.72);
-
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
 }
 
 @layer base {
@@ -470,16 +586,18 @@
     text-wrap: balance;
   }
 
-  /* A hairline that fades out at both ends. A full-width 1px border across a dark
-     section reads as a hard seam; this reads as the edge of a lit surface. */
+  /* A hairline that fades out at both ends. A full-width 1px border across a band
+     reads as a hard seam; this reads as the edge of a lit surface. Reads the hairline
+     token rather than a fixed ink alpha, so on paper it is a dark line and on ink a
+     light one — a light hairline on a light band is simply not there. */
   .mk-rule {
     height: 1px;
     border: 0;
     background: linear-gradient(
       to right,
       transparent,
-      hsl(var(--mk-on-ink) / 0.14) 18%,
-      hsl(var(--mk-on-ink) / 0.14) 82%,
+      var(--mk-hairline) 18%,
+      var(--mk-hairline) 82%,
       transparent
     );
   }
@@ -605,9 +723,13 @@
   }
 
   /* Grain, at the threshold of visibility. Fractal noise as a data URI costs no request
-     and stops the large dark fields from banding on an 8-bit panel. */
+     and stops the large dark fields from banding on an 8-bit panel. Strength and blend
+     live here rather than on the element: they differ per theme, and a token cannot be
+     read from an arbitrary Tailwind opacity utility. */
   .mk-noise {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+    opacity: var(--mk-noise-opacity, 0.035);
+    mix-blend-mode: overlay;
   }
 
   /**

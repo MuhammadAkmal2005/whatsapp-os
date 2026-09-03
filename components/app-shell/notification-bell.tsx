@@ -32,9 +32,9 @@ const POLL_INTERVAL_MS = 30_000;
 /**
  * The notification bell and its list.
  *
- * `tone` exists because the bell lives in two places with opposite grounds: the ink
- * sidebar at desktop widths and the paper mobile bar. The panel itself is portaled onto
- * the popover surface either way, so only the trigger changes.
+ * `tone` exists because the bell lives in two places with different grounds: the sidebar
+ * at desktop widths and the page's own mobile bar. The panel itself is portaled onto the
+ * popover surface either way, so only the trigger changes.
  */
 export function NotificationBell({ tone = 'default' }: { tone?: 'default' | 'sidebar' }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -154,7 +154,10 @@ export function NotificationBell({ tone = 'default' }: { tone?: 'default' | 'sid
                   key={n.id}
                   className={cn(
                     'flex items-start gap-2.5 px-3 py-2.5 transition-colors duration-instant ease-out',
-                    isUnread ? 'marker-rail bg-surface-selected' : 'hover:bg-muted',
+                    // These rows sit in a floating panel, so they take the menu-item
+                    // highlight rather than the page's row hover: inside a popover,
+                    // `surface-sunken` reads as a hole punched in the panel.
+                    isUnread ? 'marker-rail bg-surface-selected' : 'hover:bg-interactive-hover',
                   )}
                 >
                   <NotificationIcon type={n.type} level={n.level} />

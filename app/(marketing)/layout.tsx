@@ -7,15 +7,16 @@ import { APP_NAME } from '@/config/constants';
 /**
  * The public site's frame.
  *
- * Two things here are load-bearing for everything inside it. `marketing` re-declares the
- * primary colour tokens for this subtree, so the shared `Button`, `Badge` and `Card`
- * primitives repaint in the site's palette without a single authenticated-app file changing.
- * `mk-js` is what arms the scroll reveals: the rules that hide an unrevealed element are all
- * written under `.mk-js`, so the `<noscript>` override below is enough to guarantee that a
- * reader without JavaScript sees the whole page rather than a blank one.
+ * Two things here are load-bearing for everything inside it. `marketing` declares the
+ * atmosphere tokens for this subtree, so the decorative lighting inverts with the theme and
+ * the shared `Button`, `Badge` and `Card` primitives keep reading the same brand ramp the
+ * product does — without a single authenticated-app file changing. `mk-js` is what arms the
+ * scroll reveals: the rules that hide an unrevealed element are all written under `.mk-js`,
+ * so the `<noscript>` override below is enough to guarantee that a reader without JavaScript
+ * sees the whole page rather than a blank one.
  *
- * The footer is ink like the closing call to action above it, so the page darkens once and
- * stays dark to the bottom instead of flashing back to white for a list of links.
+ * The footer takes the contrast band like the closing call to action above it, so the page
+ * changes ground once and holds it to the bottom instead of flashing back for a list of links.
  */
 
 const FOOTER_SECTIONS = [
@@ -56,7 +57,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
       <main className="flex-1">{children}</main>
 
-      <footer className="marketing-ink border-t border-border">
+      <footer className="marketing-band border-t border-border">
         <div className="container grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
           <div className="flex flex-col gap-3">
             <Logo />

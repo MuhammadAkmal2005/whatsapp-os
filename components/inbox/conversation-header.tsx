@@ -90,7 +90,12 @@ export function ConversationHeader({
 
   return (
     <div className="flex flex-col gap-2 border-b border-border bg-card px-3 py-2.5 sm:px-4">
-      <div className="flex items-center justify-between gap-3">
+      {/* Wraps rather than compresses. The identity block can shrink to nothing, but the AI
+          control on the right cannot: badge plus switch is ~230px, and with the back button
+          and avatar the row needs ~330px against 296px of content box on a 320px phone —
+          which used to clip the switch itself off the pane edge. Wrapping costs a second
+          row only where the first genuinely cannot hold both, so nothing moves from 375px up. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex min-w-0 items-center gap-2.5">
           {onBack ? (
             <Button

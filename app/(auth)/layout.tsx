@@ -48,8 +48,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               'Step in and take over any chat the moment you want to.',
             ].map((point) => (
               <li key={point} className="flex items-start gap-3">
-                {/* --sidebar-primary, not --primary: this panel is ink in both themes and the
-                    paper-tuned moss disappears against it. */}
+                {/* --sidebar-primary, not --primary: this panel takes the chrome tokens, and
+                    on ink the paper-tuned moss disappears. The chrome token is the one that
+                    is tuned per theme for this ground. */}
                 <span
                   className="mt-1.5 size-1.5 shrink-0 rounded-full bg-sidebar-primary"
                   aria-hidden

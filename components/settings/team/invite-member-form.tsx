@@ -122,7 +122,10 @@ function InviteLinkPanel({ email, url }: { email: string; url: string }) {
             readOnly
             value={url}
             onFocus={(event) => event.currentTarget.select()}
-            className="font-mono text-xs"
+            // Small enough to show a useful stretch of the URL, but only from `sm` up: a
+            // read-only field is still focusable, and iOS zooms the viewport on focus when
+            // the text is under 16px — mid-form, on the screen where the link is copied.
+            className="font-mono text-md sm:text-xs"
           />
           <Button type="button" variant="outline" onClick={copy} className="shrink-0">
             {copied ? <Check aria-hidden /> : <Copy aria-hidden />}

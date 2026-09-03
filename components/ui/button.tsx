@@ -22,7 +22,9 @@ import { cn } from '@/lib/utils';
  *
  * No scale transform on press. A button that shrinks when clicked is a decorative tic
  * that also fights the pointer. The pressed state is an inset shadow and a darker fill —
- * the surface appears to depress, which is what a physical control does.
+ * the surface appears to depress, which is what a physical control does. The unfilled
+ * variants take that darker fill from `interactive-pressed`; before this they reused
+ * their own hover colour, so a press produced no feedback at all.
  *
  * No focus ring of its own. A single global `:focus-visible` outline in globals.css
  * serves the whole product, so adding one here would draw it twice.
@@ -54,18 +56,18 @@ const buttonVariants = cva(
         ],
         secondary: [
           'bg-secondary text-secondary-foreground',
-          'hover:bg-accent hover:text-accent-foreground',
-          'active:shadow-[inset_0_1px_3px_hsl(0_0%_0%/0.1)]',
+          'hover:bg-interactive-hover hover:text-accent-foreground',
+          'active:bg-interactive-pressed active:shadow-[inset_0_1px_3px_hsl(0_0%_0%/0.1)]',
         ],
         outline: [
           'border border-input bg-card text-foreground',
-          'hover:border-border-strong hover:bg-accent hover:text-accent-foreground',
-          'active:shadow-[inset_0_1px_3px_hsl(0_0%_0%/0.08)]',
+          'hover:border-border-strong hover:bg-interactive-hover hover:text-accent-foreground',
+          'active:bg-interactive-pressed active:shadow-[inset_0_1px_3px_hsl(0_0%_0%/0.08)]',
         ],
         ghost: [
           'text-foreground',
-          'hover:bg-accent hover:text-accent-foreground',
-          'active:bg-accent',
+          'hover:bg-interactive-hover hover:text-accent-foreground',
+          'active:bg-interactive-pressed',
         ],
         destructive: [
           'bg-destructive text-destructive-foreground',

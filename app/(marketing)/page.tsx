@@ -16,9 +16,11 @@ import { WorkflowSection } from '@/components/marketing/sections/workflow-sectio
  * here is everything else in the box (capabilities), and here is what it costs (pricing, FAQ,
  * ask).
  *
- * Sections alternate between the ink surface and the light one, and that alternation is doing
- * work rather than decoration: every dark band is a claim about the product, every light band is
- * a demonstration of it, so the page has a rhythm a reader can feel before they have read a word.
+ * Sections alternate between the contrast band and the plain page, and that alternation is doing
+ * work rather than decoration: every band is a claim about the product, every plain section is a
+ * demonstration of it, so the page has a rhythm a reader can feel before they have read a word.
+ * The band follows the theme — near-black in dark, a deeper wash of the brand tint in light — so
+ * the rhythm survives the theme switch instead of collapsing into a dark page with light holes.
  *
  * Each section owns its own copy and its own file. Nothing here but the running order — a page
  * that also held the words would be six hundred lines, and the section that needed editing would

@@ -6,7 +6,13 @@ import { cn } from '@/lib/utils';
  * Shared field chrome for text inputs, textareas and native selects, so the three
  * cannot drift apart. Anything that looks like a field in this product uses this string.
  *
- * Two details worth knowing.
+ * Three details worth knowing.
+ *
+ * `min-w-0` is load-bearing, not tidiness. A bare `<input>` carries a UA intrinsic width of
+ * roughly 180px, and that width becomes the automatic minimum size of whatever flex or grid
+ * track holds it — so a field beside a button in a `flex` row pushes the row past the
+ * viewport on a 320px phone and takes the whole document's horizontal scrollbar with it. One
+ * declaration here fixes every field in the product rather than each call site remembering.
  *
  * The base size is 16px and only drops to 13px from `sm` up. iOS zooms the viewport when
  * a focused field's text is under 16px, which on a phone throws the user out of the
@@ -17,7 +23,7 @@ import { cn } from '@/lib/utils';
  * rendering both at once.
  */
 export const fieldClassName = cn(
-  'flex w-full rounded-md border border-input bg-card text-md text-foreground sm:text-sm',
+  'flex w-full min-w-0 rounded-md border border-input bg-card text-md text-foreground sm:text-sm',
   'transition-[border-color,background-color] duration-instant ease-out',
   'placeholder:text-muted-foreground',
   'hover:border-border-strong',

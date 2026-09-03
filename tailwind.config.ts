@@ -33,11 +33,25 @@ const config: Config = {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
 
-        /* The two extra surface steps that let depth be expressed without shadow:
-           a well that sits below the page, and the tint a selected row takes. */
+        /* The extra surface steps that let depth be expressed without shadow: a well
+           that sits below the page, the step *above* a card, and the tint a selected
+           row takes. On ink `elevated` is genuinely lighter than the card; on paper the
+           card is already white, so it holds there and depth falls to the border. Both
+           are the same token, which is why a panel-inside-a-card needs no `dark:`. */
         surface: {
           sunken: 'hsl(var(--surface-sunken))',
+          elevated: 'hsl(var(--surface-elevated))',
           selected: 'hsl(var(--surface-selected))',
+        },
+
+        /* Pointer and press feedback, as one vocabulary. Before this the product had
+           three answers to "what does a row look like under the pointer" — `bg-accent`
+           on buttons, `bg-muted` on some rows, `bg-surface-sunken` on others — which is
+           three chances for a hover to look like a selection. `hover` is deliberately
+           the same value as `accent`, so naming the state changed no pixels. */
+        interactive: {
+          hover: 'hsl(var(--interactive-hover))',
+          pressed: 'hsl(var(--interactive-pressed))',
         },
 
         primary: {
@@ -117,10 +131,13 @@ const config: Config = {
           accent: 'hsl(var(--sidebar-accent))',
           selected: 'hsl(var(--sidebar-selected))',
           border: 'hsl(var(--sidebar-border))',
-          /* Display type on ink — one step brighter than the dimmed body foreground. */
+          /* Display type on the panel — one step further from the panel's ground than
+             the body foreground, in whichever direction that is. */
           strong: 'hsl(var(--sidebar-strong))',
-          /* The sidebar is ink in both themes, so it cannot borrow --primary: the
-             light-mode moss is tuned for contrast against paper and disappears here. */
+          /* The panel keeps its own accent rather than borrowing --primary: it sits on
+             its own ground in both themes (tinted paper in light, ink in dark), and a
+             green tuned for contrast against the page is not the same green that clears
+             4.5:1 against this panel. */
           primary: 'hsl(var(--sidebar-primary))',
         },
 

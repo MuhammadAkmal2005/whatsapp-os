@@ -74,7 +74,11 @@ export function VariantCard({
           <span className="font-medium text-foreground">{label}</span>
           {variant.status !== 'ACTIVE' ? <ProductStatusBadge status={variant.status} /> : null}
           {variant.sku ? (
-            <span className="text-xs text-muted-foreground">{variant.sku}</span>
+            // `break-all` because an SKU is a machine code, routinely one unbroken token, and
+            // the field allows 64 characters — enough to run past a phone on its own. Breaking
+            // mid-code is right here: the whole code has to stay readable, so wrapping beats
+            // truncating, and nothing else in the row can shrink to make room.
+            <span className="break-all text-xs text-muted-foreground">{variant.sku}</span>
           ) : null}
         </div>
         <div className="flex items-center gap-3">

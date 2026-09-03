@@ -35,7 +35,7 @@ const ENTER = (delay: number) => ({ animationDelay: `${delay}ms` });
 
 export function Hero() {
   return (
-    <section className="marketing-ink relative isolate overflow-hidden">
+    <section className="marketing-band relative isolate overflow-hidden">
       <Atmosphere />
 
       <div className="container relative grid gap-12 py-14 sm:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] lg:items-center lg:gap-12 lg:py-20 xl:gap-16 xl:py-24">

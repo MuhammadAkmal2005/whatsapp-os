@@ -26,9 +26,11 @@ type AppShellProps = {
 /**
  * The signed-in workspace chrome.
  *
- * One ink panel on the left holds everything about *where you are and who you are* —
- * the wordmark, the business you are working in, the navigation, and the account. The
- * content column then holds only content, and starts at the very top of the viewport.
+ * One panel on the left holds everything about *where you are and who you are* — the
+ * wordmark, the business you are working in, the navigation, and the account. It sits a
+ * step below the page rather than above it, so it frames the workspace by receding, and it
+ * follows the theme rather than being ink in both. The content column then holds only
+ * content, and starts at the very top of the viewport.
  *
  * There is deliberately no desktop top bar. The previous one was 64px tall and carried
  * nothing on the left, because the wordmark it held was hidden above `lg`; it was an

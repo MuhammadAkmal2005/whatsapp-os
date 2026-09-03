@@ -39,7 +39,7 @@ function priceLabel(plan: Plan): string {
 
 export function PricingTeaser() {
   return (
-    <section className="marketing-ink relative isolate overflow-hidden">
+    <section className="marketing-band relative isolate overflow-hidden">
       <Atmosphere intensity="quiet" />
 
       <div className="container relative py-16 sm:py-20 lg:py-24">

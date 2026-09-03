@@ -36,7 +36,7 @@ const POINTS = [
 
 export function ProofBand() {
   return (
-    <section className="marketing-ink relative overflow-hidden">
+    <section className="marketing-band relative overflow-hidden">
       <div className="container py-14 sm:py-16">
         <hr className="mk-rule" />
         <ul className="grid gap-8 pt-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10">

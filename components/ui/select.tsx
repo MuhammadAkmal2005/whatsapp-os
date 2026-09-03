@@ -93,7 +93,7 @@ const SelectItem = forwardRef<
     className={cn(
       'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none',
       'transition-colors duration-instant ease-out',
-      'focus:bg-accent focus:text-accent-foreground',
+      'focus:bg-interactive-hover focus:text-accent-foreground',
       'data-[state=checked]:font-medium',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-45',
       className,

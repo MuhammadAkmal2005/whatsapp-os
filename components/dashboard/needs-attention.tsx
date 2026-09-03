@@ -103,7 +103,13 @@ function AttentionRow({ item }: { item: AttentionItem }) {
   return (
     <Link
       href={item.href}
-      className={cn(rowStyles, 'group transition-colors duration-instant ease-out hover:bg-muted')}
+      className={cn(
+        rowStyles,
+        // `surface-sunken` is the product's row hover, the same one the tables and the
+        // conversation list use. It used to be `bg-muted` here, which is a fill for a
+        // static tinted block and read a shade off from every other clickable row.
+        'group transition-colors duration-instant ease-out hover:bg-surface-sunken',
+      )}
     >
       {body}
     </Link>

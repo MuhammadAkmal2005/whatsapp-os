@@ -23,7 +23,9 @@ const contentStyles = cn(
 const itemStyles = cn(
   'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none',
   'transition-colors duration-instant ease-out',
-  'focus:bg-accent focus:text-accent-foreground',
+  // Radix moves focus with the pointer as well as the keyboard, so `focus:` is the
+  // highlight for both — a menu item never needs a separate `hover:`.
+  'focus:bg-interactive-hover focus:text-accent-foreground',
   'data-[disabled]:pointer-events-none data-[disabled]:opacity-45',
   '[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
 );
@@ -126,7 +128,14 @@ const DropdownMenuSubTrigger = forwardRef<
 >(({ className, inset, children, ...props }, ref) => (
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
-    className={cn(itemStyles, 'data-[state=open]:bg-accent', inset && 'pl-8', className)}
+    className={cn(
+      itemStyles,
+      // Holds the highlight while its submenu is open, so the trail back up the
+      // hierarchy stays visible once the pointer has moved off this row.
+      'data-[state=open]:bg-interactive-hover',
+      inset && 'pl-8',
+      className,
+    )}
     {...props}
   >
     {children}

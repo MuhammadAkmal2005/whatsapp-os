@@ -6,11 +6,11 @@ import { APP_NAME } from '@/config/constants';
  * inside, representing the convergence of human and AI dialogue. Deliberately not any
  * messaging platform's own glyph or brand colour.
  *
- * `tone` exists because the brand green is tuned to carry white text on a paper ground.
- * At 25% lightness it all but disappears on the ink sidebar, so the chrome gets the
- * lifted sidebar green and inverts the lines to the panel's own colour. The alternative —
- * one fill everywhere — means the mark is either invisible in the sidebar or too pale on
- * an auth card.
+ * `tone` exists because the mark sits on two different grounds. On a card it is the brand
+ * green carrying its own foreground; in the chrome it takes the sidebar tokens, which are
+ * paper in light mode and ink in dark, and inverts the lines to the panel's own colour.
+ * The alternative — one fill everywhere — means the mark is either invisible against the
+ * dark sidebar or too pale on an auth card.
  */
 export function LogoMark({
   className,

@@ -40,7 +40,7 @@ const RULES = [
 
 export function AiSafety() {
   return (
-    <section className="marketing-ink relative overflow-hidden">
+    <section className="marketing-band relative overflow-hidden">
       <div className="container grid gap-12 py-16 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-16 lg:py-24">
         <div>
           <Reveal variant="left">

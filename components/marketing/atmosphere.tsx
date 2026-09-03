@@ -1,12 +1,16 @@
 import { cn } from '@/lib/utils';
 
 /**
- * The lighting for a dark section.
+ * The lighting for a marketing band.
  *
  * Four layers, none of them a full-bleed gradient wash: a masked rule grid for a sense of
  * precision, one broad light source above the fold and a narrower cool one low and left so
- * the field is not lit evenly, and grain over the top to stop the large dark areas banding
- * on an eight-bit panel.
+ * the field is not lit evenly, and grain over the top to stop large flat areas banding on
+ * an eight-bit panel.
+ *
+ * Every layer reads a `--mk-*` token, so the same markup lights an ink band from within and
+ * tints a paper band from above — the model inverts with the theme without a second
+ * component or a `dark:` variant anywhere in here.
  *
  * Absolutely positioned, `pointer-events-none` and `aria-hidden`, so it never enters the
  * layout, the tab order or the accessibility tree. `inset-0` inside an `overflow-hidden`
@@ -38,7 +42,7 @@ export function Atmosphere({
         <div className="mk-glow-soft absolute -left-1/4 bottom-0 h-[26rem] w-[min(90vw,44rem)] translate-y-1/3" />
       ) : null}
 
-      <div className="mk-noise absolute inset-0 opacity-[0.035] mix-blend-overlay" />
+      <div className="mk-noise absolute inset-0" />
     </div>
   );
 }

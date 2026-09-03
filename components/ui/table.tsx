@@ -92,9 +92,10 @@ const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(
       ref={ref}
       className={cn(
         'transition-colors duration-instant ease-out',
-        // `surface-sunken`, not `accent`: accent is the hover surface for controls — buttons,
-        // menu items — and a row is a surface. This is the same hover the conversation list
-        // uses, so a clickable row feels the same everywhere in the product.
+        // `surface-sunken`, not `interactive-hover`: that one is the highlight for a
+        // control — a button, a menu item — and a row is a surface. A row sinks toward the
+        // page, a control lifts off it. This is the same hover the conversation list uses,
+        // so a clickable row feels the same everywhere in the product.
         interactive && 'cursor-pointer hover:bg-surface-sunken',
         className,
       )}

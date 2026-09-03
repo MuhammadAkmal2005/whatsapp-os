@@ -13,11 +13,12 @@ import { cn } from '@/lib/utils';
 /**
  * The public header.
  *
- * It is ink in both themes, like the product's own sidebar, which is what lets it sit flush
- * against the ink hero with no seam at the top of the page and then read as a floating bar
- * once light sections have scrolled under it. The change on scroll is a hairline and a shadow
- * rather than a background swap — the same trick, one less thing to get wrong, and no
- * translucency to make the wordmark hard to read over a moving product mockup.
+ * It takes the same contrast band as the hero, so it sits flush against it with no seam at
+ * the top of the page and then reads as a floating bar once the page's plain sections have
+ * scrolled under it. Because the band follows the theme, so does the header: a paper wash in
+ * light mode, ink in dark. The change on scroll is a hairline and a shadow rather than a
+ * background swap — the same trick, one less thing to get wrong, and no translucency to make
+ * the wordmark hard to read over a moving product mockup.
  *
  * The mobile panel overlays rather than pushes: an absolutely positioned panel animates
  * transform and opacity, which the compositor handles, and needs no measured height. Animating
@@ -69,7 +70,7 @@ export function MarketingHeader() {
   return (
     <header
       className={cn(
-        'marketing-ink sticky top-0 z-40 transition-shadow duration-moderate ease-out',
+        'marketing-band sticky top-0 z-40 transition-shadow duration-moderate ease-out',
         scrolled ? 'shadow-sticky' : 'shadow-none',
       )}
     >
@@ -106,7 +107,7 @@ export function MarketingHeader() {
             aria-controls="marketing-menu"
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             onClick={() => setMenuOpen((open) => !open)}
-            className="inline-flex size-control items-center justify-center rounded-md text-foreground transition-colors duration-fast ease-out hover:bg-accent md:hidden"
+            className="inline-flex size-control items-center justify-center rounded-md text-foreground transition-colors duration-fast ease-out hover:bg-interactive-hover active:bg-interactive-pressed md:hidden"
           >
             {/* Both icons are mounted and cross-faded, so the change is a rotation rather
                 than a swap — and there is no reflow when the glyph changes. */}

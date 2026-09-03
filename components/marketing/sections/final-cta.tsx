@@ -19,7 +19,7 @@ const STEPS = ['Connect your number', 'Add your products', 'Test the answers', '
 
 export function FinalCta() {
   return (
-    <section className="marketing-ink relative isolate overflow-hidden">
+    <section className="marketing-band relative isolate overflow-hidden">
       <Atmosphere />
 
       <div className="container relative flex flex-col items-center gap-6 py-20 text-center sm:py-24">

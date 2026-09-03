@@ -140,7 +140,7 @@ export function ConversationList({
 
   return (
     <div className="flex h-full min-h-0 flex-col border-border bg-card md:border-r">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2.5">
         {/* The page's own `<h1>Inbox</h1>` is in the shell, hidden, because on a phone this
             pane is removed from the layout while a thread is open. This names the pane. */}
         <h2 className="text-md font-semibold tracking-tight text-foreground">Conversations</h2>
