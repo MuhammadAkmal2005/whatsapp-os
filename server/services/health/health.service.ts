@@ -9,11 +9,26 @@
  * - Zero secrets or connection strings leaked on failure.
  * - Bounded query timeout so a stalled database cannot hang the health check.
  * - Status 200 for healthy/ready, 503 for degraded/unhealthy dependencies.
+ *
+ * The database probe reports connect time and query time separately. A single
+ * blended figure is actively misleading on a serverless runtime: `SELECT 1` on an
+ * established connection is a couple of milliseconds, while the same query on a
+ * cold container also pays TLS, SCRAM, pooler admission, a possible Neon compute
+ * wake, and query-engine init. Summing them into one number makes a connection
+ * problem look like a slow database.
  */
 
 import 'server-only';
 
+import os from 'node:os';
+
 import { env, isAIMocked, isProduction, isWhatsAppMocked } from '@/config/env';
+import {
+  connectionConfigFacts,
+  connectionLifecycle,
+  markDatabaseWarm,
+  type ConnectionConfigFacts,
+} from '@/db/connection';
 import { prisma, type Db } from '@/db/prisma';
 import { logger } from '@/lib/logger';
 import { queue as defaultQueue } from '@/server/jobs';
@@ -28,6 +43,29 @@ export type LivenessResponse = {
 };
 
 export type DependencyStatus = 'up' | 'down';
+
+/** Result of one database probe, with connection cost separated from query cost. */
+export type DatabaseProbe = {
+  status: DependencyStatus;
+  /** Everything the probe paid for: the handshake, if it happened here, plus the query. */
+  latencyMs: number;
+  /**
+   * Handshake wall time, when this probe is what paid it. `null` on a process that
+   * was already connected — there is nothing to attribute — and `null` when the
+   * injected client exposes no `$connect`, as test fakes do.
+   */
+  connectMs: number | null;
+  /** `SELECT 1` on an established connection. This is the real query cost. */
+  queryMs: number;
+  /** Whether the process had already connected before this probe ran. */
+  warm: boolean;
+};
+
+export type QueueProbe = {
+  status: DependencyStatus;
+  latencyMs: number;
+  stats: QueueStats | null;
+};
 
 export type ReadinessResponse = {
   status: 'ready' | 'unhealthy';
@@ -49,10 +87,7 @@ export type HealthOverviewResponse = {
   environment: string;
   version: string;
   dependencies: {
-    database: {
-      status: DependencyStatus;
-      latencyMs: number;
-    };
+    database: DatabaseProbe;
     queue: {
       status: DependencyStatus;
       latencyMs: number;
@@ -64,6 +99,13 @@ export type HealthOverviewResponse = {
     memoryHeapTotalMb: number;
     memoryRssMb: number;
     nodeVersion: string;
+    /** Prisma sizes its default pool from this, so it explains fan-out concurrency. */
+    cpuCount: number;
+  };
+  /** Derived booleans only — never the connection string or any part of it. */
+  connection: ConnectionConfigFacts & {
+    /** Warm-up time recorded at bootstrap, or null if the warm-up has not run. */
+    bootstrapConnectMs: number | null;
   };
   integrations: {
     whatsapp: 'mock' | 'live';
@@ -90,73 +132,135 @@ export function checkLiveness(): LivenessResponse {
 }
 
 /**
- * Deep dependency readiness check for orchestrators / load balancers.
- * Probes database reachability and background queue responsiveness.
+ * `Db` deliberately omits `$connect` — it is the union of the root client and a
+ * transaction client, and a transaction cannot connect. Injected fakes omit it too.
+ * So the connect step is opt-in, discovered rather than assumed.
  */
-export async function checkReadiness(
-  db: Db = prisma,
-  jobQueue: JobQueue = defaultQueue,
-): Promise<{ status: number; body: ReadinessResponse }> {
-  let databaseStatus: DependencyStatus = 'down';
-  let queueStatus: DependencyStatus = 'down';
-  let dbLatency = 0;
-  let queueLatency = 0;
+function hasConnect(db: Db): db is Db & { $connect: () => Promise<void> } {
+  return typeof (db as { $connect?: unknown }).$connect === 'function';
+}
 
-  // 1. Check Database Reachability
-  const dbStart = Date.now();
+/**
+ * Probe the database, attributing the handshake and the query separately.
+ *
+ * On a warm process this is one round trip and `connectMs` is null. On a cold one
+ * the handshake is real work that has to happen regardless; timing it here is what
+ * makes it possible to tell "the database is slow" apart from "this container is
+ * new", which are the same 800 ms in a blended figure and have opposite fixes.
+ */
+async function probeDatabase(db: Db): Promise<DatabaseProbe> {
+  const wasWarm = connectionLifecycle().warm;
+  const startedAt = Date.now();
+  let connectMs: number | null = null;
+
   try {
-    // Parameterized trivial query to verify connection pool readiness
+    if (!wasWarm && hasConnect(db)) {
+      await db.$connect();
+      connectMs = Date.now() - startedAt;
+      markDatabaseWarm();
+    }
+
+    const queryStartedAt = Date.now();
     await db.$queryRawUnsafe('SELECT 1');
-    databaseStatus = 'up';
-    dbLatency = Date.now() - dbStart;
-    metricsRegistry.dbQueryDuration.observe(dbLatency / 1000, { operation: 'health_check' });
+    const queryMs = Date.now() - queryStartedAt;
+
+    // The histogram is a *query* duration histogram. Feeding it a cold-start
+    // handshake would put a 900 ms outlier in a distribution of 2 ms queries.
+    metricsRegistry.dbQueryDuration.observe(queryMs / 1000, { operation: 'health_check' });
+
+    return {
+      status: 'up',
+      latencyMs: Date.now() - startedAt,
+      connectMs,
+      queryMs,
+      warm: wasWarm,
+    };
   } catch (err) {
-    dbLatency = Date.now() - dbStart;
+    const latencyMs = Date.now() - startedAt;
     logger.error('health.readiness.database_failed', {
-      latencyMs: dbLatency,
+      latencyMs,
       error: err instanceof Error ? err.message : String(err),
     });
+    return { status: 'down', latencyMs, connectMs, queryMs: 0, warm: wasWarm };
   }
+}
 
-  // 2. Check Job Queue Responsiveness
-  const queueStart = Date.now();
+async function probeQueue(jobQueue: JobQueue): Promise<QueueProbe> {
+  const startedAt = Date.now();
   try {
     const stats = await jobQueue.stats();
-    queueStatus = 'up';
-    queueLatency = Date.now() - queueStart;
+    const latencyMs = Date.now() - startedAt;
+
     metricsRegistry.jobQueueDepth.set(stats.pending, { status: 'pending' });
     metricsRegistry.jobQueueDepth.set(stats.running, { status: 'running' });
     metricsRegistry.jobQueueDepth.set(stats.dead, { status: 'dead' });
     if (stats.oldestPendingAgeSeconds !== null) {
       metricsRegistry.jobQueueOldestPendingAge.set(stats.oldestPendingAgeSeconds);
     }
+
+    return { status: 'up', latencyMs, stats };
   } catch (err) {
-    queueLatency = Date.now() - queueStart;
+    const latencyMs = Date.now() - startedAt;
     logger.error('health.readiness.queue_failed', {
-      latencyMs: queueLatency,
+      latencyMs,
       error: err instanceof Error ? err.message : String(err),
     });
+    return { status: 'down', latencyMs, stats: null };
   }
+}
 
-  const isReady = databaseStatus === 'up' && queueStatus === 'up';
+/**
+ * Both probes, once.
+ *
+ * Sequential on purpose. `jobQueue.stats()` is itself two queries, so running it
+ * concurrently with the database probe would make a cold container open a second
+ * pooled connection — and pay a second handshake — to answer a health check. The
+ * database probe going first means the queue probe reuses what it established.
+ */
+async function probeDependencies(
+  db: Db,
+  jobQueue: JobQueue,
+): Promise<{ database: DatabaseProbe; queue: QueueProbe }> {
+  const database = await probeDatabase(db);
+  const queue = await probeQueue(jobQueue);
+  return { database, queue };
+}
 
-  const body: ReadinessResponse = {
-    status: isReady ? 'ready' : 'unhealthy',
-    timestamp: new Date().toISOString(),
-    checks: {
-      database: databaseStatus,
-      queue: queueStatus,
-    },
-    latenciesMs: {
-      database: dbLatency,
-      queue: queueLatency,
-    },
-  };
+function toReadiness(
+  database: DatabaseProbe,
+  queue: QueueProbe,
+): { status: number; body: ReadinessResponse } {
+  const isReady = database.status === 'up' && queue.status === 'up';
 
   return {
     status: isReady ? 200 : 503,
-    body,
+    body: {
+      status: isReady ? 'ready' : 'unhealthy',
+      timestamp: new Date().toISOString(),
+      checks: {
+        database: database.status,
+        queue: queue.status,
+      },
+      latenciesMs: {
+        database: database.latencyMs,
+        queue: queue.latencyMs,
+      },
+    },
   };
+}
+
+/**
+ * Deep dependency readiness check for orchestrators / load balancers.
+ * Probes database reachability and background queue responsiveness.
+ *
+ * The response shape is unchanged and stays byte-compatible for load balancers.
+ */
+export async function checkReadiness(
+  db: Db = prisma,
+  jobQueue: JobQueue = defaultQueue,
+): Promise<{ status: number; body: ReadinessResponse }> {
+  const { database, queue } = await probeDependencies(db, jobQueue);
+  return toReadiness(database, queue);
 }
 
 /**
@@ -166,18 +270,16 @@ export async function getHealthOverview(
   db: Db = prisma,
   jobQueue: JobQueue = defaultQueue,
 ): Promise<{ status: number; body: HealthOverviewResponse }> {
-  const readiness = await checkReadiness(db, jobQueue);
-  let queueStats: QueueStats | undefined;
-
-  try {
-    queueStats = await jobQueue.stats();
-  } catch {
-    // handled in readiness check
-  }
+  // One probe pass, reused for both the status code and the detail. This used to
+  // call the readiness check and then ask the queue for its stats a second time,
+  // which meant every hit on this endpoint ran five queries to report on three.
+  const { database, queue } = await probeDependencies(db, jobQueue);
+  const readiness = toReadiness(database, queue);
 
   const mem = process.memoryUsage();
-  const isHealthy = readiness.body.checks.database === 'up' && readiness.body.checks.queue === 'up';
-  const isDegraded = readiness.body.checks.database === 'up' && readiness.body.checks.queue === 'down';
+  const cpuCount = os.cpus().length;
+  const isHealthy = database.status === 'up' && queue.status === 'up';
+  const isDegraded = database.status === 'up' && queue.status === 'down';
 
   const body: HealthOverviewResponse = {
     status: isHealthy ? 'healthy' : isDegraded ? 'degraded' : 'unhealthy',
@@ -186,14 +288,11 @@ export async function getHealthOverview(
     environment: isProduction ? 'production' : env.NODE_ENV,
     version: APP_VERSION,
     dependencies: {
-      database: {
-        status: readiness.body.checks.database,
-        latencyMs: readiness.body.latenciesMs.database,
-      },
+      database,
       queue: {
-        status: readiness.body.checks.queue,
-        latencyMs: readiness.body.latenciesMs.queue,
-        stats: queueStats,
+        status: queue.status,
+        latencyMs: queue.latencyMs,
+        ...(queue.stats === null ? {} : { stats: queue.stats }),
       },
     },
     system: {
@@ -201,6 +300,11 @@ export async function getHealthOverview(
       memoryHeapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
       memoryRssMb: Math.round(mem.rss / 1024 / 1024),
       nodeVersion: process.version,
+      cpuCount,
+    },
+    connection: {
+      ...connectionConfigFacts(cpuCount),
+      bootstrapConnectMs: connectionLifecycle().bootstrapConnectMs,
     },
     integrations: {
       whatsapp: isWhatsAppMocked ? 'mock' : 'live',

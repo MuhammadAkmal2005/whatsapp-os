@@ -129,5 +129,77 @@ describe('Phase 9 Unit 3: Health & Readiness Service', () => {
       expect(['mock', 'live']).toContain(res.body.integrations.whatsapp);
       expect(['local', 's3']).toContain(res.body.integrations.storage);
     });
+
+    it('probes the job queue once per request rather than once per reported field', async () => {
+      const mockDb = {
+        $queryRawUnsafe: vi.fn().mockResolvedValue([{ '?column?': 1 }]),
+      } as unknown as Db;
+
+      const stats = vi.fn().mockResolvedValue({
+        pending: 0,
+        running: 0,
+        dead: 0,
+        oldestPendingAgeSeconds: null,
+      } as QueueStats);
+
+      await getHealthOverview(mockDb, { stats } as unknown as JobQueue);
+
+      // `stats()` is itself two queries. Calling it twice made a health check cost
+      // five queries to report on three dependencies.
+      expect(stats).toHaveBeenCalledTimes(1);
+    });
+
+    it('attributes connect cost separately from query cost', async () => {
+      const mockDb = {
+        $queryRawUnsafe: vi.fn().mockResolvedValue([{ '?column?': 1 }]),
+      } as unknown as Db;
+
+      const mockQueue = {
+        stats: vi.fn().mockResolvedValue({
+          pending: 0,
+          running: 0,
+          dead: 0,
+          oldestPendingAgeSeconds: null,
+        } as QueueStats),
+      } as unknown as JobQueue;
+
+      const res = await getHealthOverview(mockDb, mockQueue);
+      const database = res.body.dependencies.database;
+
+      expect(database.queryMs).toBeGreaterThanOrEqual(0);
+      expect(database.latencyMs).toBeGreaterThanOrEqual(database.queryMs);
+      // The injected fake exposes no `$connect`, so there is no handshake to attribute.
+      expect(database.connectMs).toBeNull();
+      expect(typeof database.warm).toBe('boolean');
+    });
+
+    it('reports connection configuration as derived facts, never as a connection string', async () => {
+      const mockDb = {
+        $queryRawUnsafe: vi.fn().mockResolvedValue([{ '?column?': 1 }]),
+      } as unknown as Db;
+
+      const mockQueue = {
+        stats: vi.fn().mockResolvedValue({
+          pending: 0,
+          running: 0,
+          dead: 0,
+          oldestPendingAgeSeconds: null,
+        } as QueueStats),
+      } as unknown as JobQueue;
+
+      const res = await getHealthOverview(mockDb, mockQueue);
+
+      expect(typeof res.body.connection.pooled).toBe('boolean');
+      expect(typeof res.body.connection.pgbouncerFlag).toBe('boolean');
+      expect(res.body.system.cpuCount).toBeGreaterThan(0);
+      expect(res.body.connection.cpuCount).toBe(res.body.system.cpuCount);
+
+      // CRITICAL: the connection block is derived from DATABASE_URL, so it is the
+      // one place a credential could plausibly reach a public response body.
+      const serialized = JSON.stringify(res.body);
+      expect(serialized).not.toContain('postgresql://');
+      expect(serialized).not.toContain('whatsapp_os');
+      expect(serialized).not.toContain('localhost');
+    });
   });
 });
