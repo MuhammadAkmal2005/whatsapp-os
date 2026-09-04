@@ -27,6 +27,7 @@ function contextFor(role: WorkspaceRole): TenantContext {
     sessionId: 'session-1',
     currency: 'PKR',
     planKey: 'business',
+    onboarding: { completedSteps: [], completedAt: null },
     requestId: 'request-1',
   };
 }

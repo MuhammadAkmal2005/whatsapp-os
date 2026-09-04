@@ -114,6 +114,12 @@ function toTenantContext(
     // Fail closed: a workspace with no subscription row resolves to the free
     // plan's limits rather than to unmetered use.
     planKey: row.planKey ?? 'free',
+    // Carried rather than re-read: the membership query above selects both
+    // columns from the same `Workspace` row the dashboard would have queried.
+    onboarding: {
+      completedSteps: row.workspace.onboardingCompletedSteps,
+      completedAt: row.workspace.onboardingCompletedAt,
+    },
     requestId: requestId(),
   };
 }

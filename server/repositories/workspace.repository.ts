@@ -35,38 +35,62 @@ export type MembershipContextRow = {
 };
 
 /**
- * The caller's membership in one workspace, with everything a `TenantContext`
- * needs. Returns null when the user is not a member — which is the isolation
- * boundary: an id the caller does not belong to is indistinguishable from one
- * that does not exist.
+ * The columns a `TenantContext` is built from.
+ *
+ * Shared by both resolution paths — by id and by slug — deliberately. The two
+ * used to carry their own copies of this shape, and a field added to one but not
+ * the other is exactly the kind of divergence that shows up as a context missing
+ * its plan key on one route only.
  */
-export async function findMembershipForContext(
-  db: Db,
-  workspaceId: string,
-  userId: string,
-): Promise<MembershipContextRow | null> {
-  const row = await db.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId } },
+const MEMBERSHIP_CONTEXT_SELECT = {
+  id: true,
+  role: true,
+  status: true,
+  workspace: {
     select: {
       id: true,
-      role: true,
+      slug: true,
+      name: true,
       status: true,
-      workspace: {
-        select: {
-          id: true,
-          slug: true,
-          name: true,
-          status: true,
-          currency: true,
-          deletedAt: true,
-          onboardingCompletedSteps: true,
-          onboardingCompletedAt: true,
-          subscription: { select: { planKey: true } },
-        },
-      },
+      currency: true,
+      deletedAt: true,
+      onboardingCompletedSteps: true,
+      onboardingCompletedAt: true,
+      subscription: { select: { planKey: true } },
     },
-  });
+  },
+} as const;
 
+/** The row shape `MEMBERSHIP_CONTEXT_SELECT` returns, named so the mapper below
+ *  can be typed without restating it. */
+type MembershipContextSelection = {
+  id: string;
+  role: WorkspaceRole;
+  status: 'ACTIVE' | 'SUSPENDED';
+  workspace: {
+    id: string;
+    slug: string;
+    name: string;
+    status: 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED';
+    currency: string;
+    deletedAt: Date | null;
+    onboardingCompletedSteps: string[];
+    onboardingCompletedAt: Date | null;
+    subscription: { planKey: string } | null;
+  };
+};
+
+/**
+ * Maps a selected row to the context shape, or null for a soft-deleted
+ * workspace.
+ *
+ * The `deletedAt` filter is applied in SQL *and* re-checked here. Redundant on
+ * purpose: this is the layered-isolation habit from `tenancy/context.ts`, and the
+ * cost of one null comparison is not worth reasoning about.
+ */
+function toMembershipContextRow(
+  row: MembershipContextSelection | null,
+): MembershipContextRow | null {
   if (!row || row.workspace.deletedAt !== null) return null;
 
   return {
@@ -86,18 +110,51 @@ export async function findMembershipForContext(
   };
 }
 
-/** Same resolution, but from a slug — the URL segment the app routes on. */
+/**
+ * The caller's membership in one workspace, with everything a `TenantContext`
+ * needs. Returns null when the user is not a member — which is the isolation
+ * boundary: an id the caller does not belong to is indistinguishable from one
+ * that does not exist.
+ */
+export async function findMembershipForContext(
+  db: Db,
+  workspaceId: string,
+  userId: string,
+): Promise<MembershipContextRow | null> {
+  const row = await db.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId } },
+    select: MEMBERSHIP_CONTEXT_SELECT,
+  });
+
+  return toMembershipContextRow(row);
+}
+
+/**
+ * Same resolution, but from a slug — the URL segment the app routes on.
+ *
+ * Filters the membership through the workspace relation rather than looking the
+ * slug up first and keying on the id it returns. Same guarantee, one fewer round
+ * trip: the scope is still `userId`, so a slug the caller is not a member of
+ * yields null exactly as before, and a slug that does not exist is
+ * indistinguishable from one that does — which is the property that stops an
+ * attacker enumerating other tenants' workspace names.
+ *
+ * `findFirst` rather than `findUnique` because the filter spans a relation, but
+ * at most one row can match: `Workspace.slug` is unique and
+ * `WorkspaceMember(workspaceId, userId)` is unique, so the result is
+ * deterministic without an `orderBy`.
+ */
 export async function findMembershipBySlug(
   db: Db,
   slug: string,
   userId: string,
 ): Promise<MembershipContextRow | null> {
-  const workspace = await db.workspace.findFirst({
-    where: { slug, deletedAt: null },
-    select: { id: true },
+  const row = await db.workspaceMember.findFirst({
+    where: { userId, workspace: { slug, deletedAt: null } },
+    select: MEMBERSHIP_CONTEXT_SELECT,
   });
-  if (!workspace) return null;
-  return findMembershipForContext(db, workspace.id, userId);
+
+  return toMembershipContextRow(row);
 }
 
 export type WorkspaceSummary = {
@@ -237,30 +294,6 @@ export async function touchMemberActivity(db: Db, membershipId: string, at: Date
     where: { id: membershipId },
     data: { lastActiveAt: at },
   });
-}
-
-export type OnboardingState = {
-  completedSteps: string[];
-  completedAt: Date | null;
-};
-
-/**
- * The onboarding checklist state for one workspace. Scoped by `workspaceId` and
- * read directly rather than threaded through `TenantContext`, which stays lean —
- * only the dashboard needs this, and only on render.
- */
-export async function getOnboardingState(
-  db: Db,
-  workspaceId: string,
-): Promise<OnboardingState> {
-  const workspace = await db.workspace.findUnique({
-    where: { id: workspaceId },
-    select: { onboardingCompletedSteps: true, onboardingCompletedAt: true },
-  });
-  return {
-    completedSteps: workspace?.onboardingCompletedSteps ?? [],
-    completedAt: workspace?.onboardingCompletedAt ?? null,
-  };
 }
 
 /** Adds a step to the onboarding checklist without clobbering the existing

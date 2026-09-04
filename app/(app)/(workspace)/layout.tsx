@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 
 import { AppShell } from '@/components/app-shell/app-shell';
 import { listUserWorkspaces } from '@/server/services/workspace/workspace.service';
-import { getTenantContext } from '@/server/tenancy/resolve';
+import { getSessionActor, getTenantContext } from '@/server/tenancy/resolve';
 
 /**
  * The boundary for everything inside a workspace.
@@ -14,12 +14,23 @@ import { getTenantContext } from '@/server/tenancy/resolve';
  * account on to onboarding. The resolved `TenantContext` is the single source of
  * the workspace identity the shell renders; nothing here trusts a value from the
  * client.
+ *
+ * The two reads run concurrently on purpose. The switcher's workspace list is
+ * scoped by user, not by workspace, so it needs only the id the session already
+ * established — awaiting the membership check first made it a third serial
+ * database wave for no reason. `getSessionActor` is memoised per request, so
+ * reading it here costs nothing: the parent layout has already resolved it, and
+ * `getTenantContext` below shares the same lookup.
  */
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
-  const context = await getTenantContext();
-  if (!context) redirect('/select-workspace');
+  const actor = await getSessionActor();
+  if (!actor) redirect('/login');
 
-  const workspaces = await listUserWorkspaces(context.user.id);
+  const [context, workspaces] = await Promise.all([
+    getTenantContext(),
+    listUserWorkspaces(actor.user.id),
+  ]);
+  if (!context) redirect('/select-workspace');
 
   return (
     <AppShell
@@ -40,3 +51,4 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
     </AppShell>
   );
 }
+

@@ -20,25 +20,26 @@ import {
   type DashboardMetrics,
 } from '@/server/repositories/metrics.repository';
 import {
-  getOnboardingState,
-  type OnboardingState,
-} from '@/server/repositories/workspace.repository';
-import { requirePermission, type TenantContext } from '@/server/tenancy/context';
+  requirePermission,
+  type TenantContext,
+  type WorkspaceOnboardingState,
+} from '@/server/tenancy/context';
 
 export type DashboardData = {
   metrics: DashboardMetrics;
-  onboarding: OnboardingState;
+  onboarding: WorkspaceOnboardingState;
   activity: ActivityEntry[];
 };
 
 export async function getDashboardData(context: TenantContext): Promise<DashboardData> {
   requirePermission(context, 'analytics:read');
 
-  const [metrics, onboarding, activity] = await Promise.all([
+  // Onboarding progress is not fetched: it arrives on the context, selected by
+  // the membership read that proved access to this workspace in the first place.
+  const [metrics, activity] = await Promise.all([
     getDashboardMetrics(prisma, context.workspaceId),
-    getOnboardingState(prisma, context.workspaceId),
     getRecentActivity(prisma, context.workspaceId),
   ]);
 
-  return { metrics, onboarding, activity };
+  return { metrics, onboarding: context.onboarding, activity };
 }

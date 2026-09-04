@@ -34,6 +34,7 @@ function contextFor(role: WorkspaceRole, workspaceId = WORKSPACE_A): TenantConte
     sessionId: 'session-1',
     currency: 'PKR',
     planKey: 'business',
+    onboarding: { completedSteps: [], completedAt: null },
     requestId: 'request-1',
   };
 }

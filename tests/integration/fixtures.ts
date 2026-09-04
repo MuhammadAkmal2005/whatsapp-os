@@ -176,6 +176,7 @@ export function tenantContextFor(input: {
     sessionId: randomUUID(),
     currency: input.currency,
     planKey: input.planKey ?? 'business',
+    onboarding: { completedSteps: [], completedAt: null },
     requestId: randomUUID(),
   };
 }

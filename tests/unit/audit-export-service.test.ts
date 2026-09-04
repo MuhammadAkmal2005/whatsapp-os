@@ -35,6 +35,7 @@ describe('Phase 9 Unit 3: Audit Log Export Service', () => {
     sessionId: 'session-owner',
     currency: 'PKR',
     planKey: 'pro',
+    onboarding: { completedSteps: [], completedAt: null },
     requestId: 'req-test-audit',
   };
 

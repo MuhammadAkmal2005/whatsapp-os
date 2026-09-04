@@ -42,6 +42,18 @@ export type AuthenticatedUser = {
 };
 
 /**
+ * How far through setup a workspace is.
+ *
+ * Rides on the context because the membership read that proves access already
+ * selects both columns from the same `Workspace` row — the dashboard used to
+ * re-read them in a second query for no gain.
+ */
+export type WorkspaceOnboardingState = {
+  readonly completedSteps: string[];
+  readonly completedAt: Date | null;
+};
+
+/**
  * A verified caller acting inside one workspace.
  *
  * Construction is the security check. If you are holding one of these, membership
@@ -62,6 +74,9 @@ export type TenantContext = {
   readonly currency: SupportedCurrency;
   /** Resolved plan key, for limit checks without a second query. */
   readonly planKey: string;
+  /** Setup progress, for the dashboard checklist. Same reasoning as `currency`:
+   *  already on the membership row, so reading it again would be a wasted hop. */
+  readonly onboarding: WorkspaceOnboardingState;
   /** Correlates every log line and error response for this request. */
   readonly requestId: string;
 };

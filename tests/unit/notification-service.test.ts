@@ -26,6 +26,7 @@ describe('Notification Service (Phase 6 Unit 2)', () => {
     sessionId: 'session-1234',
     currency: 'PKR',
     planKey: 'FREE',
+    onboarding: { completedSteps: [], completedAt: null },
     requestId: 'req-1234',
     user: {
       id: '33333333-3333-3333-3333-333333333333',
