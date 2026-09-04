@@ -17,7 +17,7 @@ export function LogoMark({
 }) {
   return (
     <svg
-      viewBox="0 0 337 330"
+      viewBox="21 14 312 312"
       fill="none"
       role="img"
       aria-label={`${APP_NAME} logo`}
