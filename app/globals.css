@@ -53,14 +53,14 @@
      Seven steps, darkest ground to lightest surface, so depth is legible without
      shadow: sunken wells, the page itself, cards, what sits on a card, and the
      tint a selected row takes. */
-  --background: 152 16% 96%;
-  --foreground: 172 24% 10%;
+  --background: 152 26% 96%;
+  --foreground: 152 22% 11%;
 
-  --surface-sunken: 152 16% 94%;
-  --surface-selected: 152 30% 88%;
+  --surface-sunken: 152 28% 92%;
+  --surface-selected: 152 38% 89%;
 
-  --card: 152 24% 93%;
-  --card-foreground: 172 24% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 152 22% 11%;
 
   /* A surface stacked on a card — a nested panel, a mock frame, a floating menu. On
      paper it cannot go lighter than the card it sits on, so here it is white and
@@ -73,7 +73,7 @@
   --surface-elevated: 0 0% 100%;
 
   --popover: var(--surface-elevated);
-  --popover-foreground: 172 24% 10%;
+  --popover-foreground: 152 22% 11%;
 
   --overlay: 172 24% 10% / 0.32;
 
@@ -87,14 +87,14 @@
   --primary-surface: 152 34% 92%;
   --primary-border: 152 28% 78%;
 
-  --secondary: 154 12% 93%;
-  --secondary-foreground: 168 24% 17%;
+  --secondary: 152 22% 81%;
+  --secondary-foreground: 152 9% 35%;
 
-  --muted: 152 12% 94%;
-  --muted-foreground: 165 9% 42%;
+  --muted: 152 28% 92%;
+  --muted-foreground: 152 6% 46%;
 
   --accent: 152 24% 90%;
-  --accent-foreground: 168 28% 15%;
+  --accent-foreground: 152 22% 11%;
 
   /* ── Interactive states ───────────────────────────────────────────────────────
      Hover and press for a control with no fill of its own — a ghost or outline
@@ -111,8 +111,8 @@
      toward the page, a control lifts off it. That distinction is deliberate; the
      third answer that existed before this pass (`bg-muted` on three of them) was
      not. */
-  --interactive-hover: var(--accent);
-  --interactive-pressed: 152 30% 85%;
+  --interactive-hover: 152 36% 92%;
+  --interactive-pressed: 152 32% 85%;
 
   /* ── Status ───────────────────────────────────────────────────────────────────
      Each family carries a solid fill, its readable foreground, a tinted surface for
@@ -147,9 +147,9 @@
   --ai-surface: 250 44% 96%;
   --ai-border: 250 32% 85%;
 
-  --border: 154 11% 87%;
-  --border-strong: 156 12% 78%;
-  --input: 154 11% 82%;
+  --border: 152 22% 81%;
+  --border-strong: 152 20% 72%;
+  --input: 152 22% 81%;
   --ring: var(--brand-700);
 
   /* ── Chrome ───────────────────────────────────────────────────────────────────
@@ -162,12 +162,12 @@
      Foreground lightness is set by the dimmest thing drawn in it: inactive nav rows
      render at 75% alpha, so 22% is the value at which those still clear 4.5:1
      against the 92% ground. */
-  --sidebar: 152 20% 91%;
-  --sidebar-foreground: 170 20% 22%;
-  --sidebar-muted: 165 11% 38%;
-  --sidebar-accent: 152 24% 88%;
-  --sidebar-selected: 152 30% 86%;
-  --sidebar-border: 152 18% 84%;
+  --sidebar: 152 28% 92%;
+  --sidebar-foreground: 152 22% 11%;
+  --sidebar-muted: 152 6% 46%;
+  --sidebar-accent: 152 36% 92%;
+  --sidebar-selected: 152 38% 89%;
+  --sidebar-border: 152 22% 81%;
   /* Display type in the panel. The body foreground above is deliberately quiet so a
      nav list recedes; a heading set in it looks tired. This is the one step further
      that a headline needs, and having it as a token is what keeps a raw ink value
@@ -227,22 +227,22 @@
 }
 
 .dark {
-  --background: 204 20% 8%;
-  --foreground: 0 0% 100%;
+  --background: 204 20% 6%;
+  --foreground: 204 10% 96%;
 
-  --surface-sunken: 204 20% 5%;
+  --surface-sunken: 204 22% 4%;
   --surface-selected: 158 50% 16%;
 
-  --card: 204 20% 12%;
-  --card-foreground: 0 0% 100%;
+  --card: 204 18% 10%;
+  --card-foreground: 204 10% 96%;
 
   /* On ink, elevation is value: a panel inside a card genuinely gets lighter. This is the
      mechanism that cannot exist in light mode, where the card is already white — same
      token, and the reason it is a token at all rather than one more shade of `card`. */
-  --surface-elevated: 204 20% 16%;
+  --surface-elevated: 204 16% 14%;
 
   --popover: var(--surface-elevated);
-  --popover-foreground: 0 0% 100%;
+  --popover-foreground: 204 10% 96%;
 
   --overlay: 174 30% 3% / 0.6;
 
@@ -256,17 +256,17 @@
   --primary-surface: 164 30% 16%;
   --primary-border: 162 26% 26%;
 
-  --secondary: 204 15% 15%;
-  --secondary-foreground: 0 0% 100%;
+  --secondary: 204 18% 14%;
+  --secondary-foreground: 204 10% 96%;
 
-  --muted: 204 15% 14%;
-  --muted-foreground: 204 10% 65%;
+  --muted: 204 18% 12%;
+  --muted-foreground: 204 10% 60%;
 
-  --accent: 158 40% 14%;
-  --accent-foreground: 0 0% 100%;
+  --accent: 158 30% 12%;
+  --accent-foreground: 204 10% 96%;
 
-  --interactive-hover: var(--accent);
-  --interactive-pressed: 158 40% 18%;
+  --interactive-hover: 158 30% 12%;
+  --interactive-pressed: 158 40% 16%;
 
   --success: 156 46% 44%;
   --success-foreground: 172 36% 6%;
@@ -294,17 +294,17 @@
   --ai-surface: 250 26% 18%;
   --ai-border: 250 24% 30%;
 
-  --border: 204 15% 18%;
-  --border-strong: 204 15% 24%;
-  --input: 204 15% 20%;
+  --border: 204 16% 18%;
+  --border-strong: 204 16% 26%;
+  --input: 204 16% 20%;
   --ring: 158 46% 50%;
 
-  --sidebar: 204 22% 6%;
-  --sidebar-foreground: 0 0% 95%;
-  --sidebar-muted: 204 10% 55%;
-  --sidebar-accent: 158 40% 14%;
+  --sidebar: 204 20% 8%;
+  --sidebar-foreground: 204 10% 90%;
+  --sidebar-muted: 204 10% 60%;
+  --sidebar-accent: 158 30% 12%;
   --sidebar-selected: 158 50% 16%;
-  --sidebar-border: 204 20% 14%;
+  --sidebar-border: 204 16% 14%;
   --sidebar-strong: 0 0% 100%;
   --sidebar-primary: 158 46% 50%;
 
@@ -391,54 +391,54 @@
  * rhythm, same components; the mechanism follows the theme.
  */
 .marketing-band {
-  --background: var(--brand-50);
-  --foreground: 172 30% 9%;
+  --background: 152 28% 92%;
+  --foreground: 152 22% 11%;
 
-  --surface-sunken: 152 24% 90%;
-  --surface-selected: 154 30% 90%;
+  --surface-sunken: 152 30% 88%;
+  --surface-selected: 152 38% 85%;
 
   /* Cards stay white. On a tinted ground that is what makes them read as objects
      resting on the band rather than panels cut out of it. */
   --card: 0 0% 100%;
-  --card-foreground: 172 30% 9%;
+  --card-foreground: 152 22% 11%;
   --surface-elevated: 0 0% 100%;
 
   --popover: var(--surface-elevated);
-  --popover-foreground: 172 30% 9%;
+  --popover-foreground: 152 22% 11%;
 
-  --secondary: 152 18% 89%;
-  --secondary-foreground: 168 26% 15%;
+  --secondary: 152 22% 81%;
+  --secondary-foreground: 152 9% 35%;
 
-  --muted: 152 18% 90%;
-  --muted-foreground: 165 12% 38%;
+  --muted: 152 30% 88%;
+  --muted-foreground: 152 6% 46%;
 
-  --accent: 152 22% 89%;
-  --accent-foreground: 168 30% 13%;
+  --accent: 152 36% 92%;
+  --accent-foreground: 152 22% 11%;
 
-  --interactive-hover: var(--accent);
-  --interactive-pressed: 152 24% 84%;
+  --interactive-hover: 152 36% 92%;
+  --interactive-pressed: 152 32% 85%;
 
   /* Borders step down with the ground. The page's 87% hairline is invisible on a 93%
      band; everything here is one step darker than its root counterpart. */
-  --border: 152 16% 84%;
-  --border-strong: 152 16% 74%;
-  --input: 152 14% 80%;
+  --border: 152 22% 76%;
+  --border-strong: 152 20% 67%;
+  --input: 152 22% 76%;
 
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
 
 .dark .marketing-band {
-  --background: var(--brand-950);
+  --background: 204 22% 4%;
   --foreground: var(--mk-on-ink);
 
-  --surface-sunken: 158 46% 3%;
-  --surface-selected: 155 28% 13%;
+  --surface-sunken: 204 24% 2%;
+  --surface-selected: 158 50% 14%;
 
-  --card: var(--brand-900);
+  --card: 204 20% 8%;
   --card-foreground: var(--mk-on-ink);
 
-  --surface-elevated: var(--brand-850);
+  --surface-elevated: 204 18% 12%;
 
   --popover: var(--surface-elevated);
   --popover-foreground: var(--mk-on-ink);
