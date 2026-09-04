@@ -53,11 +53,11 @@
      Seven steps, darkest ground to lightest surface, so depth is legible without
      shadow: sunken wells, the page itself, cards, what sits on a card, and the
      tint a selected row takes. */
-  --background: 152 26% 96%;
+  --background: 146 26% 95%;
   --foreground: 152 22% 11%;
 
-  --surface-sunken: 152 28% 92%;
-  --surface-selected: 152 38% 89%;
+  --surface-sunken: 150 21% 91%;
+  --surface-selected: 143 37% 88%;
 
   --card: 0 0% 100%;
   --card-foreground: 152 22% 11%;
@@ -70,7 +70,7 @@
      Every floating panel in the product resolves through it, because a popover *is* an
      elevated surface: one value, named for the role and again for the component that
      is the role's most common instance. */
-  --surface-elevated: 0 0% 100%;
+  --surface-elevated: 144 26% 96%;
 
   --popover: var(--surface-elevated);
   --popover-foreground: 152 22% 11%;
@@ -111,8 +111,8 @@
      toward the page, a control lifts off it. That distinction is deliberate; the
      third answer that existed before this pass (`bg-muted` on three of them) was
      not. */
-  --interactive-hover: 152 36% 92%;
-  --interactive-pressed: 152 32% 85%;
+  --interactive-hover: 146 35% 91%;
+  --interactive-pressed: 143 37% 88%;
 
   /* ── Status ───────────────────────────────────────────────────────────────────
      Each family carries a solid fill, its readable foreground, a tinted surface for
@@ -147,9 +147,9 @@
   --ai-surface: 250 44% 96%;
   --ai-border: 250 32% 85%;
 
-  --border: 152 22% 81%;
-  --border-strong: 152 20% 72%;
-  --input: 152 22% 81%;
+  --border: 145 18% 76%;
+  --border-strong: 149 19% 70%;
+  --input: 145 18% 76%;
   --ring: var(--brand-700);
 
   /* ── Chrome ───────────────────────────────────────────────────────────────────
@@ -162,12 +162,12 @@
      Foreground lightness is set by the dimmest thing drawn in it: inactive nav rows
      render at 75% alpha, so 22% is the value at which those still clear 4.5:1
      against the 92% ground. */
-  --sidebar: 152 28% 92%;
+  --sidebar: 150 21% 91%;
   --sidebar-foreground: 152 22% 11%;
   --sidebar-muted: 152 6% 46%;
-  --sidebar-accent: 152 36% 92%;
-  --sidebar-selected: 152 38% 89%;
-  --sidebar-border: 152 22% 81%;
+  --sidebar-accent: 146 35% 91%;
+  --sidebar-selected: 143 37% 88%;
+  --sidebar-border: 145 18% 76%;
   /* Display type in the panel. The body foreground above is deliberately quiet so a
      nav list recedes; a heading set in it looks tired. This is the one step further
      that a headline needs, and having it as a token is what keeps a raw ink value
@@ -391,11 +391,11 @@
  * rhythm, same components; the mechanism follows the theme.
  */
 .marketing-band {
-  --background: 152 28% 92%;
+  --background: 150 21% 91%;
   --foreground: 152 22% 11%;
 
   --surface-sunken: 152 30% 88%;
-  --surface-selected: 152 38% 85%;
+  --surface-selected: 143 37% 88%;
 
   /* Cards stay white. On a tinted ground that is what makes them read as objects
      resting on the band rather than panels cut out of it. */
@@ -412,17 +412,17 @@
   --muted: 152 30% 88%;
   --muted-foreground: 152 6% 46%;
 
-  --accent: 152 36% 92%;
+  --accent: 146 35% 91%;
   --accent-foreground: 152 22% 11%;
 
-  --interactive-hover: 152 36% 92%;
-  --interactive-pressed: 152 32% 85%;
+  --interactive-hover: 146 35% 91%;
+  --interactive-pressed: 143 37% 88%;
 
   /* Borders step down with the ground. The page's 87% hairline is invisible on a 93%
      band; everything here is one step darker than its root counterpart. */
-  --border: 152 22% 76%;
+  --border: 149 19% 70%;
   --border-strong: 152 20% 67%;
-  --input: 152 22% 76%;
+  --input: 149 19% 70%;
 
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
