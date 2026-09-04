@@ -81,6 +81,36 @@ export type TenantContext = {
   readonly requestId: string;
 };
 
+/**
+ * Who is acting inside a workspace, without assuming they are a person.
+ *
+ * The AI agent is a real actor with real authority, but it is not a member: no
+ * `WorkspaceMember` row exists for it, so it has no membership id, no user, and no
+ * session. It used to be handed to `createOrder` as a `TenantContext` built by
+ * `as unknown as TenantContext` with `membershipId: null as unknown as string` — a
+ * cast that compiled by asserting something false, so any service that dereferenced
+ * that id would have failed at runtime on the AI path and only on the AI path.
+ *
+ * This type is the honest shape instead: exactly the five fields order creation
+ * reads, with the membership id nullable because for the agent it genuinely is null.
+ * A full `TenantContext` satisfies it structurally — `string` is assignable to
+ * `string | null` — so every human call site compiles unchanged, and the database
+ * columns behind it (`Order.createdByMemberId`, `OrderEvent.actorMemberId`) were
+ * already nullable.
+ *
+ * Note what is *not* here: a permission set. Authorization runs off `role` through
+ * the same `requirePermission` every human path uses, so the agent is constrained by
+ * the `AGENT` role rather than by a list it carries with it.
+ */
+export type WorkspaceActorContext = {
+  readonly workspaceId: string;
+  readonly workspaceName: string;
+  readonly role: WorkspaceRole;
+  /** Null for the AI agent, which acts with a role but holds no membership. */
+  readonly membershipId: string | null;
+  readonly currency: SupportedCurrency;
+};
+
 /** A caller who is signed in but not yet acting in a workspace — during onboarding,
  *  or on the workspace picker. */
 export type UserContext = {
@@ -92,13 +122,26 @@ export type UserContext = {
 // ── Permission enforcement ─────────────────────────────────────────────────
 
 /**
+ * The only field a permission check reads.
+ *
+ * Declared so the three functions below accept either a `TenantContext` or a
+ * `WorkspaceActorContext` without either type having to know about the other.
+ * Widening a parameter cannot weaken the check — the body is unchanged and every
+ * existing caller still satisfies it; it only stops a caller who legitimately has a
+ * role from having to fabricate a user and a session to prove it.
+ */
+type RoleBearingContext = {
+  readonly role: WorkspaceRole;
+};
+
+/**
  * Throws unless the context's role holds `permission`.
  *
  * Called at the top of every mutating service method. Hiding a button is a
  * courtesy to the user; this is the actual control, and it runs on the server
  * where the client cannot reach it.
  */
-export function requirePermission(context: TenantContext, permission: Permission): void {
+export function requirePermission(context: RoleBearingContext, permission: Permission): void {
   if (!roleHasPermission(context.role, permission)) {
     throw new ForbiddenError(
       `Your role (${context.role.toLowerCase()}) cannot perform this action.`,
@@ -107,7 +150,7 @@ export function requirePermission(context: TenantContext, permission: Permission
 }
 
 export function requireAnyPermission(
-  context: TenantContext,
+  context: RoleBearingContext,
   permissions: readonly Permission[],
 ): void {
   if (!permissions.some((permission) => roleHasPermission(context.role, permission))) {
@@ -117,7 +160,7 @@ export function requireAnyPermission(
   }
 }
 
-export function can(context: TenantContext, permission: Permission): boolean {
+export function can(context: RoleBearingContext, permission: Permission): boolean {
   return roleHasPermission(context.role, permission);
 }
 

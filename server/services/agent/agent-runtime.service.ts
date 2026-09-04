@@ -10,9 +10,11 @@ import 'server-only';
 
 import { prisma, type Db } from '@/db/prisma';
 import { logger } from '@/lib/logger';
+import { coerceCurrency } from '@/lib/money';
 import { consume } from '@/server/ratelimit/limiter';
 import { triggerHumanHandoff } from './handoff.service';
 import { appendAuditLog } from '@/server/repositories/audit.repository';
+import { findWorkspaceCurrency } from '@/server/repositories/workspace.repository';
 import {
   findAgentById,
   findDefaultOrActiveAgent,
@@ -333,7 +335,14 @@ export async function executeAgentTurn(
   }
 
   // 5. Construct Trusted Server-Side AITenantContext
+  //
+  // The currency comes from the workspace's own row, not from a default. Everything the
+  // agent quotes and every order it creates is denominated in it, so a hardcoded
+  // fallback would price a Dubai workspace's clothes in rupees and the customer would
+  // only find out at delivery. `coerceCurrency` stops a column value this build no
+  // longer recognises from failing the whole turn.
   const capabilities = params.customCapabilities ?? deriveCapabilitiesForAgent(agent);
+  const workspaceCurrency = await findWorkspaceCurrency(db, params.workspaceId);
   const aiContext = createAITenantContext({
     workspaceId: params.workspaceId,
     agentId: agent.id,
@@ -341,6 +350,7 @@ export async function executeAgentTurn(
     messageId: params.messageId,
     executionId: params.executionId,
     capabilities,
+    currency: workspaceCurrency === null ? undefined : coerceCurrency(workspaceCurrency),
   });
 
   // 5.5 Grounding Pipeline

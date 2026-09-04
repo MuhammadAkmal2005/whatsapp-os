@@ -287,6 +287,123 @@ export async function getWorkspaceCountry(db: Db, workspaceId: string): Promise<
   return profile?.country ?? 'PK';
 }
 
+/**
+ * The workspace's display currency, as the raw column value.
+ *
+ * Returned unnarrowed because the column is a plain `String` and the caller decides
+ * what an unrecognised value should do — `coerceCurrency` falls back to the default
+ * rather than throwing, which is the right behaviour when the alternative is
+ * refusing to price an order at all.
+ */
+export async function findWorkspaceCurrency(
+  db: Db,
+  workspaceId: string,
+): Promise<string | null> {
+  const workspace = await db.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { currency: true },
+  });
+  return workspace?.currency ?? null;
+}
+
+/**
+ * The three settings that decide what an order costs beyond the goods themselves.
+ *
+ * Kept separate from the customer-facing profile read below because this one feeds
+ * arithmetic and that one feeds a sentence the AI says out loud. Both are scoped by
+ * `workspaceId`, which is the unique key on the table, so a lookup cannot return
+ * another tenant's row.
+ */
+export type BusinessMoneySettingsRow = {
+  deliveryFeeMinor: number;
+  /** Null means no threshold is configured, which is not the same as zero. */
+  freeDeliveryThresholdMinor: number | null;
+  taxRateBps: number;
+};
+
+/**
+ * Never null.
+ *
+ * A workspace mid-onboarding has no profile row, and an order placed in that window
+ * must still price correctly. Falling back to the column defaults — no fee, no
+ * threshold, no tax — charges the customer for the goods and nothing else, which is
+ * the only defensible answer when the business has not said otherwise.
+ */
+export async function findBusinessMoneySettings(
+  db: Db,
+  workspaceId: string,
+): Promise<BusinessMoneySettingsRow> {
+  const profile = await db.businessProfile.findUnique({
+    where: { workspaceId },
+    select: {
+      deliveryFeeMinor: true,
+      freeDeliveryThresholdMinor: true,
+      taxRateBps: true,
+    },
+  });
+
+  return {
+    deliveryFeeMinor: profile?.deliveryFeeMinor ?? 0,
+    freeDeliveryThresholdMinor: profile?.freeDeliveryThresholdMinor ?? null,
+    taxRateBps: profile?.taxRateBps ?? 0,
+  };
+}
+
+/**
+ * The profile columns a customer is allowed to be told about.
+ *
+ * The `select` below is the enforcement, not a convenience: `logoStorageKey`,
+ * `privacyPolicy`, the street address, the surrogate ids and the timestamps are
+ * never loaded, so no later refactor of the tool that consumes this can leak them by
+ * spreading an object. The street address is excluded on purpose — plenty of
+ * Pakistani online sellers run the business from home, and handing that out to
+ * anyone who asks the chatbot is not a decision they opted into. City and country
+ * are coarse enough to answer "where are you based?".
+ */
+export type CustomerFacingBusinessProfileRow = {
+  legalName: string | null;
+  description: string | null;
+  supportPhone: string | null;
+  supportEmail: string | null;
+  website: string | null;
+  city: string | null;
+  country: string;
+  businessHours: unknown;
+  shippingPolicy: string | null;
+  returnPolicy: string | null;
+  paymentMethods: string[];
+  deliveryFeeMinor: number;
+  freeDeliveryThresholdMinor: number | null;
+  taxRateBps: number;
+};
+
+export async function findCustomerFacingBusinessProfile(
+  db: Db,
+  workspaceId: string,
+): Promise<CustomerFacingBusinessProfileRow | null> {
+  const profile = await db.businessProfile.findUnique({
+    where: { workspaceId },
+    select: {
+      legalName: true,
+      description: true,
+      supportPhone: true,
+      supportEmail: true,
+      website: true,
+      city: true,
+      country: true,
+      businessHours: true,
+      shippingPolicy: true,
+      returnPolicy: true,
+      paymentMethods: true,
+      deliveryFeeMinor: true,
+      freeDeliveryThresholdMinor: true,
+      taxRateBps: true,
+    },
+  });
+
+  return profile ?? null;
+}
+
 /** Records activity so the switcher can order by "where I was last". Best-effort
  *  — a failure here must never break a request, so callers ignore the result. */
 export async function touchMemberActivity(db: Db, membershipId: string, at: Date): Promise<void> {

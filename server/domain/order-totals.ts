@@ -14,6 +14,8 @@
 import {
   add,
   clampToZero,
+  compare,
+  isZero,
   type Money,
   money,
   multiply,
@@ -47,6 +49,15 @@ export type OrderChargeInput = {
   readonly deliveryFee?: Money;
   /** Order-level discount, applied after line discounts. */
   readonly discount?: Money;
+  /**
+   * The goods value at or above which delivery stops being charged, from the
+   * business's own settings.
+   *
+   * Undefined means no threshold is configured, which is a different statement
+   * from a threshold of zero: zero means "delivery is always free", and a shop
+   * owner who types 0 means exactly that.
+   */
+  readonly freeDeliveryThreshold?: Money;
   /** Tax in basis points — 1750 is 17.5%. Basis points because a float rate
    *  reintroduces the rounding error the integer money type exists to avoid. */
   readonly taxBasisPoints?: number;
@@ -63,6 +74,14 @@ export type OrderTotals = {
   readonly deliveryFee: Money;
   readonly tax: Money;
   readonly total: Money;
+  /**
+   * Whether the threshold waived a fee that would otherwise have been charged.
+   *
+   * False when there was no fee to waive, so a caller can read it as "tell the
+   * customer their basket earned free delivery" without it firing for a business
+   * that never charges for delivery in the first place.
+   */
+  readonly freeDeliveryApplied: boolean;
 };
 
 const MAX_LINE_QUANTITY = 10_000;
@@ -135,13 +154,37 @@ export function computeOrderTotals(input: OrderChargeInput): OrderTotals {
   const discountedSubtotal = clampToZero(subtract(subtotal, orderDiscount));
   const appliedOrderDiscount = subtract(subtotal, discountedSubtotal);
 
-  const deliveryFee = input.deliveryFee ?? zero;
-  if (deliveryFee.currency !== currency) {
+  const configuredDeliveryFee = input.deliveryFee ?? zero;
+  if (configuredDeliveryFee.currency !== currency) {
     throw new BusinessRuleError('Delivery fee currency must match the order currency.');
   }
-  if (deliveryFee.minor < 0) {
+  if (configuredDeliveryFee.minor < 0) {
     throw new BusinessRuleError('A delivery fee cannot be negative.');
   }
+
+  const freeDeliveryThreshold = input.freeDeliveryThreshold;
+  if (freeDeliveryThreshold) {
+    if (freeDeliveryThreshold.currency !== currency) {
+      throw new BusinessRuleError(
+        'Free delivery threshold currency must match the order currency.',
+      );
+    }
+    if (freeDeliveryThreshold.minor < 0) {
+      throw new BusinessRuleError('A free delivery threshold cannot be negative.');
+    }
+  }
+
+  // The threshold is tested against the goods value after every discount, and
+  // deliberately excludes delivery and tax. Including the fee in the amount that
+  // decides whether to charge the fee is circular, and including tax would let a
+  // basket cross the line on tax alone — a customer who is told "spend Rs. 5,000
+  // for free delivery" is thinking about the price of the clothes.
+  const freeDeliveryApplied =
+    freeDeliveryThreshold !== undefined &&
+    !isZero(configuredDeliveryFee) &&
+    compare(discountedSubtotal, freeDeliveryThreshold) >= 0;
+
+  const deliveryFee = freeDeliveryApplied ? zero : configuredDeliveryFee;
 
   const taxBasisPoints = input.taxBasisPoints ?? 0;
   if (!Number.isInteger(taxBasisPoints) || taxBasisPoints < 0 || taxBasisPoints > 10_000) {
@@ -160,6 +203,7 @@ export function computeOrderTotals(input: OrderChargeInput): OrderTotals {
       deliveryFee,
       tax: zero,
       total,
+      freeDeliveryApplied,
     };
   }
 
@@ -177,6 +221,7 @@ export function computeOrderTotals(input: OrderChargeInput): OrderTotals {
       deliveryFee,
       tax: money(taxMinor, currency),
       total: taxableBase,
+      freeDeliveryApplied,
     };
   }
 
@@ -189,6 +234,7 @@ export function computeOrderTotals(input: OrderChargeInput): OrderTotals {
     deliveryFee,
     tax,
     total: add(taxableBase, tax),
+    freeDeliveryApplied,
   };
 }
 

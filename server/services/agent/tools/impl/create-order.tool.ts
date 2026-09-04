@@ -1,14 +1,32 @@
+/**
+ * `create_order` — the model proposes, the server prices.
+ *
+ * The input schema below is deliberately narrow: product ids, quantities, a payment
+ * method and an address. There is no field for a unit price, a discount, a delivery fee,
+ * a tax amount or a total, so there is nothing for the model to get wrong and nothing a
+ * customer can talk it into. `order.service.ts` resolves every figure from the catalogue
+ * and from the business's own settings, and this tool reports back what the server
+ * decided.
+ *
+ * The response carries the whole breakdown for that reason. The agent has to tell the
+ * customer what they owe, and the only safe way to let it is to hand it the server's own
+ * numbers pre-formatted — so the sentence it writes cannot drift from the row that was
+ * actually persisted.
+ */
+
 import 'server-only';
 
 import { z } from 'zod';
+
 import { prisma } from '@/db/prisma';
-import type { AITenantContext } from '../../context';
-import type { AITool } from '../tool-contract';
+import { coerceCurrency, formatMoney, money } from '@/lib/money';
 import { findContactById } from '@/server/repositories/contact.repository';
 import { findConversationById } from '@/server/repositories/conversation.repository';
 import { createOrder } from '@/server/services/order/order.service';
+import type { WorkspaceActorContext } from '@/server/tenancy/context';
 import type { CreateOrderInput } from '@/server/validation/order';
-import type { TenantContext } from '@/server/tenancy/context';
+import type { AITenantContext } from '../../context';
+import type { AITool } from '../tool-contract';
 
 const createOrderAiInputSchema = z.object({
   items: z
@@ -43,9 +61,90 @@ const createOrderAiInputSchema = z.object({
   notes: z.string().optional().describe('Any order notes or special instructions.'),
 });
 
+/**
+ * What an order came to: the authoritative integers, plus strings the agent can quote
+ * without doing arithmetic of its own.
+ */
+export interface OrderTotalsDTO {
+  currency: string;
+  subtotalMinor: number;
+  discountMinor: number;
+  deliveryFeeMinor: number;
+  taxMinor: number;
+  totalMinor: number;
+  subtotalDisplay: string;
+  discountDisplay: string;
+  deliveryFeeDisplay: string;
+  taxDisplay: string;
+  totalDisplay: string;
+}
+
+export interface CreateOrderSuccessDTO extends OrderTotalsDTO {
+  success: true;
+  message: string;
+  orderNumber: string;
+  status: string;
+}
+
+export type CreateOrderToolResult =
+  | CreateOrderSuccessDTO
+  | { error: string; message: string };
+
+/** Built from the persisted row, so what the agent says and what the database holds are
+ *  the same numbers by construction rather than by coincidence. */
+function toOrderTotalsDTO(row: {
+  currency: string;
+  subtotalMinor: number;
+  discountMinor: number;
+  deliveryFeeMinor: number;
+  taxMinor: number;
+  totalMinor: number;
+}): OrderTotalsDTO {
+  const currency = coerceCurrency(row.currency);
+  const display = (minor: number): string => formatMoney(money(minor, currency));
+
+  return {
+    currency,
+    subtotalMinor: row.subtotalMinor,
+    discountMinor: row.discountMinor,
+    deliveryFeeMinor: row.deliveryFeeMinor,
+    taxMinor: row.taxMinor,
+    totalMinor: row.totalMinor,
+    subtotalDisplay: display(row.subtotalMinor),
+    discountDisplay: display(row.discountMinor),
+    deliveryFeeDisplay: display(row.deliveryFeeMinor),
+    taxDisplay: display(row.taxMinor),
+    totalDisplay: display(row.totalMinor),
+  };
+}
+
+/**
+ * Whether a thrown value is the unique-constraint violation on the idempotency key.
+ *
+ * Narrowed from `unknown` structurally rather than with an `instanceof` check: the error
+ * crosses a module boundary from Prisma, and the code and the target are the only parts of
+ * it this cares about. Prisma reports `meta.target` as either the column list or the index
+ * name depending on the driver, so both are handled.
+ */
+function isIdempotencyConflict(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  if (!('code' in error) || error.code !== 'P2002') return false;
+  if (!('meta' in error) || typeof error.meta !== 'object' || error.meta === null) {
+    return false;
+  }
+  if (!('target' in error.meta)) return false;
+
+  const target = error.meta.target;
+  if (typeof target === 'string') return target.includes('idempotencyKey');
+  return (
+    Array.isArray(target) &&
+    target.some((entry) => typeof entry === 'string' && entry.includes('idempotencyKey'))
+  );
+}
+
 export const createOrderTool: AITool<
   z.infer<typeof createOrderAiInputSchema>,
-  any
+  CreateOrderToolResult
 > = {
   name: 'create_order',
   description:
@@ -75,8 +174,8 @@ export const createOrderTool: AITool<
         success: true,
         message: 'Order already created for this request (idempotent return).',
         orderNumber: existingOrder.orderNumber,
-        totalMinor: existingOrder.totalMinor,
         status: existingOrder.status,
+        ...toOrderTotalsDTO(existingOrder),
       };
     }
 
@@ -129,33 +228,49 @@ export const createOrderTool: AITool<
       idempotencyKey,
     };
 
-    // 4. Build synthetic TenantContext for the service
-    const tenantCtx = {
+    // 4. Build the actor context for the service.
+    //
+    // The agent is a real actor with real authority but not a workspace member, so there
+    // is no membership id to give and none is invented: `WorkspaceActorContext` types it
+    // as nullable and the columns behind it (`Order.createdByMemberId`,
+    // `OrderEvent.actorMemberId`) are nullable too. This replaced a double cast through
+    // `unknown` that claimed a `null` was a `string`, and a phantom `permissions` set that
+    // `TenantContext` has no field for and that nothing ever read — authorization runs off
+    // `role`, through the same `requirePermission` every human path uses.
+    //
+    // The currency is the workspace's own column rather than the context's copy of it.
+    // The row is already loaded, and what an order is denominated in should not depend on
+    // how the calling context happened to be constructed.
+    const actorCtx: WorkspaceActorContext = {
       workspaceId: ctx.workspaceId,
       workspaceName: workspace.name,
-      membershipId: null as unknown as string,
+      membershipId: null,
       role: 'AGENT',
-      permissions: new Set(['order:create']),
-      currency: ctx.currency,
-    } as unknown as TenantContext;
+      currency: coerceCurrency(workspace.currency),
+    };
 
     // 5. Execute
     try {
-      const order = await createOrder(tenantCtx, createOrderInput, {
+      const order = await createOrder(actorCtx, createOrderInput, {
         createdByAi: true,
         aiAgentId: ctx.agentId,
       });
 
       return {
         success: true,
-        message: 'Order placed successfully.',
+        message:
+          'Order placed successfully. The amounts below are the server\'s own figures, ' +
+          'calculated from the catalogue and this business\'s delivery and tax settings. ' +
+          'Quote them to the customer exactly as given and do not recalculate them.',
         orderNumber: order.orderNumber,
-        totalMinor: order.totalMinor,
         status: order.status,
+        ...toOrderTotalsDTO(order),
       };
-    } catch (error: any) {
-      // Check for Prisma unique constraint violation on idempotencyKey
-      if (error?.code === 'P2002' && error?.meta?.target?.includes('idempotencyKey')) {
+    } catch (error: unknown) {
+      // A concurrent turn won the race on the same idempotency key. The order exists, so
+      // returning it is the correct answer rather than an error the customer would see as
+      // a failed purchase.
+      if (isIdempotencyConflict(error)) {
         const raceOrder = await prisma.order.findUnique({
           where: {
             workspaceId_idempotencyKey: {
@@ -169,8 +284,8 @@ export const createOrderTool: AITool<
             success: true,
             message: 'Order already created for this request (idempotent return).',
             orderNumber: raceOrder.orderNumber,
-            totalMinor: raceOrder.totalMinor,
             status: raceOrder.status,
+            ...toOrderTotalsDTO(raceOrder),
           };
         }
       }

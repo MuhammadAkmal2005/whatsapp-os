@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { ToolRegistry } from '../registry';
 import { checkInventoryTool } from './check-inventory.tool';
+import { getBusinessInfoTool } from './get-business-info.tool';
 import { getCurrentCustomerTool } from './get-current-customer.tool';
 import { getOrderTool } from './get-order.tool';
 import { getProductTool } from './get-product.tool';
@@ -10,6 +11,7 @@ import { createOrderTool } from './create-order.tool';
 
 export {
   checkInventoryTool,
+  getBusinessInfoTool,
   getCurrentCustomerTool,
   getOrderTool,
   getProductTool,
@@ -23,6 +25,7 @@ export const allBusinessReadTools = [
   checkInventoryTool,
   getCurrentCustomerTool,
   getOrderTool,
+  getBusinessInfoTool,
 ] as const;
 
 /**

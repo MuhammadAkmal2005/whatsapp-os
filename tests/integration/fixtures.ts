@@ -12,6 +12,8 @@
 
 import { randomUUID } from 'node:crypto';
 
+import type { Prisma } from '@prisma/client';
+
 import type { SupportedCurrency } from '@/config/constants';
 import { prisma } from '@/db/prisma';
 import type { WorkspaceRole } from '@/server/authz/permissions';
@@ -98,6 +100,65 @@ export async function createWorkspaceFixture(
       role: 'OWNER',
     }),
   };
+}
+
+/**
+ * The business's own settings row — the authoritative source for delivery fee, the
+ * free-delivery threshold and the tax rate.
+ *
+ * A separate helper rather than more options on `createWorkspaceFixture` because the
+ * *absence* of this row is itself a case worth testing: most order tests run without one
+ * and must still price correctly on the column defaults (no fee, no threshold, no tax).
+ * Money arrives here as integer minor units, in the workspace's currency, exactly as the
+ * column stores it.
+ */
+export async function createBusinessProfileFixture(
+  workspaceId: string,
+  settings: {
+    deliveryFeeMinor?: number;
+    freeDeliveryThresholdMinor?: number | null;
+    taxRateBps?: number;
+    legalName?: string;
+    description?: string;
+    city?: string;
+    country?: string;
+    supportPhone?: string;
+    supportEmail?: string;
+    website?: string;
+    shippingPolicy?: string;
+    returnPolicy?: string;
+    privacyPolicy?: string;
+    addressLine1?: string;
+    paymentMethods?: string[];
+    businessHours?: Prisma.InputJsonValue;
+  } = {},
+): Promise<{ id: string }> {
+  const profile = await prisma.businessProfile.create({
+    data: {
+      workspaceId,
+      deliveryFeeMinor: settings.deliveryFeeMinor ?? 0,
+      freeDeliveryThresholdMinor: settings.freeDeliveryThresholdMinor ?? null,
+      taxRateBps: settings.taxRateBps ?? 0,
+      legalName: settings.legalName ?? null,
+      description: settings.description ?? null,
+      city: settings.city ?? null,
+      country: settings.country ?? 'PK',
+      supportPhone: settings.supportPhone ?? null,
+      supportEmail: settings.supportEmail ?? null,
+      website: settings.website ?? null,
+      shippingPolicy: settings.shippingPolicy ?? null,
+      returnPolicy: settings.returnPolicy ?? null,
+      privacyPolicy: settings.privacyPolicy ?? null,
+      addressLine1: settings.addressLine1 ?? null,
+      paymentMethods: settings.paymentMethods ?? [],
+      ...(settings.businessHours === undefined
+        ? {}
+        : { businessHours: settings.businessHours }),
+    },
+    select: { id: true },
+  });
+
+  return profile;
 }
 
 export type MemberFixture = {

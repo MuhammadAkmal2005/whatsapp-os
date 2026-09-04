@@ -43,9 +43,11 @@ import {
   releaseStock,
   markSold,
 } from '@/server/repositories/inventory.repository';
-import { coerceCurrency, money, type Money } from '@/lib/money';
+import { findBusinessMoneySettings } from '@/server/repositories/workspace.repository';
+import { add, coerceCurrency, money, type Money } from '@/lib/money';
 import { ORDER_BUILDER_CATALOGUE_LIMIT, type SupportedCurrency } from '@/config/constants';
 import { listOrderableProducts } from '@/server/repositories/product.repository';
+import { computeOrderTotals } from '@/server/domain/order-totals';
 import { resolvePrice } from '@/server/services/product/pricing';
 import {
   orderCapability,
@@ -53,7 +55,11 @@ import {
   type OrderCapability,
   type OrderListCapability,
 } from '@/server/services/order/order.capability';
-import { requirePermission, type TenantContext } from '@/server/tenancy/context';
+import {
+  requirePermission,
+  type TenantContext,
+  type WorkspaceActorContext,
+} from '@/server/tenancy/context';
 import type {
   CancelOrderInput,
   CreateOrderInput,
@@ -132,13 +138,19 @@ function toOrderMoney(row: {
  *
  * 1. Load the contact.
  * 2. Load each product/variant and resolve the current price.
- * 3. Compute subtotal, validate quantities against available stock.
+ * 3. Resolve the business's own delivery and tax settings, then price the order
+ *    through `server/domain/order-totals`.
  * 4. Create the order and items inside a transaction.
  * 5. Reserve stock in the same transaction.
  * 6. Update contact aggregates.
+ *
+ * Takes a `WorkspaceActorContext` rather than a `TenantContext` because the AI agent
+ * creates orders too and is not a workspace member. A `TenantContext` satisfies it,
+ * so every human call site is unaffected; see the type's own note for why the
+ * alternative — a cast that fabricated a membership id — was worse.
  */
 export async function createOrder(
-  ctx: TenantContext,
+  ctx: WorkspaceActorContext,
   input: CreateOrderInput,
   options?: { createdByAi?: boolean; aiAgentId?: string },
 ): Promise<OrderRow> {
@@ -195,9 +207,10 @@ export async function createOrder(
       productMap.set(p.id, p);
     }
 
-    // Build items with prices and validate stock
+    // Build items with prices and validate stock. The subtotal is deliberately not
+    // accumulated here — `computeOrderTotals` sums the lines below, and two independent
+    // additions of the same numbers is one more than the order needs.
     const finalItems: OrderItemWriteFields[] = [];
-    let subtotalMinor = 0;
 
     for (const item of input.items) {
       const product = productMap.get(item.productId);
@@ -231,7 +244,6 @@ export async function createOrder(
 
       const unitPriceMinor = productPrice.effective.minor;
       const lineSubtotalMinor = unitPriceMinor * item.quantity;
-      subtotalMinor += lineSubtotalMinor;
 
       // Validate stock if tracking inventory
       if (product.trackInventory) {
@@ -258,11 +270,69 @@ export async function createOrder(
       });
     }
 
-    // 3. Compute totals (discount, delivery fee, tax, total)
-    const discountMinor = input.discountMinor ?? 0;
-    const deliveryFeeMinor = input.deliveryFeeMinor ?? 0;
-    const taxMinor = input.taxMinor ?? 0;
-    const totalMinor = subtotalMinor - discountMinor + deliveryFeeMinor + taxMinor;
+    // 3. Price the order from authoritative data.
+    //
+    // Everything beyond the goods value is the business's own policy, read from its
+    // profile inside this transaction, and the arithmetic belongs to
+    // `server/domain/order-totals` — the one engine the unit tests pin. Nothing here
+    // re-derives a total.
+    //
+    // Who may override what is the security-relevant part. A human filling in the
+    // dashboard's order builder is looking at the order and deciding, and
+    // `server/validation/order.ts` documents `discountMinor`, `deliveryFeeMinor` and
+    // `taxMinor` as exactly that — so they are honoured. An AI-created order has no such
+    // standing: the model's arguments are untrusted input, so they are discarded here,
+    // before the arithmetic, and the configured settings decide instead.
+    const honourCallerAmounts = options?.createdByAi !== true;
+    const settings = await findBusinessMoneySettings(tx, ctx.workspaceId);
+    const currency = ctx.currency;
+
+    const requestedDiscountMinor = honourCallerAmounts ? (input.discountMinor ?? 0) : 0;
+    const overrideDeliveryFeeMinor = honourCallerAmounts ? input.deliveryFeeMinor : undefined;
+    const overrideTaxMinor = honourCallerAmounts ? input.taxMinor : undefined;
+
+    // An explicitly entered fee is taken literally, waiver included: the threshold is the
+    // business's rule for its *configured* fee, and applying it to a figure a human just
+    // typed would silently erase what they entered.
+    const usesConfiguredDelivery = overrideDeliveryFeeMinor === undefined;
+    const deliveryFee = money(
+      usesConfiguredDelivery ? settings.deliveryFeeMinor : overrideDeliveryFeeMinor,
+      currency,
+    );
+    const freeDeliveryThreshold =
+      usesConfiguredDelivery && settings.freeDeliveryThresholdMinor !== null
+        ? money(settings.freeDeliveryThresholdMinor, currency)
+        : undefined;
+
+    const totals = computeOrderTotals({
+      currency,
+      // Built with the order's currency rather than each product's, so the figures the
+      // engine adds up are the same integers persisted on the items.
+      lines: finalItems.map((item) => ({
+        unitPrice: money(item.unitPriceMinor, currency),
+        quantity: item.quantity,
+      })),
+      discount: money(requestedDiscountMinor, currency),
+      deliveryFee,
+      freeDeliveryThreshold,
+      // The engine takes a rate, not an amount, so an explicitly entered tax figure is
+      // applied by running the engine at zero and adding it afterwards with integer money
+      // arithmetic. The engine keeps ownership of everything else.
+      taxBasisPoints: overrideTaxMinor === undefined ? settings.taxRateBps : 0,
+    });
+
+    const overrideTax = money(overrideTaxMinor ?? 0, currency);
+    const taxMinor = add(totals.tax, overrideTax).minor;
+    const totalMinor = add(totals.total, overrideTax).minor;
+
+    // Taken from the engine's own figures so the stored columns reconcile:
+    // subtotal - discount + delivery + tax always equals total. The discount is the
+    // *applied* amount, which matters when a shop owner enters one larger than the
+    // basket — the engine clamps that to a free order, and storing the request rather
+    // than the clamp would leave a row whose columns do not add up.
+    const subtotalMinor = totals.subtotal.minor;
+    const discountMinor = totals.discount.minor;
+    const deliveryFeeMinor = totals.deliveryFee.minor;
 
     // 4. Generate order number
     const businessName = ctx.workspaceName;

@@ -170,6 +170,214 @@ describe('order totals', () => {
     });
     expect(totals.total.minor).toBe(0);
   });
+
+  it('charges no tax at a zero rate, and no delivery at a zero fee', () => {
+    // The state most workspaces are actually in: the owner has filled in nothing, so the
+    // order is the goods and nothing else. This has to be exactly right, because it is
+    // the default every business starts from.
+    const both = computeOrderTotals({
+      currency: 'PKR',
+      lines: [{ unitPrice: fromMajor(1499, 'PKR'), quantity: 1 }],
+      deliveryFee: PKR(0),
+      taxBasisPoints: 0,
+    });
+
+    expect(both.deliveryFee.minor).toBe(0);
+    expect(both.tax.minor).toBe(0);
+    expect(both.total.minor).toBe(149_900);
+
+    // Omitting the fields entirely is the same statement as passing zero.
+    const omitted = computeOrderTotals({
+      currency: 'PKR',
+      lines: [{ unitPrice: fromMajor(1499, 'PKR'), quantity: 1 }],
+    });
+    expect(omitted.deliveryFee.minor).toBe(0);
+    expect(omitted.tax.minor).toBe(0);
+    expect(omitted.total.minor).toBe(149_900);
+  });
+
+  it('charges a fee with no tax, and tax with no fee, independently', () => {
+    const feeOnly = computeOrderTotals({
+      currency: 'PKR',
+      lines: [{ unitPrice: fromMajor(1000, 'PKR'), quantity: 1 }],
+      deliveryFee: fromMajor(250, 'PKR'),
+      taxBasisPoints: 0,
+    });
+    expect(feeOnly.tax.minor).toBe(0);
+    expect(feeOnly.total.minor).toBe(125_000);
+
+    const taxOnly = computeOrderTotals({
+      currency: 'PKR',
+      lines: [{ unitPrice: fromMajor(1000, 'PKR'), quantity: 1 }],
+      deliveryFee: PKR(0),
+      taxBasisPoints: 1700,
+    });
+    expect(taxOnly.deliveryFee.minor).toBe(0);
+    expect(taxOnly.tax.minor).toBe(17_000);
+    expect(taxOnly.total.minor).toBe(117_000);
+  });
+
+  it('rounds a fractional tax to the nearest paisa with integer arithmetic', () => {
+    // 17.5% of Rs. 99.99 is 1,749.825 paisa. Half-up on the exact rational, not on a
+    // float that has already drifted.
+    const totals = computeOrderTotals({
+      currency: 'PKR',
+      lines: [{ unitPrice: PKR(9_999), quantity: 1 }],
+      taxBasisPoints: 1750,
+    });
+
+    expect(totals.tax.minor).toBe(1_750);
+    expect(totals.total.minor).toBe(11_749);
+    expect(Number.isInteger(totals.tax.minor)).toBe(true);
+  });
+});
+
+/**
+ * The free-delivery threshold, which is the business rule with the most ways to be
+ * subtly wrong: what counts towards it, whether reaching it exactly qualifies, and what
+ * "not configured" means as distinct from "configured as zero".
+ */
+describe('free delivery threshold', () => {
+  const goods = (minor: number) => [{ unitPrice: PKR(minor), quantity: 1 }];
+
+  it('waives the fee when the goods reach the threshold exactly', () => {
+    const totals = computeOrderTotals({
+      currency: 'PKR',
+      lines: goods(300_000),
+      deliveryFee: PKR(25_000),
+      freeDeliveryThreshold: PKR(300_000),
+    });
+
+    // "Spend Rs. 3,000 for free delivery" means Rs. 3,000 qualifies, not Rs. 3,000.01.
+    expect(totals.deliveryFee.minor).toBe(0);
+    expect(totals.freeDeliveryApplied).toBe(true);
+    expect(totals.total.minor).toBe(300_000);
+  });
+
+  it('waives the fee above the threshold and charges it below', () => {
+    const above = computeOrderTotals({
+      currency: 'PKR',
+      lines: goods(300_001),
+      deliveryFee: PKR(25_000),
+      freeDeliveryThreshold: PKR(300_000),
+    });
+    expect(above.deliveryFee.minor).toBe(0);
+    expect(above.freeDeliveryApplied).toBe(true);
+
+    const below = computeOrderTotals({
+      currency: 'PKR',
+      lines: goods(299_999),
+      deliveryFee: PKR(25_000),
+      freeDeliveryThreshold: PKR(300_000),
+    });
+    expect(below.deliveryFee.minor).toBe(25_000);
+    expect(below.freeDeliveryApplied).toBe(false);
+    expect(below.total.minor).toBe(324_999);
+  });
+
+  it('measures the threshold against the goods after discounts', () => {
+    const totals = computeOrderTotals({
+      currency: 'PKR',
+      lines: goods(320_000),
+      discount: PKR(50_000),
+      deliveryFee: PKR(25_000),
+      freeDeliveryThreshold: PKR(300_000),
+    });
+
+    // Rs. 3,200 of clothes minus a Rs. 500 discount is Rs. 2,700 of value, which is
+    // below the line. Counting the pre-discount figure would give away delivery on a
+    // basket the customer is not actually paying Rs. 3,000 for.
+    expect(totals.deliveryFee.minor).toBe(25_000);
+    expect(totals.freeDeliveryApplied).toBe(false);
+  });
+
+  it('excludes delivery and tax from the qualifying amount', () => {
+    const totals = computeOrderTotals({
+      currency: 'PKR',
+      lines: goods(290_000),
+      deliveryFee: PKR(25_000),
+      freeDeliveryThreshold: PKR(300_000),
+      taxBasisPoints: 1700,
+    });
+
+    // Goods + fee is Rs. 3,150 and goods + fee + tax is more still, but the customer was
+    // told to spend Rs. 3,000 on clothes, and Rs. 2,900 is not Rs. 3,000.
+    expect(totals.deliveryFee.minor).toBe(25_000);
+    expect(totals.freeDeliveryApplied).toBe(false);
+  });
+
+  it('charges the fee on any basket size when no threshold is configured', () => {
+    const totals = computeOrderTotals({
+      currency: 'PKR',
+      lines: goods(10_000_000),
+      deliveryFee: PKR(25_000),
+    });
+
+    expect(totals.deliveryFee.minor).toBe(25_000);
+    expect(totals.freeDeliveryApplied).toBe(false);
+    expect(totals.total.minor).toBe(10_025_000);
+  });
+
+  it('treats a configured threshold of zero as always-free delivery', () => {
+    const totals = computeOrderTotals({
+      currency: 'PKR',
+      lines: goods(100),
+      deliveryFee: PKR(25_000),
+      freeDeliveryThreshold: PKR(0),
+    });
+
+    // An owner who types 0 means "I never charge for delivery", which is a different
+    // statement from leaving the field empty.
+    expect(totals.deliveryFee.minor).toBe(0);
+    expect(totals.freeDeliveryApplied).toBe(true);
+  });
+
+  it('does not claim free delivery when there was no fee to waive', () => {
+    const totals = computeOrderTotals({
+      currency: 'PKR',
+      lines: goods(500_000),
+      freeDeliveryThreshold: PKR(300_000),
+    });
+
+    // A business that never charges for delivery must not have the agent congratulate
+    // the customer on unlocking it.
+    expect(totals.deliveryFee.minor).toBe(0);
+    expect(totals.freeDeliveryApplied).toBe(false);
+  });
+
+  it('taxes the waived fee at zero rather than taxing a fee nobody pays', () => {
+    const totals = computeOrderTotals({
+      currency: 'PKR',
+      lines: goods(300_000),
+      deliveryFee: PKR(25_000),
+      freeDeliveryThreshold: PKR(300_000),
+      taxBasisPoints: 1700,
+    });
+
+    expect(totals.deliveryFee.minor).toBe(0);
+    expect(totals.tax.minor).toBe(51_000); // 17% of the goods alone
+    expect(totals.total.minor).toBe(351_000);
+  });
+
+  it('rejects a negative threshold and a mismatched threshold currency', () => {
+    expect(() =>
+      computeOrderTotals({
+        currency: 'PKR',
+        lines: goods(100_000),
+        deliveryFee: PKR(25_000),
+        freeDeliveryThreshold: money(-1, 'PKR'),
+      }),
+    ).toThrow(BusinessRuleError);
+
+    expect(() =>
+      computeOrderTotals({
+        currency: 'PKR',
+        lines: goods(100_000),
+        deliveryFee: PKR(25_000),
+        freeDeliveryThreshold: money(300_000, 'USD'),
+      }),
+    ).toThrow(BusinessRuleError);
+  });
 });
 
 describe('order totals reject bad input', () => {

@@ -22,6 +22,7 @@ import {
 import { ForbiddenError, NotFoundError } from '@/server/errors';
 import type { CreateOrderInput } from '@/server/validation/order';
 import {
+  createBusinessProfileFixture,
   createContactFixture,
   createMemberFixture,
   createWorkspaceFixture,
@@ -489,5 +490,124 @@ describe('Order service — server-side totals', () => {
     expect(order.deliveryFeeMinor).toBe(300);
     expect(order.taxMinor).toBe(100);
     expect(order.totalMinor).toBe(2200);
+  });
+});
+
+/**
+ * The business's own settings are what price an order when the caller supplies no
+ * explicit figures — which is every AI order and most dashboard orders.
+ *
+ * These go through `createOrder` rather than through the domain function directly, so
+ * they cover the part that was actually broken: the service used to default the fee and
+ * the tax to zero and never read `BusinessProfile` at all.
+ */
+describe('Order service — business settings drive the totals', () => {
+  let workspace: WorkspaceFixture;
+  let contact: { id: string; phoneE164: string; name: string };
+  let product: { id: string };
+
+  beforeEach(async () => {
+    await resetDatabase();
+
+    workspace = await createWorkspaceFixture({ name: 'Business Settings WS' });
+
+    contact = await createContactFixture(workspace.workspaceId, {
+      name: 'Customer',
+      phoneE164: '+923001111111',
+    });
+
+    product = await prisma.product.create({
+      data: {
+        workspaceId: workspace.workspaceId,
+        name: 'Kameez',
+        slug: 'kameez',
+        status: 'ACTIVE',
+        trackInventory: false,
+        priceMinor: 100_000,
+        currency: 'PKR',
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  function orderFor(quantity: number, overrides: Partial<CreateOrderInput> = {}): CreateOrderInput {
+    return {
+      contactId: contact.id,
+      items: [{ productId: product.id, variantId: null, quantity }],
+      customerName: 'Customer',
+      phoneE164: '+923001111111',
+      country: 'PK',
+      paymentMethod: 'COD',
+      ...overrides,
+    };
+  }
+
+  it('charges the delivery fee configured on the business profile', async () => {
+    await createBusinessProfileFixture(workspace.workspaceId, { deliveryFeeMinor: 25_000 });
+
+    const order = await createOrder(workspace.context, orderFor(1));
+
+    expect(order.subtotalMinor).toBe(100_000);
+    expect(order.deliveryFeeMinor).toBe(25_000);
+    expect(order.taxMinor).toBe(0);
+    expect(order.totalMinor).toBe(125_000);
+  });
+
+  it('waives the configured fee once the basket reaches the configured threshold', async () => {
+    await createBusinessProfileFixture(workspace.workspaceId, {
+      deliveryFeeMinor: 25_000,
+      freeDeliveryThresholdMinor: 200_000,
+    });
+
+    const qualifying = await createOrder(workspace.context, orderFor(2));
+    expect(qualifying.subtotalMinor).toBe(200_000);
+    expect(qualifying.deliveryFeeMinor).toBe(0);
+    expect(qualifying.totalMinor).toBe(200_000);
+
+    const notQualifying = await createOrder(workspace.context, orderFor(1));
+    expect(notQualifying.deliveryFeeMinor).toBe(25_000);
+    expect(notQualifying.totalMinor).toBe(125_000);
+  });
+
+  it('charges tax at the configured basis-point rate on goods and delivery', async () => {
+    await createBusinessProfileFixture(workspace.workspaceId, {
+      deliveryFeeMinor: 25_000,
+      taxRateBps: 1700,
+    });
+
+    const order = await createOrder(workspace.context, orderFor(1));
+
+    // 17% of Rs. 1,250 is Rs. 212.50.
+    expect(order.taxMinor).toBe(21_250);
+    expect(order.totalMinor).toBe(146_250);
+    expect(
+      order.subtotalMinor - order.discountMinor + order.deliveryFeeMinor + order.taxMinor,
+    ).toBe(order.totalMinor);
+  });
+
+  it('takes an explicitly entered delivery fee literally, threshold and all', async () => {
+    await createBusinessProfileFixture(workspace.workspaceId, {
+      deliveryFeeMinor: 25_000,
+      freeDeliveryThresholdMinor: 100_000,
+    });
+
+    // The basket reaches the threshold, but a human typed Rs. 50 into the dashboard.
+    // Silently zeroing what someone just entered is worse than honouring it: they can
+    // see the field and they meant it.
+    const order = await createOrder(workspace.context, orderFor(1, { deliveryFeeMinor: 5_000 }));
+
+    expect(order.deliveryFeeMinor).toBe(5_000);
+    expect(order.totalMinor).toBe(105_000);
+  });
+
+  it('prices on the column defaults when the business has no profile row', async () => {
+    const order = await createOrder(workspace.context, orderFor(1));
+
+    expect(order.deliveryFeeMinor).toBe(0);
+    expect(order.taxMinor).toBe(0);
+    expect(order.totalMinor).toBe(100_000);
   });
 });

@@ -7,6 +7,7 @@ import { createAITenantContext } from '@/server/services/agent/context';
 import {
   allBusinessReadTools,
   checkInventoryTool,
+  getBusinessInfoTool,
   getCurrentCustomerTool,
   getOrderTool,
   getProductTool,
@@ -15,8 +16,8 @@ import {
 import { ToolRegistry } from '@/server/services/agent/tools/registry';
 
 describe('Business Read Tools Contract & Validation', () => {
-  it('defines exactly five read-only tools with safe defaults', () => {
-    expect(allBusinessReadTools).toHaveLength(5);
+  it('defines exactly six read-only tools with safe defaults', () => {
+    expect(allBusinessReadTools).toHaveLength(6);
 
     for (const tool of allBusinessReadTools) {
       expect(tool.classification).toBe('READ');
@@ -133,6 +134,32 @@ describe('Business Read Tools Contract & Validation', () => {
       ).toThrow();
     });
   });
+
+  describe('get_business_info contract and schema', () => {
+    it('is a registered read tool guarded by the business:read capability', () => {
+      expect(allBusinessReadTools).toContain(getBusinessInfoTool);
+      expect(getBusinessInfoTool.name).toBe('get_business_info');
+      expect(getBusinessInfoTool.classification).toBe('READ');
+      expect(getBusinessInfoTool.capabilityRequired).toBe('business:read');
+      expect(getBusinessInfoTool.sideEffect).toBe('NONE');
+      expect(getBusinessInfoTool.idempotency).toBe('SAFE_TO_RETRY');
+      expect(getBusinessInfoTool.riskLevel).toBe('LOW');
+      expect(getBusinessInfoTool.auditRequired).toBe(false);
+    });
+
+    it('takes no arguments, so the model cannot name a workspace', () => {
+      const parsed = getBusinessInfoTool.inputSchema.parse({});
+      expect(parsed).toEqual({});
+
+      // The workspace is resolved from the server-built context. A model that tries to
+      // pass one has it stripped before the handler ever runs.
+      const withInjectedScope = getBusinessInfoTool.inputSchema.parse({
+        workspaceId: '99999999-9999-9999-9999-999999999999',
+        includePrivate: true,
+      });
+      expect(withInjectedScope).toEqual({});
+    });
+  });
 });
 
 describe('Tool Registry & Capability Enforcement for Unit 2 Tools', () => {
@@ -168,6 +195,10 @@ describe('Tool Registry & Capability Enforcement for Unit 2 Tools', () => {
     const customerAuth = registry.authorize(ctx, 'get_current_customer');
     expect(customerAuth.authorized).toBe(false);
     expect(customerAuth.reason).toContain('lacks required capability "contacts:read"');
+
+    const businessAuth = registry.authorize(ctx, 'get_business_info');
+    expect(businessAuth.authorized).toBe(false);
+    expect(businessAuth.reason).toContain('lacks required capability "business:read"');
   });
 
   it('filters tool definitions exported to LLM provider strictly by granted capabilities', () => {
@@ -186,5 +217,10 @@ describe('Tool Registry & Capability Enforcement for Unit 2 Tools', () => {
       'get_current_customer',
       'get_order',
     ]);
+
+    // business:read exposes the business tool and nothing else, so a workspace that has
+    // granted only it cannot reach the catalogue or the order book.
+    const defsForBusiness = registry.getDefinitionsForCapabilities(new Set(['business:read']));
+    expect(defsForBusiness.map((d) => d.name)).toEqual(['get_business_info']);
   });
 });

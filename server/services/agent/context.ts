@@ -12,7 +12,7 @@
 import 'server-only';
 
 import { randomUUID } from 'node:crypto';
-import type { SupportedCurrency } from '@/config/constants';
+import { DEFAULT_CURRENCY, type SupportedCurrency } from '@/config/constants';
 import { ForbiddenError, ValidationError } from '@/server/errors';
 
 export interface AITenantContext {
@@ -41,6 +41,14 @@ export type CreateAIContextParams = {
   messageId: string;
   executionId?: string;
   capabilities: Iterable<string>;
+  /**
+   * The workspace's own currency, which the runtime reads from the `Workspace` row.
+   *
+   * Optional only so that callers with no workspace loaded — tests, and tools that
+   * quote nothing — can omit it. Omitting it is not a way to pick a currency: it
+   * falls back to the platform default, and a workspace that trades in AED and is
+   * quoted in rupees is a wrong answer, not a formatting quirk. Pass it.
+   */
   currency?: SupportedCurrency;
   language?: string;
 };
@@ -64,7 +72,7 @@ export function createAITenantContext(params: CreateAIContextParams): AITenantCo
 
   const executionId = params.executionId ?? randomUUID();
   const capabilities = new Set<string>(params.capabilities);
-  const currency: SupportedCurrency = params.currency ?? 'PKR';
+  const currency: SupportedCurrency = params.currency ?? DEFAULT_CURRENCY;
 
   return {
     workspaceId: params.workspaceId,
