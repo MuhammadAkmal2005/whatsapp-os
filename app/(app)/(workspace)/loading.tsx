@@ -1,82 +1,16 @@
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-
-// Stable keys for the placeholder rows. A static skeleton has no data to key on, and array
-// indexes would trip the lint rule against them.
-const FIGURE_KEYS = ['orders', 'conversations', 'customers', 'leads'] as const;
-const ACTIVITY_KEYS = ['a1', 'a2', 'a3', 'a4', 'a5'] as const;
+import { DashboardSkeleton } from '@/components/dashboard/dashboard-skeleton';
 
 /**
  * Fallback for the workspace content area while a page's server data resolves.
  *
- * It renders inside the app shell — the sidebar and header are already painted — and stands in
- * for the dashboard, which is the one screen in this group without a skeleton of its own.
+ * It renders inside the app shell — the sidebar and header are already painted — and covers the
+ * group as a whole: the first paint after signing in, and any child segment that has no loading
+ * module of its own. The dashboard is the route you land on, so this draws the dashboard's shape.
  *
- * The geometry is the dashboard's: the page header, then one card holding a lead figure that
- * spans the band with four supporting figures beneath it, then the activity feed. The previous
- * version drew four separate bordered KPI cards each with an icon tile, which is what the
- * dashboard looked like before `StatBand` — so the whole band visibly rearranged itself when the
- * numbers arrived instead of simply filling in.
- *
- * Two regions are deliberately absent. The worklist above the figures and the setup checklist
- * beside the feed each render only in some workspaces, and a placeholder for a panel that turns
- * out not to exist guarantees a jump for everyone who does not have it. Leaving them out costs
- * only a downward reflow, which does not move anything the reader has already started reading.
+ * The dashboard also has its own `loading.tsx` now, which is what this file cannot do: a parent's
+ * loading module only renders for the segment being replaced, so it never appears when you click
+ * between two screens inside the group. Both render `DashboardSkeleton`.
  */
 export default function WorkspaceLoading() {
-  return (
-    <div className="flex flex-col gap-6" role="status" aria-busy="true">
-      <span className="sr-only">Loading your workspace…</span>
-
-      {/* Mirrors `PageHeader`: the title, then its one-line summary. */}
-      <div className="flex flex-col gap-1.5">
-        <Skeleton className="h-8 w-64 max-w-full" />
-        <Skeleton className="h-4 w-80 max-w-full" />
-      </div>
-
-      {/* One card, five cells sharing it. Each cell draws its own leading hairlines pulled a
-          pixel outside itself, so the band's outer rules are clipped by the card. */}
-      <Card className="overflow-hidden">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="-ml-px -mt-px flex flex-col gap-1.5 border-l border-t border-border px-5 py-5 sm:col-span-2 lg:col-span-4">
-            <Skeleton className="h-3 w-32" />
-            <Skeleton className="h-9 w-44 max-w-full" />
-            <Skeleton className="h-3 w-40 max-w-full" />
-          </div>
-          {FIGURE_KEYS.map((key) => (
-            <div
-              key={key}
-              className="-ml-px -mt-px flex flex-col gap-1.5 border-l border-t border-border px-5 py-4"
-            >
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-7 w-16" />
-              <Skeleton className="h-3 w-full max-w-36" />
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-5 w-32" />
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col divide-y divide-border">
-            {ACTIVITY_KEYS.map((key) => (
-              <div key={key} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                {/* The feed's icons sit bare rather than in a filled disc, so this is a glyph-
-                    sized square and not a `size-8` avatar. */}
-                <Skeleton className="size-4 shrink-0" />
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <Skeleton className="h-4 w-40 max-w-full" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-                <Skeleton className="h-3 w-12 shrink-0" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  return <DashboardSkeleton label="Loading your workspace…" />;
 }

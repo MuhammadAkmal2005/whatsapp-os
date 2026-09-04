@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { isNavRowActive } from '@/components/app-shell/nav-config';
 import { SETTINGS_NAV, type SettingsNavItem } from '@/components/app-shell/settings-nav-config';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { roleHasPermission, type WorkspaceRole } from '@/server/authz/permissions';
@@ -76,7 +77,7 @@ function SettingsNavRow({ item, pathname }: { item: SettingsNavItem; pathname: s
     );
   }
 
-  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const active = isNavRowActive(pathname, item.href);
 
   return (
     <Link

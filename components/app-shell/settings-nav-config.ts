@@ -12,7 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import type { Permission } from '@/server/authz/permissions';
+import { roleHasPermission, type Permission, type WorkspaceRole } from '@/server/authz/permissions';
 
 /**
  * The settings area's sections, in one place.
@@ -35,6 +35,17 @@ export type SettingsNavItem = {
   readonly available: boolean;
   readonly reason?: string;
 };
+
+/**
+ * The settings area's own path.
+ *
+ * Two jobs, which is why it is a named constant rather than a literal in two files. It is the
+ * sidebar row's active-state key — a row lights on its own path or any descendant, so this is
+ * what keeps Settings lit on `/settings/team` and `/settings/billing` alike. And it is the
+ * fallback destination for a role that can open no section at all: `/settings` is the screen
+ * that explains that, so sending them there is correct rather than a dead end.
+ */
+export const SETTINGS_ROOT_HREF = '/settings';
 
 const IN_PROGRESS = 'Being built — available in an upcoming update.';
 
@@ -140,4 +151,26 @@ export function firstAvailableSettingsHref(
 ): string | null {
   const match = SETTINGS_NAV.find((item) => item.available && holds(item.permission));
   return match?.href ?? null;
+}
+
+/**
+ * The same answer as above, for a caller that holds a role rather than a permission predicate.
+ *
+ * The sidebar's Settings row points here instead of at `/settings`, which saves a navigation:
+ * `/settings` renders nothing itself, it works out the first section the role can open and
+ * redirects, so clicking the row used to cost a server round trip whose entire output was "go
+ * here instead" before the real one started.
+ *
+ * Safe to resolve outside the request because the decision has no I/O in it. The server page
+ * asks `can(context, permission)`, which is defined as `roleHasPermission(context.role,
+ * permission)` — the function called below, on the role the server put in the context. Same
+ * registry, same predicate, same order, so the two cannot land on different sections. Nothing
+ * here grants access: every section re-checks its own permission server-side, and this only
+ * decides which door to point at.
+ */
+export function settingsDestinationForRole(role: WorkspaceRole): string {
+  return (
+    firstAvailableSettingsHref((permission) => roleHasPermission(role, permission)) ??
+    SETTINGS_ROOT_HREF
+  );
 }

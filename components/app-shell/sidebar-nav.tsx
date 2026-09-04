@@ -6,8 +6,13 @@ import { usePathname } from 'next/navigation';
 import {
   NAV_FOOTER_ITEMS,
   NAV_SECTIONS,
+  isNavRowActive,
   type NavItem,
 } from '@/components/app-shell/nav-config';
+import {
+  SETTINGS_ROOT_HREF,
+  settingsDestinationForRole,
+} from '@/components/app-shell/settings-nav-config';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { roleHasPermission, type WorkspaceRole } from '@/server/authz/permissions';
 import { cn } from '@/lib/utils';
@@ -51,7 +56,12 @@ export function SidebarNav({
               <ul className="flex flex-col">
                 {items.map((item) => (
                   <li key={item.href}>
-                    <NavRow item={item} pathname={pathname} onNavigate={onNavigate} />
+                    <NavRow
+                      item={item}
+                      href={destinationFor(item, role)}
+                      pathname={pathname}
+                      onNavigate={onNavigate}
+                    />
                   </li>
                 ))}
               </ul>
@@ -83,7 +93,12 @@ export function SidebarFooterNav({
       <ul className="flex flex-col" aria-label="Workspace settings">
         {items.map((item) => (
           <li key={item.href}>
-            <NavRow item={item} pathname={pathname} onNavigate={onNavigate} />
+            <NavRow
+              item={item}
+              href={destinationFor(item, role)}
+              pathname={pathname}
+              onNavigate={onNavigate}
+            />
           </li>
         ))}
       </ul>
@@ -91,19 +106,39 @@ export function SidebarFooterNav({
   );
 }
 
-function isActive(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`);
+/**
+ * Where a row should actually send the reader.
+ *
+ * Every row goes to its own path except Settings. `/settings` has no screen — it works out the
+ * first section the role can open and redirects there — so clicking it used to cost two
+ * navigations: a server round trip whose entire output was "go here instead", and then the real
+ * one. Pointing the row at the section directly removes the first, and lets Next prefetch
+ * something useful instead of prefetching a redirect.
+ *
+ * The destination comes from the settings registry's own resolver, which the page's redirect is
+ * built on too, so the two cannot choose differently. Nothing here decides access — the sections
+ * all check again server-side.
+ */
+function destinationFor(item: NavItem, role: WorkspaceRole): string {
+  return item.href === SETTINGS_ROOT_HREF ? settingsDestinationForRole(role) : item.href;
 }
 
 const rowStyles =
   'flex items-center gap-2.5 px-4 py-2 text-sm transition-colors duration-instant ease-out [&_svg]:size-4 [&_svg]:shrink-0';
 
+/**
+ * `href` is where the row goes; `item.href` is what makes it look active. They differ only for
+ * Settings, where the row must stay lit on `/settings/team` and `/settings/billing` alike — so
+ * the active test keeps matching the section root while the link skips the redirect.
+ */
 function NavRow({
   item,
+  href,
   pathname,
   onNavigate,
 }: {
   item: NavItem;
+  href: string;
   pathname: string;
   onNavigate?: () => void;
 }) {
@@ -126,11 +161,11 @@ function NavRow({
     );
   }
 
-  const active = isActive(pathname, item.href);
+  const active = isNavRowActive(pathname, item.href);
 
   return (
     <Link
-      href={item.href}
+      href={href}
       onClick={onNavigate}
       aria-current={active ? 'page' : undefined}
       className={cn(

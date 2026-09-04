@@ -16,7 +16,7 @@ import {
 
 import type { Permission } from '@/server/authz/permissions';
 
-import { SETTINGS_NAV } from './settings-nav-config';
+import { SETTINGS_NAV, SETTINGS_ROOT_HREF } from './settings-nav-config';
 
 /**
  * The dashboard's information architecture, in one place.
@@ -174,13 +174,29 @@ export const NAV_SECTIONS: readonly NavSection[] = [
 ];
 
 /**
+ * Whether a nav row should read as the current one.
+ *
+ * A row lights on its own path or on any path beneath it, so Orders stays lit on
+ * `/orders/8f2c` and Settings stays lit on `/settings/billing`. Both nav rails need this and
+ * both had written it inline, which is one edit away from them disagreeing about what "here"
+ * means.
+ *
+ * Compared against the row's own `href`, never against wherever the link happens to point.
+ * Those differ for Settings — the row targets the first section the reader can open, to skip
+ * the redirect — and matching on the target would leave the row dark on the other sections.
+ */
+export function isNavRowActive(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/**
  * Rendered in the sidebar footer rather than in the scrolling list. Settings is reached
  * occasionally and from anywhere, so it should never move or scroll out of reach.
  */
 export const NAV_FOOTER_ITEMS: readonly NavItem[] = [
   {
     label: 'Settings',
-    href: '/settings',
+    href: SETTINGS_ROOT_HREF,
     icon: Settings,
     permission: 'workspace:read',
     available: true,
