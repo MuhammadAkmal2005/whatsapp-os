@@ -53,13 +53,13 @@
      Seven steps, darkest ground to lightest surface, so depth is legible without
      shadow: sunken wells, the page itself, cards, what sits on a card, and the
      tint a selected row takes. */
-  --background: 150 16% 96%;
+  --background: 152 16% 96%;
   --foreground: 172 24% 10%;
 
-  --surface-sunken: 152 14% 93%;
-  --surface-selected: 158 26% 94%;
+  --surface-sunken: 152 16% 94%;
+  --surface-selected: 152 30% 88%;
 
-  --card: 0 0% 100%;
+  --card: 152 24% 93%;
   --card-foreground: 172 24% 10%;
 
   /* A surface stacked on a card — a nested panel, a mock frame, a floating menu. On
@@ -93,7 +93,7 @@
   --muted: 152 12% 94%;
   --muted-foreground: 165 9% 42%;
 
-  --accent: 154 16% 92%;
+  --accent: 152 24% 90%;
   --accent-foreground: 168 28% 15%;
 
   /* ── Interactive states ───────────────────────────────────────────────────────
@@ -112,7 +112,7 @@
      third answer that existed before this pass (`bg-muted` on three of them) was
      not. */
   --interactive-hover: var(--accent);
-  --interactive-pressed: 154 18% 87%;
+  --interactive-pressed: 152 30% 85%;
 
   /* ── Status ───────────────────────────────────────────────────────────────────
      Each family carries a solid fill, its readable foreground, a tinted surface for
@@ -162,12 +162,12 @@
      Foreground lightness is set by the dimmest thing drawn in it: inactive nav rows
      render at 75% alpha, so 22% is the value at which those still clear 4.5:1
      against the 92% ground. */
-  --sidebar: 154 22% 92%;
+  --sidebar: 152 20% 91%;
   --sidebar-foreground: 170 20% 22%;
   --sidebar-muted: 165 11% 38%;
-  --sidebar-accent: 154 18% 87%;
-  --sidebar-selected: 156 26% 85%;
-  --sidebar-border: 154 14% 84%;
+  --sidebar-accent: 152 24% 88%;
+  --sidebar-selected: 152 30% 86%;
+  --sidebar-border: 152 18% 84%;
   /* Display type in the panel. The body foreground above is deliberately quiet so a
      nav list recedes; a heading set in it looks tired. This is the one step further
      that a headline needs, and having it as a token is what keeps a raw ink value
@@ -227,22 +227,22 @@
 }
 
 .dark {
-  --background: 174 24% 7%;
-  --foreground: 152 10% 92%;
+  --background: 204 20% 8%;
+  --foreground: 0 0% 100%;
 
-  --surface-sunken: 174 22% 5%;
-  --surface-selected: 168 24% 14%;
+  --surface-sunken: 204 20% 5%;
+  --surface-selected: 158 50% 16%;
 
-  --card: 172 20% 9%;
-  --card-foreground: 152 10% 92%;
+  --card: 204 20% 12%;
+  --card-foreground: 0 0% 100%;
 
   /* On ink, elevation is value: a panel inside a card genuinely gets lighter. This is the
      mechanism that cannot exist in light mode, where the card is already white — same
      token, and the reason it is a token at all rather than one more shade of `card`. */
-  --surface-elevated: 172 20% 11%;
+  --surface-elevated: 204 20% 16%;
 
   --popover: var(--surface-elevated);
-  --popover-foreground: 152 10% 92%;
+  --popover-foreground: 0 0% 100%;
 
   --overlay: 174 30% 3% / 0.6;
 
@@ -256,17 +256,17 @@
   --primary-surface: 164 30% 16%;
   --primary-border: 162 26% 26%;
 
-  --secondary: 168 14% 15%;
-  --secondary-foreground: 152 10% 90%;
+  --secondary: 204 15% 15%;
+  --secondary-foreground: 0 0% 100%;
 
-  --muted: 168 12% 14%;
-  --muted-foreground: 152 8% 60%;
+  --muted: 204 15% 14%;
+  --muted-foreground: 204 10% 65%;
 
-  --accent: 166 16% 17%;
-  --accent-foreground: 152 10% 92%;
+  --accent: 158 40% 14%;
+  --accent-foreground: 0 0% 100%;
 
   --interactive-hover: var(--accent);
-  --interactive-pressed: 166 18% 22%;
+  --interactive-pressed: 158 40% 18%;
 
   --success: 156 46% 44%;
   --success-foreground: 172 36% 6%;
@@ -294,18 +294,18 @@
   --ai-surface: 250 26% 18%;
   --ai-border: 250 24% 30%;
 
-  --border: 168 14% 18%;
-  --border-strong: 166 12% 27%;
-  --input: 168 14% 22%;
+  --border: 204 15% 18%;
+  --border-strong: 204 15% 24%;
+  --input: 204 15% 20%;
   --ring: 158 46% 50%;
 
-  --sidebar: 176 26% 6%;
-  --sidebar-foreground: 152 10% 76%;
-  --sidebar-muted: 152 7% 52%;
-  --sidebar-accent: 170 20% 13%;
-  --sidebar-selected: 166 24% 16%;
-  --sidebar-border: 170 18% 14%;
-  --sidebar-strong: 150 18% 95%;
+  --sidebar: 204 22% 6%;
+  --sidebar-foreground: 0 0% 95%;
+  --sidebar-muted: 204 10% 55%;
+  --sidebar-accent: 158 40% 14%;
+  --sidebar-selected: 158 50% 16%;
+  --sidebar-border: 204 20% 14%;
+  --sidebar-strong: 0 0% 100%;
   --sidebar-primary: 158 46% 50%;
 
   --chart-1: 158 46% 48%;
@@ -320,7 +320,7 @@
      highlight on the top edge plus a deeper, more diffuse cast. */
   --shadow-raised: 0 1px 0 0 hsl(152 10% 92% / 0.04), 0 6px 16px -6px hsl(0 0% 0% / 0.5);
   --shadow-overlay: 0 1px 0 0 hsl(152 10% 92% / 0.05), 0 16px 40px -12px hsl(0 0% 0% / 0.66);
-  --shadow-sticky: 0 1px 0 0 hsl(168 14% 18%), 0 8px 20px -14px hsl(0 0% 0% / 0.7);
+  --shadow-sticky: 0 1px 0 0 hsl(204 15% 18%), 0 8px 20px -14px hsl(0 0% 0% / 0.7);
 }
 
 /**
