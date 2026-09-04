@@ -66,7 +66,7 @@ export function MessageThread({
 
   if (chronological.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center overflow-y-auto bg-surface-sunken p-4">
+      <div className="flex flex-1 items-center justify-center overflow-y-auto bg-surface-panel p-4">
         <EmptyState
           icon={MessageSquare}
           title="No messages yet"
@@ -84,7 +84,7 @@ export function MessageThread({
 
   return (
     <div
-      className="min-h-0 flex-1 overflow-y-auto bg-surface-sunken px-3 py-4 scrollbar-thin sm:px-4"
+      className="min-h-0 flex-1 overflow-y-auto bg-surface-panel px-3 py-4 scrollbar-thin sm:px-4"
       // A live region would re-announce the whole thread on every arrival. `relevant`
       // limits it to what was added, and `polite` waits for a pause in typing.
       aria-live="polite"

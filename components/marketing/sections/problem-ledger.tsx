@@ -41,7 +41,7 @@ const ROWS = [
 
 export function ProblemLedger() {
   return (
-    <section className="border-b border-border bg-surface-sunken">
+    <section className="border-b border-border bg-surface-panel">
       <div className="container py-16 sm:py-20 lg:py-24">
         <Reveal>
           <SectionHeading

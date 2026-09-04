@@ -33,12 +33,20 @@ const config: Config = {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
 
-        /* The extra surface steps that let depth be expressed without shadow: a well
-           that sits below the page, the step *above* a card, and the tint a selected
-           row takes. On ink `elevated` is genuinely lighter than the card; on paper the
-           card is already white, so it holds there and depth falls to the border. Both
-           are the same token, which is why a panel-inside-a-card needs no `dark:`. */
+        /* The extra surface steps that let depth be expressed without shadow: a band
+           that holds content below the page, a well that sits below a card, the step
+           *above* a card, and the tint a selected row takes. On ink `elevated` is
+           genuinely lighter than the card; on paper the card is already white, so it
+           holds there and depth falls to the border. Both are the same token, which is
+           why a panel-inside-a-card needs no `dark:`.
+
+           `panel` and `sunken` were one token until the light theme made the conflict
+           visible: a well drawn on a white card has to be *lighter* than the page, and
+           a band drawn under the page has to be darker. One value could satisfy either
+           reading but not both, so the regions that are grounds — a message thread, a
+           marketing section — took the new name. */
         surface: {
+          panel: 'hsl(var(--surface-panel))',
           sunken: 'hsl(var(--surface-sunken))',
           elevated: 'hsl(var(--surface-elevated))',
           selected: 'hsl(var(--surface-selected))',
@@ -68,6 +76,7 @@ const config: Config = {
         muted: {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))',
+          border: 'hsl(var(--muted-border))',
         },
         accent: {
           DEFAULT: 'hsl(var(--accent))',

@@ -46,7 +46,7 @@ const FAQS: readonly FaqItem[] = [
 
 export function FaqSection() {
   return (
-    <section id="faq" className="scroll-mt-20 border-b border-border bg-surface-sunken">
+    <section id="faq" className="scroll-mt-20 border-b border-border bg-surface-panel">
       <div className="container grid gap-8 py-16 sm:py-20 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)] lg:gap-16 lg:py-24">
         <Reveal variant="left">
           <SectionHeading

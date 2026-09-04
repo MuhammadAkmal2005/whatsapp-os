@@ -51,7 +51,7 @@ export const viewport: Viewport = {
   // Matches --background in each theme, so the browser chrome on mobile continues the
   // page instead of framing it in white.
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f3f6f5' },
+    { media: '(prefers-color-scheme: light)', color: '#f0f5f4' },
     { media: '(prefers-color-scheme: dark)', color: '#0e1615' },
   ],
   width: 'device-width',

@@ -62,7 +62,7 @@ export default function ConversationsLoading() {
         </div>
       </div>
 
-      <div className="hidden h-full min-w-0 flex-1 bg-surface-sunken md:block" />
+      <div className="hidden h-full min-w-0 flex-1 bg-surface-panel md:block" />
     </div>
   );
 }

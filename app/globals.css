@@ -50,17 +50,32 @@
   --brand-50: 152 26% 93%;
 
   /* ── Ground and surfaces ──────────────────────────────────────────────────────
-     Seven steps, darkest ground to lightest surface, so depth is legible without
-     shadow: sunken wells, the page itself, cards, what sits on a card, and the
-     tint a selected row takes. */
-  --background: 146 26% 95%;
-  --foreground: 152 22% 11%;
+     Light mode's structure is carried by a cool green-grey at hue 174–180 with a
+     wide lightness spread, not by the brand hue at low saturation. That split is
+     the whole correction to the previous tuning: when every ground was a 143–152
+     mint separated by one or two points of lightness, the interface read as one
+     pale green wash and nothing in it had an edge. Structure is now neutral and
+     spaced; saturated green is spent only where it means something — selection,
+     hover, brand.
 
-  --surface-sunken: 150 21% 91%;
-  --surface-selected: 143 37% 88%;
+     Five steps in perceptual order, each a clear step from its neighbour in L*:
+     panel 87 → page 92 → well 95 → card/elevated 100. Depth is legible with every
+     shadow in the file switched off. */
+  --background: 174 20% 95%;
+  --foreground: 174 22% 12%;
+
+  /* A page-level band: the sidebar's cousin. A region that holds content and sits
+     *below* the page — a message thread behind its bubbles, a marketing section
+     that has to separate from the one above it. This is the step `--surface-sunken`
+     used to be asked to cover as well, which is why neither role worked: a well on
+     a white card and a band under a white page cannot be the same value. */
+  --surface-panel: 174 17% 90%;
+
+  --surface-sunken: 176 22% 94%;
+  --surface-selected: 152 44% 85%;
 
   --card: 0 0% 100%;
-  --card-foreground: 152 22% 11%;
+  --card-foreground: 174 22% 12%;
 
   /* A surface stacked on a card — a nested panel, a mock frame, a floating menu. On
      paper it cannot go lighter than the card it sits on, so here it is white and
@@ -69,13 +84,14 @@
 
      Every floating panel in the product resolves through it, because a popover *is* an
      elevated surface: one value, named for the role and again for the component that
-     is the role's most common instance. */
-  --surface-elevated: 144 26% 96%;
+     is the role's most common instance. It was a tinted 96% before, which on a 95%
+     page made every dropdown in the product a menu with no ground of its own. */
+  --surface-elevated: 0 0% 100%;
 
   --popover: var(--surface-elevated);
-  --popover-foreground: 152 22% 11%;
+  --popover-foreground: 174 22% 12%;
 
-  --overlay: 172 24% 10% / 0.32;
+  --overlay: 180 24% 8% / 0.34;
 
   /* ── Brand ────────────────────────────────────────────────────────────────────
      The deep step of the ramp: dark enough to carry white text at AA, saturated
@@ -84,17 +100,25 @@
   --primary: var(--brand-700);
   --primary-foreground: 150 40% 98%;
   --primary-hover: var(--brand-800);
-  --primary-surface: 152 34% 92%;
-  --primary-border: 152 28% 78%;
+  --primary-surface: 152 44% 94%;
+  --primary-border: 152 36% 74%;
 
-  --secondary: 152 22% 81%;
-  --secondary-foreground: 152 9% 35%;
+  --secondary: 176 13% 84%;
+  --secondary-foreground: 176 16% 26%;
 
-  --muted: 152 28% 92%;
-  --muted-foreground: 152 6% 46%;
+  /* Neutral, not tinted. This is the skeleton, the meter track and the quietest
+     chip — the places a viewer reads as "nothing here yet". A green wash on those
+     was what made a loading table look like a page of faint green placeholders. */
+  --muted: 176 12% 91%;
+  --muted-foreground: 178 11% 34%;
+  /* The muted chip is the only one whose fill can land on a ground as light as itself
+     — a panel band sits within 1 L* of it — so it carries an edge like every other
+     badge variant instead of relying on its fill alone. Lighter than `--border`, so a
+     quiet chip never competes with a table rule. */
+  --muted-border: 180 13% 74%;
 
-  --accent: 152 24% 90%;
-  --accent-foreground: 152 22% 11%;
+  --accent: 154 40% 92%;
+  --accent-foreground: 174 22% 12%;
 
   /* ── Interactive states ───────────────────────────────────────────────────────
      Hover and press for a control with no fill of its own — a ghost or outline
@@ -110,34 +134,44 @@
      Rows are not controls and keep their own answer, `surface-sunken`: a row sinks
      toward the page, a control lifts off it. That distinction is deliberate; the
      third answer that existed before this pass (`bg-muted` on three of them) was
-     not. */
-  --interactive-hover: 146 35% 91%;
-  --interactive-pressed: 143 37% 88%;
+     not.
+
+     The three interaction tints are ordered by lightness so they can never be
+     confused: hover 94.5, selected 90, pressed 88.7. Hover is the lightest and
+     least saturated of the three, selection carries the most chroma, and a press
+     is the darkest — before this pass hover, selected and pressed were three
+     values within 2 points of each other and two of them were byte-identical. */
+  --interactive-hover: 154 40% 92%;
+  --interactive-pressed: 150 38% 84%;
 
   /* ── Status ───────────────────────────────────────────────────────────────────
      Each family carries a solid fill, its readable foreground, a tinted surface for
      banners and chips, and a border for that surface. Defining all four per theme is
-     what makes dark mode correct by construction instead of by inspection. */
+     what makes dark mode correct by construction instead of by inspection.
+
+     Hues, saturations, solids and surfaces are fixed — a warning is the same amber
+     it has always been. Only the four `-border` steps moved, one notch darker each,
+     so a status chip gets the same readable edge as everything else on the page. */
   --success: 158 52% 28%;
   --success-foreground: 150 40% 98%;
   --success-surface: 156 40% 93%;
-  --success-border: 156 32% 78%;
+  --success-border: 156 34% 74%;
 
   --warning: 32 74% 38%;
   --warning-foreground: 40 60% 98%;
   --warning-surface: 38 72% 92%;
-  --warning-border: 36 56% 76%;
+  --warning-border: 36 58% 72%;
 
   --destructive: 358 60% 45%;
   --destructive-foreground: 0 0% 100%;
   --destructive-hover: 358 60% 39%;
   --destructive-surface: 356 62% 95%;
-  --destructive-border: 356 46% 84%;
+  --destructive-border: 356 48% 80%;
 
   --info: 208 52% 38%;
   --info-foreground: 205 40% 98%;
   --info-surface: 206 52% 94%;
-  --info-border: 206 40% 80%;
+  --info-border: 206 42% 76%;
 
   /* The AI signal. A muted iris, kept clear of the green that means money and success
      and clear of the red that means failure, so "the assistant did this" is never
@@ -145,38 +179,54 @@
   --ai: 250 32% 48%;
   --ai-foreground: 250 40% 98%;
   --ai-surface: 250 44% 96%;
-  --ai-border: 250 32% 85%;
+  --ai-border: 250 34% 81%;
 
-  --border: 145 18% 76%;
-  --border-strong: 149 19% 70%;
-  --input: 145 18% 76%;
+  /* ── Edges ────────────────────────────────────────────────────────────────────
+     One border for the whole light theme, and it is a real line: L* 70.7, 2.24:1 on
+     a card, 21 points of L* below the page. The old 145 18% 76% was a green hairline
+     that disappeared against every ground it was drawn on, which is why a table read
+     as text floating in space and a card had no perceptible boundary. Neutral rather
+     than green on purpose — a tinted border reads as decoration, a grey one reads as
+     structure. `--border-strong` is for the few places a boundary is structural: a
+     sticky edge, the shimmer that sweeps a skeleton. */
+  --border: 180 14% 65%;
+  --border-strong: 180 15% 55%;
+  --input: 180 14% 65%;
   --ring: var(--brand-700);
 
   /* ── Chrome ───────────────────────────────────────────────────────────────────
-     The sidebar is a step *below* the page rather than above it: 92% under a 96%
-     page under 100% cards, so the navigation frames the workspace by receding
-     instead of by inverting. It used to be ink in both themes, which is what made
-     light mode read as "dark mode with a white page pasted in" — the one region a
-     user looks at on every screen stayed dark whatever they chose.
+     The sidebar is a step *below* the page rather than above it, so the navigation
+     frames the workspace by receding instead of by inverting. It used to be ink in
+     both themes, which is what made light mode read as "dark mode with a white page
+     pasted in" — the one region a user looks at on every screen stayed dark whatever
+     they chose.
+
+     The number that matters is not this token's own lightness but its distance from
+     the ground beside it. Every signed-in screen resolves `--background` from
+     `.marketing-band`, and the rail resolves it from here; those two were byte-equal
+     — `rgb(227 237 232)` on both sides of the divider — so the sidebar simply did
+     not exist as a region. At L* 86 against the band's 92 it is now a clear 6-point
+     step, and cards at 100 sit two clear steps above it.
 
      Foreground lightness is set by the dimmest thing drawn in it: inactive nav rows
-     render at 75% alpha, so 22% is the value at which those still clear 4.5:1
-     against the 92% ground. */
-  --sidebar: 150 21% 91%;
-  --sidebar-foreground: 152 22% 11%;
-  --sidebar-muted: 152 6% 46%;
-  --sidebar-accent: 146 35% 91%;
-  --sidebar-selected: 143 37% 88%;
-  --sidebar-border: 145 18% 76%;
+     render at 75% alpha, and 22% is the value at which those still clear 4.5:1
+     against this ground (5.7:1 measured). */
+  --sidebar: 178 15% 83%;
+  --sidebar-foreground: 174 22% 12%;
+  --sidebar-muted: 178 11% 32%;
+  --sidebar-accent: 176 16% 89%;
+  --sidebar-selected: 152 40% 76%;
+  --sidebar-border: 180 15% 68%;
   /* Display type in the panel. The body foreground above is deliberately quiet so a
      nav list recedes; a heading set in it looks tired. This is the one step further
      that a headline needs, and having it as a token is what keeps a raw ink value
      out of the markup. */
-  --sidebar-strong: 172 30% 12%;
+  --sidebar-strong: 174 26% 9%;
   /* The accent used *inside* the panel — the marker rail and the active row's icon.
-     On paper that is the same deep step as --primary; on ink it has to be lifted,
-     which is why this is a token and not an alias. */
-  --sidebar-primary: var(--brand-700);
+     On paper that is a deeper step than --primary, not an alias of it: the rail sits
+     on a selected row at L* 83, where brand-700 falls to 3.7:1 and fails. On ink it
+     has to be lifted instead. Both directions are why this is a token. */
+  --sidebar-primary: 152 62% 24%;
 
   /* ── Charts ───────────────────────────────────────────────────────────────────
      Five series colours, ordered so the first two — the pair almost every chart
@@ -187,8 +237,8 @@
   --chart-3: 32 68% 44%;
   --chart-4: 196 44% 38%;
   --chart-5: 288 26% 46%;
-  --chart-grid: 154 11% 88%;
-  --chart-axis: 165 9% 48%;
+  --chart-grid: 180 12% 87%;
+  --chart-axis: 180 10% 40%;
 
   /* ── Geometry ─────────────────────────────────────────────────────────────────
      Four radii by role. Controls are crisper than the surfaces holding them, and
@@ -201,9 +251,9 @@
   /* ── Elevation ────────────────────────────────────────────────────────────────
      Three levels, for things that float only. Cards use a border and the surface
      step instead, which is why there is no `card` shadow here any more. */
-  --shadow-raised: 0 1px 2px 0 hsl(172 24% 10% / 0.05), 0 4px 12px -4px hsl(172 24% 10% / 0.1);
-  --shadow-overlay: 0 2px 4px -1px hsl(172 24% 10% / 0.06), 0 12px 32px -8px hsl(172 24% 10% / 0.16);
-  --shadow-sticky: 0 1px 0 0 hsl(154 11% 87%), 0 6px 16px -12px hsl(172 24% 10% / 0.2);
+  --shadow-raised: 0 1px 2px 0 hsl(180 22% 8% / 0.06), 0 4px 12px -4px hsl(180 22% 8% / 0.11);
+  --shadow-overlay: 0 2px 4px -1px hsl(180 22% 8% / 0.07), 0 12px 32px -8px hsl(180 22% 8% / 0.18);
+  --shadow-sticky: 0 1px 0 0 hsl(180 14% 72%), 0 6px 16px -12px hsl(180 22% 8% / 0.22);
 
   /* ── Motion ───────────────────────────────────────────────────────────────────
      A hierarchy, not a set of options. Instant is for a control acknowledging a
@@ -229,6 +279,12 @@
 .dark {
   --background: 204 20% 6%;
   --foreground: 204 10% 96%;
+
+  /* On ink a page-level band is the same value a well already was: the deepest step,
+     below the page. Set to the pre-existing `--surface-sunken` verbatim, so the
+     regions that moved from `bg-surface-sunken` to `bg-surface-panel` for light
+     mode's sake render pixel-identically here. */
+  --surface-panel: 204 22% 4%;
 
   --surface-sunken: 204 22% 4%;
   --surface-selected: 158 50% 16%;
@@ -261,6 +317,10 @@
 
   --muted: 204 18% 12%;
   --muted-foreground: 204 10% 60%;
+  /* No edge in dark: an ink chip already separates from an ink panel by fill alone, and
+     the light theme is the only place a muted chip can land on a ground as light as
+     itself. Alpha 0 rather than a matched colour so the paint path stays identical. */
+  --muted-border: 0 0% 0% / 0;
 
   --accent: 158 30% 12%;
   --accent-foreground: 204 10% 96%;
@@ -351,8 +411,11 @@
      glow's strength is one edit, not fourteen. */
   --mk-glow-strong: hsl(var(--brand-500) / 0.1);
   --mk-glow-soft: hsl(var(--brand-700) / 0.06);
-  --mk-grid-line: hsl(var(--brand-800) / 0.07);
-  --mk-hairline: hsl(var(--brand-950) / 0.11);
+  --mk-grid-line: hsl(var(--brand-800) / 0.08);
+  /* The rule that separates one marketing section from the next. At 0.11 on a 95%
+     page it was a line you had to look for, which is the mechanical reason the
+     landing page read as one continuous field. */
+  --mk-hairline: hsl(var(--brand-950) / 0.16);
   /* Grain exists to stop a large dark area banding on an eight-bit panel. Paper does
      not band, so light mode needs barely any — but not none, or the ink bands and the
      paper bands look like different materials. */
@@ -385,44 +448,30 @@
  *
  * It used to be `.marketing-ink` and unconditionally dark, which is why light mode read
  * as a dark site with four light sections wedged into it. A band's job is to *separate*
- * from the page around it, not to be dark — so on paper it separates by becoming a
- * deeper, more saturated wash of the brand tint (93% under a 96% page, with cards still
- * at 100%), and on ink it separates by dropping to near-black. Same structure, same
- * rhythm, same components; the mechanism follows the theme.
+ * from the page around it, not to be dark — so on paper it separates by dropping a clear
+ * step in value (L* 92 under a 96 page, with cards still at 100), and on ink it separates
+ * by dropping to near-black. Same structure, same rhythm, same components; the mechanism
+ * follows the theme.
+ *
+ * One thing to know before editing it: this is not only a marketing scope. Both
+ * `app/(app)/layout.tsx` and `app/(auth)/layout.tsx` wrap their whole tree in it, so
+ * the band's `--background` is the page ground of every signed-in screen and of login
+ * and signup. It has to work as a section on the landing page *and* as the canvas the
+ * product lives on. Everything it does not re-declare — the sidebar family in
+ * particular — resolves from `:root`, which is why the two have to be designed as one
+ * ladder and not two.
+ *
+ * It now overrides three values rather than sixteen. The rest were either identical to
+ * the root already or card-relative, and a card is white on both grounds: a redundant
+ * override is just a second place for the same number to drift.
  */
 .marketing-band {
-  --background: 150 21% 91%;
-  --foreground: 152 22% 11%;
+  --background: 174 17% 90%;
 
-  --surface-sunken: 152 30% 88%;
-  --surface-selected: 143 37% 88%;
-
-  /* Cards stay white. On a tinted ground that is what makes them read as objects
-     resting on the band rather than panels cut out of it. */
-  --card: 0 0% 100%;
-  --card-foreground: 152 22% 11%;
-  --surface-elevated: 0 0% 100%;
-
-  --popover: var(--surface-elevated);
-  --popover-foreground: 152 22% 11%;
-
-  --secondary: 152 22% 81%;
-  --secondary-foreground: 152 9% 35%;
-
-  --muted: 152 30% 88%;
-  --muted-foreground: 152 6% 46%;
-
-  --accent: 146 35% 91%;
-  --accent-foreground: 152 22% 11%;
-
-  --interactive-hover: 146 35% 91%;
-  --interactive-pressed: 143 37% 88%;
-
-  /* Borders step down with the ground. The page's 87% hairline is invisible on a 93%
-     band; everything here is one step darker than its root counterpart. */
-  --border: 149 19% 70%;
-  --border-strong: 152 20% 67%;
-  --input: 149 19% 70%;
+  /* A band inside the band — the message thread behind its bubbles, a skeleton's
+     ground. One step below this ground, the same relationship the root's panel has
+     to the root's page. */
+  --surface-panel: 176 16% 84%;
 
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
@@ -431,6 +480,8 @@
 .dark .marketing-band {
   --background: 204 22% 4%;
   --foreground: var(--mk-on-ink);
+
+  --surface-panel: 204 24% 2%;
 
   --surface-sunken: 204 24% 2%;
   --surface-selected: 158 50% 14%;
@@ -454,6 +505,7 @@
 
   --muted: 156 20% 12%;
   --muted-foreground: var(--mk-on-ink-muted);
+  --muted-border: 0 0% 0% / 0;
 
   --accent: 155 24% 14%;
   --accent-foreground: var(--mk-on-ink);
