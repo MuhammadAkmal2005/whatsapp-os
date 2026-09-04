@@ -14,6 +14,61 @@ import { hashPassword } from '../server/auth/password';
 
 const DEMO_PASSWORD = 'Password1234!';
 
+/**
+ * The model the seeded agents are stamped with.
+ *
+ * Read from the environment rather than hardcoded because the runtime hands
+ * `agent.model` to whichever provider is configured, so a row carrying an OpenAI
+ * model name would fail on the first message of a Gemini deployment. `mock-model`
+ * is the fallback: a freshly seeded database is for offline work until someone
+ * configures a real provider.
+ */
+const SEED_AI_MODEL = process.env.AI_MODEL || 'mock-model';
+
+/**
+ * Gives a workspace one active default agent, idempotently.
+ *
+ * `AIAgent` has no natural unique key to upsert on — a workspace is expected to run
+ * several agents eventually — so existence is checked by lookup. Seeded active,
+ * because an inactive agent is indistinguishable from no agent to the runtime and
+ * the seeded workspaces exist precisely so the AI path can be exercised.
+ */
+async function ensureSeedAgent(
+  workspaceId: string,
+  fields: {
+    name: string;
+    greeting: string;
+    persona: string;
+    role: 'SALES_SUPPORT' | 'SALES' | 'SUPPORT' | 'RECEPTIONIST' | 'ORDER_TAKER' | 'FOLLOW_UP';
+    tone: 'PROFESSIONAL' | 'FRIENDLY' | 'CASUAL' | 'LUXURY' | 'CONCISE' | 'DETAILED';
+  },
+): Promise<string> {
+  const existing = await prisma.aIAgent.findFirst({
+    where: { workspaceId },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
+
+  if (existing) return existing.id;
+
+  const agent = await prisma.aIAgent.create({
+    data: {
+      workspaceId,
+      name: fields.name,
+      greeting: fields.greeting,
+      persona: fields.persona,
+      role: fields.role,
+      tone: fields.tone,
+      model: SEED_AI_MODEL,
+      isActive: true,
+      isDefault: true,
+    },
+    select: { id: true },
+  });
+
+  return agent.id;
+}
+
 async function main() {
   console.log('🌱 Starting WhatsApp OS database seed...');
 
@@ -154,6 +209,17 @@ async function main() {
         sunday: { open: '14:00', close: '20:00', closed: false },
       },
     },
+  });
+
+  // AI agent for Workspace 1
+  await ensureSeedAgent(ws1.id, {
+    name: 'Zara',
+    role: 'SALES_SUPPORT',
+    tone: 'LUXURY',
+    greeting:
+      'Assalamualaikum! Akmal Couture mein khush aamdeed. Main Zara hoon — collection, prices ya delivery ke baare mein poochein.',
+    persona:
+      'You represent a luxury Pakistani pret and formalwear house in Karachi. Warm and unhurried, never pushy. Customers write in English, Urdu and Roman Urdu, often mixed, and you reply in whichever they used. Quote a price, a size or a delivery time only when a tool has returned it.',
   });
 
   // Members for Workspace 1
@@ -713,6 +779,18 @@ async function main() {
       freeDeliveryThresholdMinor: 300000,
       paymentMethods: ['COD', 'BANK_TRANSFER', 'EASYPAISA'],
     },
+  });
+
+  // AI agent for Workspace 2 — the second tenant, so cross-workspace isolation of
+  // agents and AI turns can be exercised against real rows rather than assumed.
+  await ensureSeedAgent(ws2.id, {
+    name: 'Bilal',
+    role: 'SALES_SUPPORT',
+    tone: 'FRIENDLY',
+    greeting:
+      'Assalamualaikum! Karachi Electronics mein khush aamdeed. Kya dhoond rahe hain — mobile, laptop ya accessories?',
+    persona:
+      'You help customers of a consumer electronics and gadgets store in Karachi. Direct and practical. Customers ask about specifications, warranty, stock and instalment plans, in English, Urdu and Roman Urdu. State a specification, a price or a warranty term only when a tool or the business knowledge has returned it.',
   });
 
   // Members for Workspace 2

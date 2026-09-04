@@ -28,6 +28,7 @@
     "db:seed": "tsx db/seed.ts",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio",
+    "db:ensure-agents": "tsx tools/ensure-default-agents.ts",
     "db:backup": "tsx tools/db-backup.ts",
     "db:restore": "tsx tools/db-restore.ts",
     "verify:prod": "tsx tools/production-readiness.ts",

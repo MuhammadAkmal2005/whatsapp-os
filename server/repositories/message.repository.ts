@@ -249,6 +249,37 @@ export async function findMessageByProviderId(
   return (row as MessageWithDetailsRow) ?? null;
 }
 
+/**
+ * The outbound reply already written for a given AI turn, if there is one.
+ *
+ * The turn id is stamped into `Message.payload` at delivery time precisely so this
+ * lookup exists. Without it, a job retry after the reply row was written but
+ * before it was queued for sending would write a second reply, and the customer
+ * would receive the same answer twice — the one failure mode that is visible to
+ * them and impossible to explain.
+ *
+ * Filtered on the JSON path rather than a dedicated column: the scope is already
+ * narrowed to one conversation's outbound messages, so the scan is tiny, and the
+ * alternative is a migration for a field only this path reads.
+ */
+export async function findAIReplyForTurn(
+  db: Db,
+  workspaceId: string,
+  conversationId: string,
+  aiTurnId: string,
+): Promise<{ id: string } | null> {
+  return db.message.findFirst({
+    where: {
+      workspaceId,
+      conversationId,
+      direction: 'OUTBOUND',
+      sentByAi: true,
+      payload: { path: ['aiTurnId'], equals: aiTurnId },
+    },
+    select: { id: true },
+  });
+}
+
 export async function listMessages(
   db: Db,
   workspaceId: string,

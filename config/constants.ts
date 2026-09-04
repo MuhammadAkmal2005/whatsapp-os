@@ -162,6 +162,28 @@ export const JOB_BATCH_SIZE = 5;
 // ── Inventory ──────────────────────────────────────────────────────────────
 export const DEFAULT_LOW_STOCK_THRESHOLD = 3;
 
+// ── AI agent defaults ──────────────────────────────────────────────────────
+/**
+ * Every workspace gets one agent at signup, and these are the words it starts
+ * with. A workspace with no agent row cannot answer anyone: the runtime resolves
+ * the agent before it does anything else, and finding none ends the turn without
+ * a reply — the job succeeds and the customer is left waiting, which is the worst
+ * shape a failure can take.
+ *
+ * "AI Assistant" matches the onboarding copy above, so the thing the checklist
+ * tells the owner to set up is the thing they find waiting for them.
+ */
+export const DEFAULT_AI_AGENT_NAME = 'AI Assistant';
+
+/**
+ * Roman Urdu mixed with English, because that is how the initial market actually
+ * writes on WhatsApp and it matches the schema's default `languages` of English
+ * and Roman Urdu. It promises only what the agent can genuinely do from the
+ * business's own data — products, prices, delivery — and the owner can rewrite it.
+ */
+export const DEFAULT_AI_AGENT_GREETING =
+  'Assalamualaikum! Kya poochna chahte hain? Main products, prices aur delivery ke baare mein bata sakta hoon.';
+
 // ── Onboarding ─────────────────────────────────────────────────────────────
 /**
  * Ordered. The checklist renders in this sequence and the "next step" hint

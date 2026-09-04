@@ -3,9 +3,9 @@
  *
  * Creating a workspace is the one operation in the auth flow with a multi-row
  * invariant: a workspace is not usable without an owner membership, a
- * subscription, and a business-profile shell, and a half-created workspace is
- * worse than none. So the four writes run in a single transaction — either the
- * business exists completely or it does not exist at all.
+ * subscription, a business-profile shell, and an AI agent, and a half-created
+ * workspace is worse than none. So the writes run in a single transaction —
+ * either the business exists completely or it does not exist at all.
  *
  * The trial plan and its length come from the plan catalogue, never from here,
  * so a pricing or policy change is made in one place.
@@ -13,11 +13,15 @@
 
 import 'server-only';
 
+import { DEFAULT_AI_AGENT_GREETING, DEFAULT_AI_AGENT_NAME } from '@/config/constants';
+import { env } from '@/config/env';
+import { modelForTask } from '@/config/models';
 import { DEFAULT_TRIAL_PLAN_KEY, getPlan } from '@/config/plans';
 import { prisma } from '@/db/prisma';
 import { workspaceSlug, slugSuffix } from '@/lib/ids';
 import { logger } from '@/lib/logger';
 import { ValidationError } from '@/server/errors';
+import { ensureDefaultAgent } from '@/server/repositories/ai-agent.repository';
 import { appendAuditLog, appendProductEvent } from '@/server/repositories/audit.repository';
 import { ensurePlanExists } from '@/server/repositories/plan.repository';
 import { createSubscription } from '@/server/repositories/subscription.repository';
@@ -100,6 +104,22 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Crea
     });
 
     await createBusinessProfileShell(tx, workspace.id, { category: input.category ?? null });
+
+    // Inside the transaction, alongside the profile shell, because an agentless
+    // workspace is a broken one: the first customer message resolves no agent, the
+    // AI job finishes without a reply, and nothing anywhere reports a problem.
+    // `modelForTask` is what decides that customer-facing generation gets the
+    // primary model rather than the cheap one, and it reads the configured
+    // deployment — so the row is never stamped with a model the active provider
+    // cannot serve.
+    await ensureDefaultAgent(tx, workspace.id, {
+      name: DEFAULT_AI_AGENT_NAME,
+      greeting: DEFAULT_AI_AGENT_GREETING,
+      model: modelForTask('conversation', {
+        primary: env.AI_MODEL,
+        fast: env.AI_MODEL_FAST,
+      }),
+    });
 
     return { workspace, membershipId: membership.id };
   });

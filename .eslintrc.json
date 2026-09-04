@@ -32,12 +32,19 @@
         "server/tenancy/**/*.ts",
         "db/**/*.ts",
         "prisma/**/*.ts",
+        "tools/**/*.ts",
         "tests/**/*.ts"
       ],
       "rules": { "no-restricted-imports": "off" }
     },
     {
-      "files": ["config/env.ts", "db/seed.ts", "server/jobs/worker-entry.ts", "tests/**/*.ts"],
+      "files": [
+        "config/env.ts",
+        "db/seed.ts",
+        "server/jobs/worker-entry.ts",
+        "tools/**/*.ts",
+        "tests/**/*.ts"
+      ],
       "rules": { "no-console": "off" }
     }
   ],

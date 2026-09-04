@@ -233,6 +233,34 @@ export async function findConversationById(
   });
 }
 
+export type ConversationDeliveryState = {
+  id: string;
+  aiEnabled: boolean;
+  firstResponseAt: Date | null;
+  status: ConversationStatus;
+};
+
+/**
+ * The three columns needed before writing an outbound message into a thread:
+ * whether the AI is still allowed to speak, whether this would be the first
+ * response (for the response-time metric), and the thread's status.
+ *
+ * Deliberately narrow. `findConversationById` pulls the contact, the assignee and
+ * every participant, which is right for the inbox and wasteful on the delivery
+ * path — the dispatcher re-reads the conversation moments later anyway, and every
+ * avoidable round trip on that path is one the customer waits through.
+ */
+export async function findConversationDeliveryState(
+  db: Db,
+  workspaceId: string,
+  conversationId: string,
+): Promise<ConversationDeliveryState | null> {
+  return db.conversation.findFirst({
+    where: { id: conversationId, workspaceId },
+    select: { id: true, aiEnabled: true, firstResponseAt: true, status: true },
+  });
+}
+
 export async function findActiveConversationForContact(
   db: Db,
   workspaceId: string,
