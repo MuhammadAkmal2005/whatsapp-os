@@ -382,27 +382,28 @@ export function auditDatabaseSchema(rootDir: string): AuditCheck[] {
     if (match[1]) models.push(match[1]);
   }
 
-  if (models.length !== 53) {
+  if (models.length !== 54) {
     checks.push({
       id: 'db_model_count',
-      name: 'Complete Enterprise Model Inventory',
+      name: 'Prisma Schema Model Count',
       category: 'database',
-      status: 'WARN',
-      details: `Expected 53 schema models, found ${models.length}.`,
+      status: 'BLOCKER',
+      details: `Expected 54 schema models, found ${models.length}.`,
       remediation: 'Verify schema.prisma contains all required domain and system models.',
     });
   } else {
     checks.push({
       id: 'db_model_count',
-      name: 'Complete Enterprise Model Inventory',
+      name: 'Prisma Schema Model Count',
       category: 'database',
       status: 'PASS',
-      details: 'All 53 domain and platform models accounted for.',
+      details: 'All 54 domain and platform models accounted for.',
     });
   }
 
-  // Multi-Tenancy Boundary Audit
+  // Check tenant boundaries on core entities (must declare workspaceId)
   const tenantScopedEntities = [
+    'ActionApproval',
     'Contact',
     'Conversation',
     'Message',

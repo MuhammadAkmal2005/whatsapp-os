@@ -439,7 +439,7 @@ export function validateGrounding(input: GroundingValidationInput): GroundingVal
     const orderModRule = businessRules.find((r) => r.category === 'ORDER_MODIFICATION');
     if (orderModRule && (orderModRule.outcome === 'NEEDS_HUMAN' || orderModRule.outcome === 'NOT_ALLOWED')) {
       const claimsMutation =
-        /\b(?:i have (?:cancelled|canceled|modified|changed)|your order has been (?:cancelled|canceled|modified)|order (?:is|was) (?:cancelled|canceled))\b/i.test(
+        /\b(?:i have (?:cancelled|canceled|modified|changed)|your order has been (?:cancelled|canceled|modified)|order (?:is|was) (?:cancelled|canceled)|cancel\s+(?:ho\s+gaya|kar\s+diya)|order\s+(?:cancel|badal))\b/i.test(
           replyText,
         );
       if (claimsMutation) {
@@ -447,7 +447,7 @@ export function validateGrounding(input: GroundingValidationInput): GroundingVal
           passed: false,
           blockedReason: 'UNSUPPORTED_ORDER_MUTATION_CLAIM',
           replacementReply:
-            'I cannot modify or cancel orders autonomously. I am connecting you with our human team to assist with your order.',
+            'I cannot modify or cancel orders autonomously. Your request has been submitted to our human team for review, and a staff member will assist you shortly.',
         };
       }
     }

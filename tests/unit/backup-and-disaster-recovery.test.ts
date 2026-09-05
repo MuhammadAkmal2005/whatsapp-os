@@ -220,8 +220,8 @@ describe('Phase 10 Unit 2: Database Backup & Disaster Recovery Verification', ()
         }
       }
 
-      // 53 total models defined across the full enterprise schema
-      expect(models.length).toBe(53);
+      // 54 total models defined across the full enterprise schema
+      expect(models.length).toBe(54);
 
       // Core tenant models must exist
       const requiredModels = [

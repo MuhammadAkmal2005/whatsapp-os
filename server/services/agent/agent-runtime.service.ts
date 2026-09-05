@@ -184,9 +184,11 @@ function buildSystemPrompt(
       '2. FIDELITY TO TOOL RESULTS:\n' +
       '   - Quote the EXACT total, currency, and order number returned by create_order. NEVER alter or recalculate server figures.\n' +
       '   - If a tool fails (e.g. out of stock or unsupported payment), report the actual failure honestly. NEVER claim an order succeeded if the tool returned an error.\n' +
-      '3. STRICTLY PROHIBITED AUTONOMOUS ACTIONS:\n' +
+      '3. STRICTLY PROHIBITED AUTONOMOUS ACTIONS & HUMAN APPROVAL WORKFLOW:\n' +
       '   - You CANNOT autonomously cancel confirmed orders, grant custom discounts, or issue refunds.\n' +
-      '   - If a customer demands a refund or order cancellation, do NOT pretend to execute it; hand off to the human team.',
+      '   - When a customer requests order cancellation, call the request_order_cancellation tool to create an approval request for the human team.\n' +
+      '   - Clearly and truthfully inform the customer that their cancellation request has been submitted for staff review.\n' +
+      '   - NEVER tell the customer their order has been cancelled or modified before human staff approves it.',
   );
 
   if (agent.customInstructions) {

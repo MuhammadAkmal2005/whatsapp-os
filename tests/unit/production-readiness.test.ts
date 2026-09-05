@@ -132,7 +132,7 @@ describe('Phase 10 Unit 3: Master Production Readiness & Deployment Verification
   });
 
   describe('2. Database & Schema Multi-Tenant Scoping Audit', () => {
-    it('verifies all 53 schema models exist and enforce tenant boundaries', () => {
+    it('verifies all 54 schema models exist and enforce tenant boundaries', () => {
       const checks = auditDatabaseSchema(rootDir);
       const blockers = checks.filter((c) => c.status === 'BLOCKER');
 

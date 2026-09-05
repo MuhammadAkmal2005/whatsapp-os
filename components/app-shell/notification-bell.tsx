@@ -12,6 +12,7 @@ import {
   Zap,
   Package,
   Bot,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -223,6 +224,9 @@ function getResourceLink(resourceType?: string | null, resourceId?: string | nul
       return `/products/${resourceId}`;
     case 'Contact':
       return `/contacts/${resourceId}`;
+    case 'ActionApproval':
+    case 'Approval':
+      return '/approvals';
     case 'Automation':
     case 'AutomationRun':
       return '/automations';
@@ -249,6 +253,7 @@ const TONE_CLASSES: Record<IconTone, string> = {
 function resolveMark(type: string, level: string): { icon: LucideIcon; tone: IconTone } {
   if (level === 'ERROR' || type === 'AI_FAILURE') return { icon: Bot, tone: 'destructive' };
   if (type === 'HUMAN_HANDOFF') return { icon: AlertTriangle, tone: 'warning' };
+  if (type === 'APPROVAL_REQUESTED') return { icon: ShieldCheck, tone: 'warning' };
   if (type === 'LOW_STOCK') return { icon: Package, tone: 'warning' };
   if (type === 'NEW_ORDER' || type === 'ORDER_STATUS_CHANGED')
     return { icon: ShoppingBag, tone: 'success' };

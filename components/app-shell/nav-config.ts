@@ -11,6 +11,7 @@ import {
   CalendarClock,
   BarChart3,
   Settings,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -137,6 +138,13 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: '/knowledge',
         icon: BookOpen,
         permission: 'knowledge:read',
+        available: true,
+      },
+      {
+        label: 'Approvals',
+        href: '/approvals',
+        icon: ShieldCheck,
+        permission: 'order:read',
         available: true,
       },
     ],

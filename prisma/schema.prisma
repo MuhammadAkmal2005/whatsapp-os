@@ -89,6 +89,7 @@ model Workspace {
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
   deletedAt                DateTime?
+  approvals                ActionApproval[]
   agentInstructions        AIAgentInstruction[]
   agents                   AIAgent[]
   aiTurns                  AITurn[]
@@ -163,6 +164,7 @@ model WorkspaceMember {
   notifications              Notification[]
   orderEvents                OrderEvent[]
   createdOrders              Order[]                   @relation("OrderCreator")
+  resolvedApprovals          ActionApproval[]          @relation("ApprovalResolver")
   verifiedPayments           Payment[]
   user                       User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace                  Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -314,6 +316,7 @@ model Conversation {
   workspace                  Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   messages                   Message[]
   orders                     Order[]
+  approvals                  ActionApproval[]
   usageRecords               UsageRecord[]
 
   @@index([workspaceId, status, lastMessageAt(sort: Desc)])
@@ -457,6 +460,7 @@ model Contact {
   conversations      Conversation[]
   messages           Message[]
   orders             Order[]
+  approvals          ActionApproval[]
   payments           Payment[]
 
   @@unique([workspaceId, phoneE164])
@@ -529,6 +533,38 @@ model CustomerMemory {
   @@index([workspaceId, contactId, category])
   @@index([workspaceId, contactId, updatedAt(sort: Desc)])
   @@map("customer_memories")
+}
+
+model ActionApproval {
+  id                 String                @id @default(uuid()) @db.Uuid
+  workspaceId        String                @db.Uuid
+  conversationId     String?               @db.Uuid
+  contactId          String?               @db.Uuid
+  actionType         ApprovalActionType
+  status             ApprovalStatus        @default(PENDING)
+  requestedByType    ApprovalRequesterType @default(AI_AGENT)
+  requestedById      String?               @db.Uuid
+  targetEntityType   String?
+  targetEntityId     String?
+  payload            Json?
+  reason             String?
+  decisionReason     String?
+  resolvedByMemberId String?               @db.Uuid
+  resolvedAt         DateTime?
+  executedAt         DateTime?
+  executionResult    Json?
+  idempotencyKey     String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  contact            Contact?              @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  conversation       Conversation?         @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  resolvedByMember   WorkspaceMember?      @relation("ApprovalResolver", fields: [resolvedByMemberId], references: [id], onDelete: SetNull)
+  workspace          Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, status, createdAt(sort: Desc)])
+  @@index([workspaceId, targetEntityType, targetEntityId])
+  @@map("action_approvals")
 }
 
 model Category {
@@ -1801,6 +1837,7 @@ enum NotificationType {
   USAGE_LIMIT_REACHED
   TEAM_MEMBER_JOINED
   SUBSCRIPTION_CHANGED
+  APPROVAL_REQUESTED
 }
 
 enum NotificationLevel {
@@ -1816,6 +1853,28 @@ enum ActorType {
   SYSTEM
   AUTOMATION
   CUSTOMER
+}
+
+enum ApprovalActionType {
+  ORDER_CANCEL
+  ORDER_MODIFY
+  REFUND_REQUEST
+  ADDRESS_CHANGE
+  EXCEPTIONAL_DISCOUNT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
+  FAILED
+}
+
+enum ApprovalRequesterType {
+  AI_AGENT
+  CUSTOMER
+  SYSTEM
 }
 
 enum MemoryCategory {

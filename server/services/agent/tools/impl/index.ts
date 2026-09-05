@@ -9,6 +9,7 @@ import { getProductTool } from './get-product.tool';
 import { searchProductsTool } from './search-products.tool';
 import { createOrderTool } from './create-order.tool';
 import { updateCustomerDetailsTool } from './update-customer-details.tool';
+import { requestOrderCancellationTool } from './request-order-cancellation.tool';
 
 export {
   checkInventoryTool,
@@ -19,6 +20,7 @@ export {
   searchProductsTool,
   createOrderTool,
   updateCustomerDetailsTool,
+  requestOrderCancellationTool,
 };
 
 export const allBusinessReadTools = [
@@ -45,6 +47,7 @@ export function registerBusinessReadTools(registry: ToolRegistry): ToolRegistry 
 export const allBusinessWriteTools = [
   createOrderTool,
   updateCustomerDetailsTool,
+  requestOrderCancellationTool,
 ] as const;
 
 /**

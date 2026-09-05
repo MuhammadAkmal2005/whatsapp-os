@@ -573,3 +573,76 @@ Authority flows strictly down, never up. The LLM cannot authorize an action:
 - If `create_order` failed or was never called, the model is strictly forbidden from claiming the order was placed.
 - Replaced with an honest explanation of the failure reason and an offer to assist.
 
+---
+
+## Human Approval V1 (Action Authorization Architecture)
+
+Human Approval V1 implements a secure, tenant-isolated bridge between safe autonomous operations and sensitive business mutations. Where low-risk actions (e.g. creating verified orders, updating contact delivery notes) execute autonomously, sensitive actions (e.g. order cancellations, delivery address overrides on active orders, refund authorizations, or custom discount concessions) require explicit authorization by a human team member.
+
+### 1. Core Authority Principles
+
+1. **AI Never Approves Its Own Actions**: The AI agent (`role: 'AGENT'`) can only propose approval requests; approval endpoints enforce non-null `ctx.membershipId` and staff RBAC roles.
+2. **Approval Does Not Bypass Domain Invariants**: Human approval cannot override live inventory, server-derived pricing, tenant boundaries, or database constraints.
+3. **Stale-State Revalidation**: Between approval request creation and human execution, business reality changes (e.g. an order is packed, shipped, or delivered). The execution layer re-verifies live entity state before mutating. If the entity state is stale, the mutation is prevented.
+4. **Idempotency**: All approval creation and execution operations enforce deduplication keys (`ai-approval:${messageId}:${targetId}`) and atomic status guards, ensuring one customer request produces at most one real mutation.
+
+### 2. State Machine
+
+```
+              ┌───────────────┐
+              │    PENDING    │
+              └───────┬───────┘
+                      │
+          ┌───────────┴───────────┐
+          │                       │
+     [Human Rejects]         [Human Approves]
+          │                       │
+          ▼                       ▼
+    ┌───────────┐           ┌───────────┐
+    │ REJECTED  │           │ APPROVED  │
+    └───────────┘           └─────┬─────┘
+                                  │
+                       [Revalidate & Execute]
+                                  │
+                     ┌────────────┴────────────┐
+                     │                         │
+            [Live State Valid]       [Stale / Condition Failed]
+                     │                         │
+                     ▼                         ▼
+               ┌───────────┐             ┌───────────┐
+               │ EXECUTED  │             │  FAILED   │
+               └───────────┘             └───────────┘
+```
+
+- Invalid transitions (`REJECTED -> APPROVED`, `EXECUTED -> APPROVED`, `EXECUTED -> REJECTED`) throw errors.
+- Duplicate approval attempts on already `APPROVED` or `EXECUTED` records return idempotently without duplicate mutations.
+
+### 3. Supported vs Unsupported Operations
+
+| Action Type | Underlying Domain Service | Automated Execution? | Fallback / Behavior |
+| :--- | :--- | :--- | :--- |
+| `ORDER_CANCEL` | `cancelOrder` | Yes (if order is not shipped/delivered) | Revalidates status, releases reserved stock, audits event |
+| `ORDER_MODIFY` / `ADDRESS_CHANGE` | `updateOrder` | Yes (if order is DRAFT/PENDING) | Updates order fields, recalculates totals if needed |
+| `REFUND_REQUEST` | None (no gateway disbursement) | No | Marks approved with `manualProcessingRequired: true` for accounting |
+| `EXCEPTIONAL_DISCOUNT` | None (no arbitrary coupon tool) | No | Marks approved with `manualProcessingRequired: true` for staff review |
+
+### 4. RBAC Mapping
+
+- `ORDER_CANCEL`: Requires `order:cancel` (MANAGER, ADMIN, OWNER)
+- `ORDER_MODIFY` / `ADDRESS_CHANGE`: Requires `order:update` (MANAGER, ADMIN, OWNER)
+- `REFUND_REQUEST`: Requires `order:refund` (ADMIN, OWNER)
+- `EXCEPTIONAL_DISCOUNT`: Requires `order:update` (MANAGER, ADMIN, OWNER)
+
+### 5. Grounding & Honesty Protection
+
+The AI runtime prohibits the model from falsely claiming an order is cancelled or modified when the approval request is pending. `validateGrounding` catches claims such as `"your order has been cancelled"` or `"order cancel ho gaya"` and substitutes the truthful response:
+> *"I cannot modify or cancel orders autonomously. Your request has been submitted to our human team for review, and a staff member will assist you shortly."*
+
+### 6. User Interface & Notifications
+
+- Dedicated `/approvals` dashboard displays pending requests with semantic action badges, customer details, target order links, and reasons.
+- Team members can approve with one click or reject with a required reason.
+- Real-time `APPROVAL_REQUESTED` notifications route staff directly to `/approvals`.
+- Comprehensive audit trail records every approval request, decision, execution, and stale-prevention event.
+
+
