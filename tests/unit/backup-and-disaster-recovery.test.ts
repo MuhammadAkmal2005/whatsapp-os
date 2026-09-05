@@ -220,8 +220,8 @@ describe('Phase 10 Unit 2: Database Backup & Disaster Recovery Verification', ()
         }
       }
 
-      // 52 total models defined across the full enterprise schema
-      expect(models.length).toBe(52);
+      // 53 total models defined across the full enterprise schema
+      expect(models.length).toBe(53);
 
       // Core tenant models must exist
       const requiredModels = [
@@ -241,6 +241,7 @@ describe('Phase 10 Unit 2: Database Backup & Disaster Recovery Verification', ()
         'AIAgent',
         'AITurn',
         'KnowledgeChunk',
+        'CustomerMemory',
         'Automation',
         'AutomationAction',
         'AutomationRun',

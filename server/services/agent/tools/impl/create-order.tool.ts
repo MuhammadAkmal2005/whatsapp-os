@@ -22,9 +22,14 @@ import { prisma } from '@/db/prisma';
 import { coerceCurrency, formatMoney, money } from '@/lib/money';
 import { findContactById } from '@/server/repositories/contact.repository';
 import { findConversationById } from '@/server/repositories/conversation.repository';
+import { findStock } from '@/server/repositories/inventory.repository';
 import { createOrder } from '@/server/services/order/order.service';
 import type { WorkspaceActorContext } from '@/server/tenancy/context';
 import type { CreateOrderInput } from '@/server/validation/order';
+import {
+  formatFriendlyPaymentMethods,
+  isPaymentMethodSupported,
+} from '../../business-rules.service';
 import type { AITenantContext } from '../../context';
 import type { AITool } from '../tool-contract';
 
@@ -86,9 +91,15 @@ export interface CreateOrderSuccessDTO extends OrderTotalsDTO {
   status: string;
 }
 
+export interface CreateOrderErrorDTO {
+  error: string;
+  message: string;
+  reason?: string;
+}
+
 export type CreateOrderToolResult =
   | CreateOrderSuccessDTO
-  | { error: string; message: string };
+  | CreateOrderErrorDTO;
 
 /** Built from the persisted row, so what the agent says and what the database holds are
  *  the same numbers by construction rather than by coincidence. */
@@ -180,9 +191,10 @@ export const createOrderTool: AITool<
     }
 
     // 2. Load dependencies
-    const [conversation, workspace] = await Promise.all([
+    const [conversation, workspace, businessProfile] = await Promise.all([
       findConversationById(prisma, ctx.workspaceId, ctx.conversationId),
       prisma.workspace.findUnique({ where: { id: ctx.workspaceId } }),
+      prisma.businessProfile.findUnique({ where: { workspaceId: ctx.workspaceId } }),
     ]);
 
     if (!conversation || !conversation.contactId) {
@@ -206,7 +218,67 @@ export const createOrderTool: AITool<
       };
     }
 
-    // 3. Build input
+    // 3. Level 3 Business Rule Gate: Payment Method Verification
+    const requestedPaymentMethod = input.paymentMethod || 'COD';
+    const configuredMethods = businessProfile?.paymentMethods;
+    if (configuredMethods && configuredMethods.length > 0) {
+      if (!isPaymentMethodSupported(requestedPaymentMethod, configuredMethods)) {
+        const friendlyMethods = formatFriendlyPaymentMethods(configuredMethods);
+        return {
+          error: 'REJECTED_BY_RULE',
+          reason: 'PAYMENT_METHOD_NOT_SUPPORTED',
+          message: `Payment method ${requestedPaymentMethod} is not accepted by this business. Accepted payment methods are: ${friendlyMethods}.`,
+        };
+      }
+    }
+
+    // 4. Level 1 Domain Pre-checks: Product Existence & Inventory
+    const productIds = input.items.map((item) => item.productId);
+    const existingProducts = await prisma.product.findMany({
+      where: {
+        id: { in: productIds },
+        workspaceId: ctx.workspaceId,
+        deletedAt: null,
+      },
+      include: {
+        variants: true,
+      },
+    });
+
+    const productMap = new Map(existingProducts.map((p) => [p.id, p]));
+
+    for (const item of input.items) {
+      const product = productMap.get(item.productId);
+      if (!product) {
+        return {
+          error: 'PRODUCT_NOT_FOUND',
+          message: `Product not found in catalog: ${item.productId}. Always search or verify products first.`,
+        };
+      }
+
+      if (item.variantId) {
+        const variant = product.variants.find((v) => v.id === item.variantId);
+        if (!variant) {
+          return {
+            error: 'VARIANT_NOT_FOUND',
+            message: `Variant with ID ${item.variantId} not found for product "${product.name}".`,
+          };
+        }
+      }
+
+      if (product.trackInventory) {
+        const stock = await findStock(prisma, ctx.workspaceId, product.id, item.variantId ?? null);
+        if (!stock || stock.available < item.quantity) {
+          const available = stock?.available ?? 0;
+          return {
+            error: 'INSUFFICIENT_STOCK',
+            message: `Insufficient stock for "${product.name}". Available: ${available}, requested: ${item.quantity}.`,
+          };
+        }
+      }
+    }
+
+    // 5. Build input
     const createOrderInput: CreateOrderInput = {
       contactId: contact.id,
       conversationId: ctx.conversationId,
@@ -223,24 +295,31 @@ export const createOrderTool: AITool<
       city: input.city || contact.city || undefined,
       postalCode: input.postalCode || contact.postalCode || undefined,
       country: input.country || 'PK',
-      paymentMethod: input.paymentMethod || 'COD',
+      paymentMethod: requestedPaymentMethod,
       notes: input.notes,
       idempotencyKey,
     };
 
-    // 4. Build the actor context for the service.
-    //
-    // The agent is a real actor with real authority but not a workspace member, so there
-    // is no membership id to give and none is invented: `WorkspaceActorContext` types it
-    // as nullable and the columns behind it (`Order.createdByMemberId`,
-    // `OrderEvent.actorMemberId`) are nullable too. This replaced a double cast through
-    // `unknown` that claimed a `null` was a `string`, and a phantom `permissions` set that
-    // `TenantContext` has no field for and that nothing ever read — authorization runs off
-    // `role`, through the same `requirePermission` every human path uses.
-    //
-    // The currency is the workspace's own column rather than the context's copy of it.
-    // The row is already loaded, and what an order is denominated in should not depend on
-    // how the calling context happened to be constructed.
+    // 6. Best-effort sync of customer address/name if provided in input
+    if (input.addressLine1 || input.city || input.postalCode || input.customerName) {
+      const contactUpdates: Record<string, string> = {};
+      if (input.customerName && !contact.name) contactUpdates.name = input.customerName;
+      if (input.addressLine1 && !contact.addressLine1) contactUpdates.addressLine1 = input.addressLine1;
+      if (input.addressLine2 && !contact.addressLine2) contactUpdates.addressLine2 = input.addressLine2;
+      if (input.city && !contact.city) contactUpdates.city = input.city;
+      if (input.postalCode && !contact.postalCode) contactUpdates.postalCode = input.postalCode;
+
+      if (Object.keys(contactUpdates).length > 0) {
+        await prisma.contact.updateMany({
+          where: { id: contact.id, workspaceId: ctx.workspaceId, deletedAt: null },
+          data: contactUpdates,
+        }).catch(() => {
+          // Non-blocking best effort sync
+        });
+      }
+    }
+
+    // 7. Build the actor context for the service.
     const actorCtx: WorkspaceActorContext = {
       workspaceId: ctx.workspaceId,
       workspaceName: workspace.name,
@@ -249,7 +328,7 @@ export const createOrderTool: AITool<
       currency: coerceCurrency(workspace.currency),
     };
 
-    // 5. Execute
+    // 8. Execute order creation with authoritative server pricing
     try {
       const order = await createOrder(actorCtx, createOrderInput, {
         createdByAi: true,
@@ -290,9 +369,11 @@ export const createOrderTool: AITool<
         }
       }
 
+      const msg = error instanceof Error ? error.message : 'Unknown error during order creation.';
+      const isStockErr = /insufficient stock/i.test(msg);
       return {
-        error: 'ORDER_CREATION_FAILED',
-        message: error instanceof Error ? error.message : 'Unknown error during order creation.',
+        error: isStockErr ? 'INSUFFICIENT_STOCK' : 'ORDER_CREATION_FAILED',
+        message: msg,
       };
     }
   },

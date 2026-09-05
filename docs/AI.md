@@ -516,3 +516,60 @@ payment confirmation. Payment status comes from a tool, so the injection has not
 
 Cross-tenant retrieval: a chunk in Workspace A must never appear in a Workspace B turn. Tested against a real
 database, because this is the raw-SQL query and the typed layer is not protecting it.
+
+---
+
+## AI Automation V1
+
+AI Automation V1 advances ConvoNexa from passive answering into safely performing allowed business actions:
+```
+AI understands intent → verifies prerequisites → safely performs allowed business action → reports exact result
+```
+
+### 1. 5-Level Action Authority Model
+
+Authority flows strictly down, never up. The LLM cannot authorize an action:
+
+1. **LEVEL 1 — Deterministic Domain Rules & Services**:
+   - Server-side authoritative pricing (`computeOrderTotals`), discarding client or AI-supplied discounts, delivery fees, or taxes.
+   - Atomic inventory validation (`findStock`) and reservation (`reserveStock`).
+   - Tenant isolation on all database reads and writes.
+2. **LEVEL 2 — Permissions & Actor Context**:
+   - Execution occurs under `WorkspaceActorContext` with `role: 'AGENT'`.
+   - Actions require explicit capabilities: `orders:create`, `contacts:update`, `products:read`, `inventory:read`, `business:read`.
+3. **LEVEL 3 — Business Rules & Policies**:
+   - Evaluated by `evaluateBusinessRules` before any sensitive business action.
+   - Validates that requested payment methods (e.g. COD) are accepted by business profile policies.
+   - Enforces return windows and delivery fee thresholds.
+4. **LEVEL 4 — Human Approval & Escalation**:
+   - Actions requiring human judgment (cancellations, refunds, complaints, unsupported payment methods) trigger `triggerHumanHandoff`.
+5. **LEVEL 5 — LLM Agent**:
+   - The model can only propose structured tool calls via narrow Zod schemas.
+   - Zero direct database mutation access.
+
+### 2. Supported V1 Business Actions
+
+- **`create_order`**: Creates a verified customer order.
+  - Resolves products and variants in catalog.
+  - Verifies live inventory before placing order.
+  - Evaluates business profile accepted payment methods.
+  - Synchronizes customer delivery details (name, address, city).
+  - Uses authoritative server totals.
+  - Idempotent deduplication using `ai-order:${ctx.messageId}:${ctx.executionId}`.
+- **`update_customer_details`**: Safely updates non-sensitive contact details (`name`, `addressLine1`, `addressLine2`, `city`, `postalCode`).
+- **Read Operations**: Backing the order workflow (`search_products`, `get_product`, `check_inventory`, `get_current_customer`, `get_order`, `get_business_info`).
+
+### 3. Strictly Prohibited Actions (Deferred / Human-Only)
+
+- Autonomous order cancellations or modifications
+- Automatic refund issuance or disbursement
+- Coupon creation or arbitrary discount authorization
+- Payment credential or bank detail manipulation
+- Raw SQL, arbitrary shell/HTTP tools, or general code execution
+
+### 4. Tool Result Trust & Grounding Protection
+
+- Grounding validation intercepts any hallucinated order success claims (`FALSE_ORDER_CONFIRMATION_CLAIM`).
+- If `create_order` failed or was never called, the model is strictly forbidden from claiming the order was placed.
+- Replaced with an honest explanation of the failure reason and an offer to assist.
+

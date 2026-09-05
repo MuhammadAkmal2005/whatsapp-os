@@ -453,6 +453,43 @@ export function validateGrounding(input: GroundingValidationInput): GroundingVal
     }
   }
 
+  // 2.6 Tool Result Trust & False Order Confirmation Prevention (AI Automation V1)
+  const claimsOrderPlaced =
+    /\b(?:your order (?:has been|is|was) (?:placed|created|confirmed|booked)|i have (?:placed|created|booked) your order|order (?:has been|is) placed successfully|order (?:place|book|confirm) ho gaya|aap ka order (?:confirm|book|place) ho gaya)\b/i.test(
+      replyText,
+    );
+
+  if (claimsOrderPlaced) {
+    const createOrderCalls = toolCalls?.filter((tc) => tc.name === 'create_order') ?? [];
+    const successfulOrderCall = createOrderCalls.find((tc) => {
+      if (tc.isError) return false;
+      if (typeof tc.result === 'object' && tc.result !== null) {
+        const res = tc.result as Record<string, unknown>;
+        return res.success === true && typeof res.orderNumber === 'string';
+      }
+      return false;
+    });
+
+    if (!successfulOrderCall) {
+      const failedCall = createOrderCalls[0];
+      let failureReason = '';
+      if (failedCall && typeof failedCall.result === 'object' && failedCall.result !== null) {
+        const res = failedCall.result as Record<string, unknown>;
+        if (typeof res.message === 'string') {
+          failureReason = res.message;
+        }
+      }
+
+      return {
+        passed: false,
+        blockedReason: 'FALSE_ORDER_CONFIRMATION_CLAIM',
+        replacementReply: failureReason
+          ? `I was unable to place your order: ${failureReason} Please let us know how you would like to proceed.`
+          : 'I was unable to place your order because the required details could not be verified. Please let us know how you would like to proceed.',
+      };
+    }
+  }
+
   // 3. Check for unauthorized discount claims (fallback when no specific rule evaluation)
   const discountPattern = /\b(\d{1,2}%\s*(?:discount|off)|coupon\s*code|promo\s*code)\b/i;
   if (discountPattern.test(replyText)) {
