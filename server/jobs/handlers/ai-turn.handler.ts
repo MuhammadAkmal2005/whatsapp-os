@@ -4,7 +4,7 @@
  * Runs the agent over a conversation that has a new inbound message, then puts the
  * answer in front of the customer. The handler stays thin — the runtime owns the
  * turn, the delivery service owns the message — so this file is only about the two
- * decisions that belong to the job: which provider to run with, and whether the
+ * decisions that belong to the job: which providers to run with, and whether the
  * result is something a customer should see.
  */
 
@@ -15,6 +15,7 @@ import { logger } from '@/lib/logger';
 import { ValidationError } from '@/server/errors';
 import { findAITurnByMessageId } from '@/server/repositories/ai-turn.repository';
 import { executeAgentTurn } from '@/server/services/agent/agent-runtime.service';
+import { getEmbeddingProvider } from '@/server/services/agent/embedding-provider.factory';
 import { getAIProvider } from '@/server/services/agent/provider.factory';
 import { deliverAgentReply } from '@/server/services/agent/reply-delivery.service';
 import type { JobPayload } from '../job-types';
@@ -78,12 +79,21 @@ export const aiRespondHandler: JobHandler<'ai.respond'> = async (
   // the deterministic mock, a configured deployment gets the real client.
   const provider = getAIProvider();
 
+  // The same, for vectors. Without this argument the runtime skips grounding
+  // altogether — retrieval is opt-in on the `embeddingProvider` parameter, so a
+  // handler that omits it produces an agent that answers every question from the
+  // system prompt alone while the knowledge base sits unread. That was the state of
+  // this file before: RAG worked in tests, which passed a provider explicitly, and
+  // silently did not exist in production.
+  const embeddingProvider = getEmbeddingProvider();
+
   const result = await executeAgentTurn({
     db: prisma,
     workspaceId: payload.workspaceId,
     conversationId: payload.conversationId,
     messageId: payload.messageId,
     provider,
+    embeddingProvider,
   });
 
   // Only a completed turn speaks. Every handoff and abort path in the runtime

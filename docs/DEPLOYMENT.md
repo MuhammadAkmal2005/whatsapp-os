@@ -95,9 +95,13 @@ reads takes the application down for the interval between deploy and rollout. Sh
 then drop the column in a later migration. The same applies to renames, which Prisma may implement as a drop and
 an add — read the generated SQL.
 
-The initial migration has not been generated yet. When it is, verify it creates the `vector` and `pg_trgm`
-extensions, and add the HNSW index on `knowledge_chunks.embedding`; without that index, retrieval degrades to a
-sequential scan over every chunk.
+Two things Prisma cannot express are created by hand in migrations, so verify they survive any migration squash or
+rebaseline: the `vector` and `pg_trgm` extensions in the initial migration, and the HNSW index on
+`knowledge_chunks.embedding` in `20260905000000_embedding_provenance_and_hnsw_index`. That index is built with a
+plain `CREATE INDEX` inside the migration, which takes an exclusive lock and is not instant — around ten seconds per
+thousand rows in our own measurements. Harmless while the table is small. If it is ever large at deploy time, build
+it outside the migration with `CREATE INDEX CONCURRENTLY`, which Prisma cannot run because it wraps a migration in a
+transaction.
 
 Connection pooling matters on serverless. Each function instance opens its own connection and a managed Postgres
 will refuse new ones long before traffic feels heavy, so use the provider's pooler — PgBouncer in transaction mode,

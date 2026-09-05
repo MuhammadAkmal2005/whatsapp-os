@@ -19,10 +19,10 @@ partial and misspelled input — a shop owner types "kurtaa" and should still fi
 
 `docker-compose.yml` uses the `pgvector/pgvector:pg16` image so both are present without extra setup.
 
-> **`prisma/migrations/` does not exist yet.** The schema is complete but no migration has been generated,
-> because the environment it was authored in had no PostgreSQL instance. `npm run db:migrate` creates the initial
-> migration on first run. Review the generated SQL before committing it — particularly that the `vector` and
-> `pg_trgm` extensions are created, since Prisma's handling of extensions has changed across versions.
+Migrations live in `prisma/migrations/`, starting with `20260827215828_init`. Two things in this schema cannot be
+expressed in Prisma and therefore only exist because a migration creates them by hand: the `vector` and `pg_trgm`
+extensions, and the HNSW index on `knowledge_chunks.embedding`. Review generated SQL before committing it, and when
+`prisma migrate dev` offers to drop something it cannot see, decline.
 
 ---
 
@@ -131,16 +131,29 @@ Unique constraints do real work rather than documenting intent:
 
 ## Vector search
 
-`KnowledgeChunk.embedding` is `Unsupported("vector(1536)")?`. Prisma has no native vector type, so the column is
-declared as unsupported and queried with `$queryRaw`.
+`KnowledgeChunk.embedding` is `Unsupported("vector")?` in the schema and `vector(1536)` in the database. Prisma has
+no native vector type, so the column is declared as unsupported — which also means Prisma cannot see the width, and
+`EMBEDDING_MODELS` in `config/models.ts` is the source of truth every writer validates a vector against — and it is
+queried with `$queryRaw`.
 
 That raw query is the one place tenant scoping cannot be inherited from a repository's typed `where` clause, so it
 is written with a parameterised `workspaceId` and reviewed accordingly. **Never interpolate a value into that
 SQL.** It is the single highest-risk query in the codebase on both counts — injection and cross-tenant leakage.
 
-1536 dimensions matches `text-embedding-3-small`. Changing `AI_EMBEDDING_MODEL` to a model with a different width
-requires a migration, and changing it to a same-width model still invalidates every stored embedding, because
-vectors from different models are not comparable. Re-embed before trusting retrieval.
+The index is HNSW with `vector_cosine_ops`, created in
+`20260905000000_embedding_provenance_and_hnsw_index` because Prisma cannot express it. `prisma migrate dev` may
+offer to drop it as drift; decline. It only serves `ORDER BY embedding <=> $query LIMIT $k`, so the retrieval query
+keeps that shape — the tenant filter and the distance ceiling ride on top of the ordered scan rather than replacing
+it. NULL vectors are not indexed and are excluded in SQL.
+
+1536 dimensions matches `gemini-embedding-001` requested at 1536 output dimensions, truncated from its native 3072
+and re-normalised by the provider. Changing `AI_EMBEDDING_MODEL` to a model with a different width requires a
+migration, and changing it to a same-width model still invalidates every stored embedding, because vectors from
+different models are not comparable. Re-embed before trusting retrieval.
+
+`KnowledgeChunk.embeddingModel`, `embeddingDims` and `embeddedAt` record what produced the vector in that row.
+`KnowledgeBase.embeddingModel` is what the workspace's corpus is *meant* to be built with and can be edited under a
+corpus built with something else, which is why "does this chunk need re-embedding" is only answerable from the chunk.
 
 ---
 

@@ -54,13 +54,13 @@ credentials will need re-entering. Sessions survive, because session tokens are 
 | `AI_BASE_URL` | — | Optional. Any OpenAI-compatible gateway. |
 | `AI_MODEL` | `gpt-4o-mini` | Customer-facing generation. |
 | `AI_MODEL_FAST` | `gpt-4o-mini` | Classification and summarisation. Route cheap work here. |
-| `AI_EMBEDDING_MODEL` | `text-embedding-3-small` | Changing this invalidates existing embeddings; they must be regenerated before retrieval is trustworthy. |
+| `AI_EMBEDDING_MODEL` | `gemini-embedding-001` | Read by the embedding provider factory, which is the only thing that chooses an embedding model. Must be catalogued in `EMBEDDING_MODELS`, because its width has to match the `vector(1536)` column. Changing it invalidates every stored embedding, even at the same width — vectors from different models are not comparable — so re-embed before trusting retrieval again. |
 | `AI_MAX_OUTPUT_TOKENS` | `600` | 64–4096. A hard ceiling per reply, for cost. |
 | `AI_CONTEXT_MESSAGE_WINDOW` | `12` | 2–60 recent messages sent alongside the rolling summary. Never the full history. |
-| `AI_RETRIEVAL_MIN_SCORE` | `0.35` | 0–1. Below this a knowledge chunk is not considered relevant, retrieval returns nothing, and the agent says it does not know rather than answering from a bad match. Lowering it trades honesty for coverage. |
 
-Model prices live in `config/models.ts`, not here, so a price change is a reviewed code change rather than an
-environment edit that silently alters every cost figure in the product.
+Model prices live in `config/models.ts` and retrieval tuning — `topK`, the similarity floor, the evidence budget —
+lives in `KNOWLEDGE_RETRIEVAL` in `config/constants.ts`, not here. Both are reviewed code changes rather than an
+environment edit that silently alters every cost figure, or the honesty of every answer, in the product.
 
 ---
 

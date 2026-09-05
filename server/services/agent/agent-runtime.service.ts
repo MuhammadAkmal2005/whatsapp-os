@@ -8,6 +8,7 @@
 
 import 'server-only';
 
+import { estimateCostMicros, estimateEmbeddingCostMicros } from '@/config/models';
 import { prisma, type Db } from '@/db/prisma';
 import { logger } from '@/lib/logger';
 import { coerceCurrency } from '@/lib/money';
@@ -26,7 +27,7 @@ import {
   type AITurnRow,
   type TurnSource,
 } from '@/server/repositories/ai-turn.repository';
-import { recordAIUsage } from '@/server/repositories/usage.repository';
+import { recordAIUsage, recordEmbeddingUsage } from '@/server/repositories/usage.repository';
 import type { HandoffReason } from '@/server/validation/conversation';
 import type {
   AIMessage,
@@ -368,31 +369,38 @@ export async function executeAgentTurn(
   });
 
   // 5.5 Grounding Pipeline
+  //
+  // The knowledge base row is the gate, not the source of the model: a workspace without
+  // one has no chunks to find, so embedding the message would spend money to search an
+  // empty corpus. Which model does the embedding is `AI_EMBEDDING_MODEL`'s decision,
+  // made inside the provider.
   const knowledgeBase = await db.knowledgeBase.findUnique({
     where: { workspaceId: params.workspaceId },
   });
-  
+
   let groundingContext: GroundingContext | undefined;
-  
+
   if (knowledgeBase && params.embeddingProvider && userText.trim().length > 0) {
     try {
+      // `aiContext` rather than a bare workspace id: the scope is the one built from the
+      // workspace's own row above, and a string parameter here would accept anything.
       groundingContext = await retrieveGroundingContext(
         db,
-        params.workspaceId,
+        aiContext,
         userText,
         params.embeddingProvider,
-        {
-          model: knowledgeBase.embeddingModel,
-          topK: 5,
-          threshold: 0.6, // Reasonable semantic threshold
-        }
       );
-    } catch (groundingErr: any) {
-      // If it's a retryable embedding error, throw it so the background job can retry
-      if (groundingErr?.category === 'PROVIDER_UNAVAILABLE' || groundingErr?.retryability === 'RETRYABLE') {
+    } catch (groundingErr) {
+      // A transient failure has to reach the queue — retrying the turn is how the
+      // customer eventually gets a grounded answer. Anything else degrades to no
+      // evidence, and no evidence makes the agent say it does not know.
+      if (classifyAIError(groundingErr).retryability === 'RETRYABLE') {
         throw groundingErr;
       }
-      logger.error('ai.agent.grounding_failed', { workspaceId: params.workspaceId, error: groundingErr });
+      logger.error('ai.agent.grounding_failed', {
+        workspaceId: params.workspaceId,
+        error: groundingErr,
+      });
     }
   }
 
@@ -739,8 +747,21 @@ export async function executeAgentTurn(
   }
 
   const latencyMs = Date.now() - startTime;
-  // Estimate sub-cent cost in micros (e.g. $0.15/1M input, $0.60/1M output approx in PKR micros)
-  const costMicros = Math.round(totalInputTokens * 0.15 + totalOutputTokens * 0.6);
+
+  // Priced from the model catalogue, not from a pair of literals. The two numbers this
+  // line used to multiply by were gpt-4o-mini's rates, applied to whatever model the
+  // workspace had actually configured — a Gemini Pro turn was billed at a sixth of its
+  // real input price. An uncatalogued model yields null and is recorded as zero rather
+  // than guessed at, with a warning naming the model so the gap is visible in the log
+  // instead of buried in the invoice.
+  const estimatedCostMicros = estimateCostMicros(agent.model, totalInputTokens, totalOutputTokens);
+  if (estimatedCostMicros === null) {
+    logger.warn('ai.agent.model_price_unknown', {
+      workspaceId: aiContext.workspaceId,
+      model: agent.model,
+    });
+  }
+  const costMicros = estimatedCostMicros ?? 0;
 
   // 9. Persist AITurn Telemetry
   let turnRecord: AITurnRow | null = null;
@@ -777,7 +798,6 @@ export async function executeAgentTurn(
 
   // 10. Persist UsageRecord Metering
   try {
-    const embeddingTokens = groundingContext?.embeddingTokens ?? 0;
     await recordAIUsage(db, {
       workspaceId: aiContext.workspaceId,
       agentId: aiContext.agentId,
@@ -789,19 +809,24 @@ export async function executeAgentTurn(
       outputTokens: totalOutputTokens,
       costMicros,
     });
-    
-    // Meter embedding usage separately if it occurred
-    if (embeddingTokens > 0) {
-      await recordAIUsage(db, {
+
+    // Retrieval is metered on its own metric and its own price. The gate is whether an
+    // embedding call happened, not whether the estimate came out above zero — a call
+    // that returns a small token count is still a call the workspace paid for.
+    if (groundingContext?.embedded) {
+      await recordEmbeddingUsage(db, {
         workspaceId: aiContext.workspaceId,
         agentId: aiContext.agentId,
         conversationId: aiContext.conversationId,
         messageId: aiContext.messageId,
-        provider: params.embeddingProvider?.name ?? 'unknown',
-        model: knowledgeBase?.embeddingModel ?? 'unknown',
-        inputTokens: embeddingTokens,
-        outputTokens: 0,
-        costMicros: 0,
+        provider: groundingContext.embeddingProvider,
+        model: groundingContext.embeddingModel,
+        estimatedInputTokens: groundingContext.embeddingTokens,
+        costMicros:
+          estimateEmbeddingCostMicros(
+            groundingContext.embeddingModel,
+            groundingContext.embeddingTokens,
+          ) ?? 0,
       });
     }
   } catch (usageErr) {

@@ -4,7 +4,12 @@ import { createWorkspaceFixture, createContactFixture, resetDatabase } from '../
 import { executeAgentTurn } from '@/server/services/agent/agent-runtime.service';
 import { MockAIProvider } from '@/services/ai/mock-ai-provider';
 import { ToolRegistry } from '@/server/services/agent/tools/registry';
-import type { EmbeddingProvider } from '@/services/ai/embedding-provider.interface';
+import type {
+  EmbeddingBatchResult,
+  EmbeddingProvider,
+  EmbeddingResult,
+  EmbeddingTask,
+} from '@/services/ai/embedding-provider.interface';
 import { AIAgentError } from '@/server/services/agent/errors';
 import { z } from 'zod';
 import { processInboundMessage } from '@/server/services/whatsapp/inbound.service';
@@ -17,13 +22,26 @@ describe('Phase 5 Final Acceptance / End-to-End Validation', () => {
 
   class MockEmbeddingProvider implements EmbeddingProvider {
     public readonly name = 'mock-embed';
+    public readonly model = 'mock-embedding';
+    public readonly dimensions = 1536;
 
-    async embed(text: string, model: string) {
+    async embed(text: string, _task: EmbeddingTask): Promise<EmbeddingResult> {
+      return { embedding: this.vectorFor(text), usage: { inputTokens: 5, estimated: true } };
+    }
+
+    async embedMany(texts: readonly string[], _task: EmbeddingTask): Promise<EmbeddingBatchResult> {
+      return {
+        embeddings: texts.map((text) => this.vectorFor(text)),
+        usage: { inputTokens: 5 * texts.length, estimated: true },
+      };
+    }
+
+    private vectorFor(text: string): number[] {
       if (text.includes('fail_embedding')) {
         throw new AIAgentError('Provider unavailable', { category: 'PROVIDER_UNAVAILABLE', retryability: 'RETRYABLE' });
       }
 
-      let values = new Array(1536).fill(0);
+      const values = new Array<number>(this.dimensions).fill(0);
 
       if (text.toLowerCase().includes('return policy')) {
         values[0] = 1.0;
@@ -33,7 +51,7 @@ describe('Phase 5 Final Acceptance / End-to-End Validation', () => {
         values[1] = 0.1;
         values[2] = 0.1;
       }
-      return { embedding: values, usage: { inputTokens: 5 } };
+      return values;
     }
   }
 

@@ -118,7 +118,9 @@ describe('Gemini Provider Integration with Agent Runtime', () => {
         role: 'SALES',
         isActive: true,
         isDefault: true,
-        model: 'gemini-1.5-pro',
+        // A model the catalogue in `config/models.ts` actually prices, so the turn's
+        // cost is metered rather than warned about as unknown.
+        model: 'gemini-2.5-pro',
       },
     });
 

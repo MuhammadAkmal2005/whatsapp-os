@@ -37,13 +37,6 @@ const intFromString = (fallback: number) =>
     .transform((value) => (value === undefined || value === '' ? fallback : Number(value)))
     .pipe(z.number().int());
 
-const floatFromString = (fallback: number) =>
-  z
-    .string()
-    .optional()
-    .transform((value) => (value === undefined || value === '' ? fallback : Number(value)))
-    .pipe(z.number());
-
 const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -63,10 +56,17 @@ const schema = z
     AI_BASE_URL: z.string().url().optional(),
     AI_MODEL: z.string().default('gpt-4o-mini'),
     AI_MODEL_FAST: z.string().default('gpt-4o-mini'),
-    AI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
+    /**
+     * The embedding model every stored and query vector is produced by. Read by
+     * `getEmbeddingProvider` and by the Gemini adapter, which resolves its width
+     * from the catalogue entry of this name — so it is the one place the
+     * embedding model is chosen. A `KnowledgeBase` row also carries an
+     * `embeddingModel`, but that records what a corpus was *built* with, not what
+     * this deployment produces now.
+     */
+    AI_EMBEDDING_MODEL: z.string().default('gemini-embedding-001'),
     AI_MAX_OUTPUT_TOKENS: intFromString(600).pipe(z.number().min(64).max(4096)),
     AI_CONTEXT_MESSAGE_WINDOW: intFromString(12).pipe(z.number().min(2).max(60)),
-    AI_RETRIEVAL_MIN_SCORE: floatFromString(0.35).pipe(z.number().min(0).max(1)),
 
     MOCK_WHATSAPP: optionalBooleanish(true),
     WHATSAPP_API_VERSION: z.string().default('v21.0'),

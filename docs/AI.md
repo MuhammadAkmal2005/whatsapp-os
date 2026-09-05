@@ -113,11 +113,17 @@ Ingestion runs as a background job — upload, extract, chunk, embed, store — 
 the owner with a reason. Silent failure here is particularly bad: the owner believes they taught the agent
 something and the agent quietly does not know it.
 
-Embeddings live in `KnowledgeChunk.embedding`, a `vector(1536)` column matching `text-embedding-3-small`. The
-schema notes that an HNSW index belongs in the migration — and since `prisma/migrations/` does not exist yet,
-adding it is an outstanding task rather than a done one. Without that index, retrieval degrades to a sequential
-scan over every chunk in the table, which is survivable at seed volumes and not at real ones. Retrieval takes at
-most `MAX_RETRIEVED_CHUNKS` (6) chunks above `AI_RETRIEVAL_MIN_SCORE` (0.35).
+Embeddings live in `KnowledgeChunk.embedding`, a `vector(1536)` column matching `gemini-embedding-001` requested at
+1536 output dimensions. An HNSW index over it with `vector_cosine_ops` is created by the migration, and the
+retrieval query keeps the only shape that index can serve — `ORDER BY embedding <=> $query LIMIT $topK` — so the
+planner switches from a filter-and-sort to an ordered index scan on its own once a tenant's corpus is large enough
+for that to be the cheaper plan. Each chunk also records the model, width and time of the vector actually stored,
+which is what makes "does this chunk need re-embedding" an answerable question.
+
+Retrieval takes at most `KNOWLEDGE_RETRIEVAL.topK` (6) chunks at or above `similarityFloor` (0.6), and the
+assembled evidence block is capped at `evidenceTokenBudget` (1,200 tokens) with any single chunk truncated at
+`maxCharsPerChunk` (1,200 characters). The budget is enforced in the grounding service rather than described in a
+comment: without it, six long chunks quietly become the largest part of every prompt.
 
 **The score floor is a correctness control, not a tuning knob.** Below it, retrieval returns nothing and the agent
 says it does not know — which is the desired behaviour. Without a floor, cosine similarity always returns
@@ -227,8 +233,11 @@ Output is capped by `AI_MAX_OUTPUT_TOKENS` (600 default, hard ceiling 4096). Rat
 its limit attached** — the per-workspace limit matters as much as the per-user one, because the cost lands on us
 either way.
 
-`getModelSpec` falls back to the cheapest known model rather than throwing, so an unrecognised model id degrades
-the cost estimate instead of breaking a customer's reply. A missing price row should not be an outage.
+`getModelSpec` throws `NotConfiguredError` for a model id that is not in the catalogue, because a caller that
+needs a context window or a token ceiling cannot proceed on a guess. The cost path is separate and deliberately
+softer: `estimateCostMicros` and `estimateEmbeddingCostMicros` return `null` for an uncatalogued model, and the
+runtime records zero with a warning naming the model. A missing price row is a visible gap in the invoice, not an
+outage — and never another provider's price applied to this one.
 
 Every call writes a `UsageRecord`: a `UsageMetric` and a quantity — `AI_REQUEST`, `AI_INPUT_TOKENS`,
 `AI_OUTPUT_TOKENS`, `AI_EMBEDDING_TOKENS` — attributed to workspace, and optionally to agent, conversation,
@@ -240,7 +249,22 @@ SaaS margin knowable per tenant, and it is why usage metering is MVP scope rathe
 
 ## Provider abstraction
 
-`AIProvider` is an interface (`server/services/agent/ai-provider.interface.ts`). The primary live implementation is `GeminiProvider` (`server/services/agent/gemini-provider.ts`) powered by the official `@google/genai` SDK using Gemini models (e.g. `gemini-2.5-flash`), with vector embeddings generated via `text-embedding-004`. A deterministic offline `MockAIProvider` is the default in development and tests, priced at zero in the catalogue as `mock-model` and `mock-embedding`.
+`AIProvider` is an interface (`services/ai/ai-provider.interface.ts`), and `EmbeddingProvider` is a separate one
+(`services/ai/embedding-provider.interface.ts`) because generation and retrieval are chosen independently. The live
+generation implementation is `GeminiProvider` (`services/ai/providers/gemini-provider.ts`) on the official
+`@google/genai` SDK; the live embedding implementation is `GeminiEmbeddingProvider`
+(`services/ai/providers/gemini-embedding-provider.ts`) using `gemini-embedding-001` at 1536 dimensions. Both are
+selected by configuration — `AI_MODEL` through `getAIProvider`, `AI_EMBEDDING_MODEL` through
+`getEmbeddingProvider` in `server/services/agent/embedding-provider.factory.ts` — never from a database row.
+
+The embedding interface names a task (`document` or `query`) rather than a provider's own string, so the asymmetry
+that retrieval quality depends on is part of the contract instead of a detail each call site has to remember.
+`dimensions` is part of it too: a provider that returns the wrong width is caught before the vector reaches a
+`vector(1536)` column, not after.
+
+Deterministic offline `MockAIProvider` (`services/ai/mock-ai-provider.ts`) and `MockEmbeddingProvider`
+(`services/ai/mock-embedding-provider.ts`) are the default in development and tests, priced at zero in the
+catalogue as `mock-model` and `mock-embedding`.
 
 The mock is a real implementation of the interface, not a stub that returns a fixed string — it has to exercise the same tool-calling and grounding paths, or the paths that matter are only ever tested against a service that costs money to call.
 

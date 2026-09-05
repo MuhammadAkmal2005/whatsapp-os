@@ -73,7 +73,7 @@ worker id     prod-worker-1-1234
 queue driver  postgres
 environment   production
 whatsapp      live
-ai            gemini-1.5-flash
+ai            gemini-2.5-flash
 ```
 
 ### Step 5: Configure Meta Webhooks

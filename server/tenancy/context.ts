@@ -82,6 +82,22 @@ export type TenantContext = {
 };
 
 /**
+ * The tenant a query belongs to, and nothing else.
+ *
+ * Declared for the same reason as `RoleBearingContext` below: so a function that only
+ * needs the scope can demand a *context* rather than a bare `workspaceId` string,
+ * without forcing every caller to hold a full `TenantContext`. A loose string
+ * parameter is assignable from anything — including a request body — and that is the
+ * shape every cross-tenant read in this codebase would have taken. A context is not:
+ * the only way to obtain one is to have proven membership (`TenantContext`) or to be
+ * the trusted server-side AI actor (`WorkspaceActorContext`, `AITenantContext`), and
+ * all three satisfy this structurally.
+ */
+export type WorkspaceScopedContext = {
+  readonly workspaceId: string;
+};
+
+/**
  * Who is acting inside a workspace, without assuming they are a person.
  *
  * The AI agent is a real actor with real authority, but it is not a member: no

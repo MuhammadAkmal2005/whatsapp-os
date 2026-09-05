@@ -76,3 +76,53 @@ export async function recordAIUsage(
     data: records,
   });
 }
+
+export type CreateEmbeddingUsageParams = {
+  workspaceId: string;
+  agentId?: string | null;
+  conversationId?: string | null;
+  messageId?: string | null;
+  provider: string;
+  /** The embedding model that produced the vector, not the generation model. */
+  model: string;
+  /**
+   * Tokens the embedding call consumed, **locally estimated**.
+   *
+   * The Gemini Developer API returns no per-input token count for `embedContent`
+   * (`ContentEmbeddingStatistics` is an Enterprise-tier field), so this is derived from
+   * character length via `APPROX_CHARS_PER_TOKEN`. Named and documented as an estimate
+   * everywhere it travels, because a billing figure that is silently approximate is
+   * worse than one that is openly approximate.
+   */
+  estimatedInputTokens: number;
+  costMicros: number;
+};
+
+/**
+ * Appends the single ledger row for one embedding request.
+ *
+ * Deliberately not `recordAIUsage`. That function writes an `AI_REQUEST` counter and
+ * files its tokens as `AI_INPUT_TOKENS` — correct for a generation call, wrong here
+ * twice over: one customer message would count as two AI requests, and embedding tokens
+ * priced at $0.15/M would be summed together with generation input tokens priced
+ * differently. `AI_EMBEDDING_TOKENS` keeps retrieval's cost separable in analytics,
+ * which is the only way to see that a workspace's bill is retrieval rather than replies.
+ */
+export async function recordEmbeddingUsage(
+  db: Db,
+  params: CreateEmbeddingUsageParams,
+): Promise<void> {
+  await db.usageRecord.create({
+    data: {
+      workspaceId: params.workspaceId,
+      metric: 'AI_EMBEDDING_TOKENS',
+      quantity: params.estimatedInputTokens,
+      agentId: params.agentId ?? null,
+      conversationId: params.conversationId ?? null,
+      messageId: params.messageId ?? null,
+      provider: params.provider,
+      model: params.model,
+      costMicros: params.costMicros,
+    },
+  });
+}

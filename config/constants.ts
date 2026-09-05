@@ -117,7 +117,6 @@ export const CONVERSATION_IDLE_HOURS = 24;
 export const SUMMARY_REFRESH_MESSAGE_COUNT = 20;
 
 // ── AI ─────────────────────────────────────────────────────────────────────
-export const MAX_RETRIEVED_CHUNKS = 6;
 export const MAX_TOOL_CALLS_PER_TURN = 5;
 
 /**
@@ -129,6 +128,43 @@ export const CONFIDENCE_MEDIUM_THRESHOLD = 0.45;
 
 /** Rough characters-per-token for budgeting before a real tokeniser is wired in. */
 export const APPROX_CHARS_PER_TOKEN = 4;
+
+/**
+ * Knowledge retrieval, in one place.
+ *
+ * These four numbers used to be spread across three files: a `MAX_RETRIEVED_CHUNKS`
+ * constant nothing imported, a `topK: 5` and `threshold: 0.6` written inline in the
+ * runtime, and an `AI_RETRIEVAL_MIN_SCORE` environment variable nothing read. Three
+ * sources of truth, two of them dead, and the live one invisible from configuration.
+ *
+ * `similarityFloor` is cosine *similarity*; the repository converts it to the
+ * distance ceiling pgvector actually compares against. It is set where a chunk has
+ * to be genuinely on-topic to be shown to the model: a loose floor is how an
+ * assistant answers a question about refunds from a paragraph about delivery.
+ */
+export const KNOWLEDGE_RETRIEVAL = {
+  /** Chunks a single turn may retrieve. */
+  topK: 6,
+
+  /** Cosine similarity a chunk must reach to count as evidence at all. */
+  similarityFloor: 0.6,
+
+  /**
+   * Ceiling on the assembled evidence block, in tokens, converted through
+   * `APPROX_CHARS_PER_TOKEN` at the point of use. Expressed in tokens because the
+   * constraint being defended is the model's context window and the per-turn cost,
+   * both of which are billed in tokens. Without a real cap, `topK` long chunks
+   * silently become the largest part of every prompt.
+   */
+  evidenceTokenBudget: 1_200,
+
+  /**
+   * Characters any single chunk may contribute. Stops one long document from
+   * consuming the whole budget and crowding out the other matches, which is worse
+   * than truncating it — the top match is rarely the only relevant one.
+   */
+  maxCharsPerChunk: 1_200,
+} as const;
 
 // ── Uploads ────────────────────────────────────────────────────────────────
 export const ALLOWED_IMAGE_MIME_TYPES = [

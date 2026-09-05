@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  estimateCostMicros,
-  estimateEmbeddingCostMicros,
-  getModelSpec,
-  getEmbeddingModelSpec,
-} from '@/config/models';
+import { estimateCostMicros, estimateEmbeddingCostMicros } from '@/config/models';
 import { checkLimit, getPlan } from '@/config/plans';
 import {
   aiTelemetryQuerySchema,
@@ -81,9 +76,12 @@ describe('AI cost attribution and models', () => {
     expect(cost).toBe(0);
   });
 
-  it('falls back to cheapest known model for uncatalogued model ID', () => {
-    const spec = getModelSpec('unknown-future-model');
-    expect(spec.id).toBe('gpt-4o-mini');
+  it('reports an unknown cost rather than inventing one for an uncatalogued model', () => {
+    // A missing price must never break a customer reply, and must never be
+    // silently substituted with another model's rate. The registry's own
+    // behaviour is covered in model-registry.test.ts; this asserts the shape the
+    // metering layer depends on.
+    expect(estimateCostMicros('unknown-future-model', 1000, 1000)).toBeNull();
   });
 
   it('calculates embedding cost in micros', () => {

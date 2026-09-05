@@ -3,7 +3,12 @@ import { prisma } from '@/db/prisma';
 import { createWorkspaceFixture, createContactFixture } from '../fixtures';
 import { executeAgentTurn } from '@/server/services/agent/agent-runtime.service';
 import { MockAIProvider } from '@/services/ai/mock-ai-provider';
-import type { EmbeddingProvider, EmbeddingResult } from '@/services/ai/embedding-provider.interface';
+import type {
+  EmbeddingBatchResult,
+  EmbeddingProvider,
+  EmbeddingResult,
+  EmbeddingTask,
+} from '@/services/ai/embedding-provider.interface';
 import { ToolRegistry } from '@/server/services/agent/tools/registry';
 import { AIAgentError } from '@/server/services/agent/errors';
 
@@ -67,19 +72,40 @@ async function setupAgentFixture(
 
 /**
  * Deterministic mock embedding provider for tests.
- * Generates an embedding based on text matching.
+ *
+ * Keyword-keyed unit vectors: a match puts all the weight on one axis, so a query
+ * and the chunk that answers it are identical and everything else is orthogonal.
+ * That makes the similarity floor, not luck, the thing under test.
+ *
+ * The task is accepted and ignored on purpose — an asymmetric fake would put the
+ * query and its document on different axes and nothing would ever match.
  */
 class MockEmbeddingProvider implements EmbeddingProvider {
   readonly name = 'mock_embed';
+  readonly model = 'mock-embedding';
+  readonly dimensions = 1536;
 
-  async embed(text: string, model: string): Promise<EmbeddingResult> {
+  async embed(text: string, _task: EmbeddingTask): Promise<EmbeddingResult> {
+    return {
+      embedding: this.vectorFor(text),
+      usage: { inputTokens: 5, estimated: true },
+    };
+  }
+
+  async embedMany(texts: readonly string[], _task: EmbeddingTask): Promise<EmbeddingBatchResult> {
+    return {
+      embeddings: texts.map((text) => this.vectorFor(text)),
+      usage: { inputTokens: 5 * texts.length, estimated: true },
+    };
+  }
+
+  private vectorFor(text: string): number[] {
     if (text.includes('fail_embedding')) {
       throw new AIAgentError('Transient embedding failure', { category: 'PROVIDER_UNAVAILABLE', retryability: 'RETRYABLE' });
     }
-    
-    // Simple deterministic fake vectors based on keywords
-    let values = new Array(1536).fill(0);
-    
+
+    const values = new Array<number>(this.dimensions).fill(0);
+
     if (text.includes('refund policy')) {
       values[0] = 1.0;
     } else if (text.includes('store hours')) {
@@ -93,7 +119,7 @@ class MockEmbeddingProvider implements EmbeddingProvider {
       values[2] = 0.1;
     }
 
-    return { embedding: values, usage: { inputTokens: 5 } };
+    return values;
   }
 }
 

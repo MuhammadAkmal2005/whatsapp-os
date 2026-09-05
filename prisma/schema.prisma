@@ -879,6 +879,12 @@ model AIAgentInstruction {
 model KnowledgeBase {
   id             String              @id @default(uuid()) @db.Uuid
   workspaceId    String              @unique @db.Uuid
+  /// What this workspace's corpus is *intended* to be built with. The model a
+  /// request actually embeds with comes from `AI_EMBEDDING_MODEL` through the
+  /// embedding provider factory, never from this row — a row that can be edited
+  /// under a corpus already embedded with something else. `KnowledgeChunk`'s
+  /// provenance columns record what each vector really is. The column default is
+  /// pre-Gemini and stays until the ingestion task owns these rows.
   embeddingModel String              @default("text-embedding-3-small")
   embeddingDims  Int                 @default(1536)
   chunkSize      Int                 @default(900)
@@ -922,23 +928,38 @@ model KnowledgeDocument {
 }
 
 model KnowledgeChunk {
-  id          String                 @id @default(uuid()) @db.Uuid
-  workspaceId String                 @db.Uuid
-  documentId  String                 @db.Uuid
-  content     String
-  position    Int
-  tokenCount  Int                    @default(0)
-  /// pgvector column. Prisma has no native vector type, so it is Unsupported
-  /// here and queried through raw SQL in the retrieval repository. The HNSW
-  /// index is created in the migration.
-  embedding   Unsupported("vector")?
-  metadata    Json?
-  createdAt   DateTime               @default(now())
-  document    KnowledgeDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  workspace   Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id             String                 @id @default(uuid()) @db.Uuid
+  workspaceId    String                 @db.Uuid
+  documentId     String                 @db.Uuid
+  content        String
+  position       Int
+  tokenCount     Int                    @default(0)
+  /// pgvector column, `vector(1536)` in the database. Prisma has no native vector
+  /// type, so it is Unsupported here and read through raw SQL in the retrieval
+  /// repository — which also means Prisma cannot see the width, and
+  /// `EMBEDDING_MODELS` in `config/models.ts` is the source of truth every writer
+  /// validates against. Its HNSW index cannot be expressed here either; it is
+  /// created in `20260905000000_embedding_provenance_and_hnsw_index` and
+  /// `prisma migrate dev` may offer to drop it as drift. Decline.
+  embedding      Unsupported("vector")?
+  /// What actually produced the vector in this row, which is not the same question
+  /// as what `KnowledgeBase.embeddingModel` currently intends: that row can be
+  /// changed at any time, while these three columns describe the vector as stored.
+  /// Re-embedding decisions depend on the difference. Null on rows written before
+  /// provenance existed.
+  embeddingModel String?
+  embeddingDims  Int?
+  embeddedAt     DateTime?
+  metadata       Json?
+  createdAt      DateTime               @default(now())
+  document       KnowledgeDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  workspace      Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
   @@index([workspaceId, documentId, position])
+  /// Answers "which of this workspace's chunks are on the old model" without a
+  /// sequential scan, which is the question a re-embedding job asks first.
+  @@index([workspaceId, embeddingModel])
   @@map("knowledge_chunks")
 }
 
