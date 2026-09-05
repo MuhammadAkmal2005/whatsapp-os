@@ -69,9 +69,16 @@ describe('Phase 5 Final Acceptance / End-to-End Validation', () => {
   ) {
     const chunkId = crypto.randomUUID();
     const vecStr = `[${embedding.join(',')}]`;
+    // The provenance columns are not decoration here. Retrieval filters on
+    // `embeddingModel` so that a corpus embedded with one model is never mixed with vectors
+    // from another, and a row without them is invisible to the search this test is checking.
+    // They must match the stub provider above, which is what the query is embedded with.
     await prisma.$executeRawUnsafe(
-      `INSERT INTO knowledge_chunks ("id", "workspaceId", "documentId", "content", "embedding", "position") 
-       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::vector, 1)`,
+      `INSERT INTO knowledge_chunks
+         ("id", "workspaceId", "documentId", "content", "embedding", "position",
+          "embeddingModel", "embeddingDims", "embeddedAt")
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::vector, 1,
+               'mock-embedding', 1536, now())`,
       chunkId, workspaceId, documentId, content, vecStr
     );
     return chunkId;

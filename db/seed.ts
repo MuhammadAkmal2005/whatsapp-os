@@ -11,6 +11,9 @@
 
 import { prisma } from './prisma';
 import { hashPassword } from '../server/auth/password';
+import { knowledgeContentHash, type KnowledgeHashSource } from '@/server/services/knowledge/content-hash';
+import { intendedEmbeddingModel, scheduleIngest, sourceByteSize } from '@/server/services/knowledge/knowledge.internal';
+import { normalizeKnowledgeLine, normalizeKnowledgeText } from '@/server/validation/knowledge';
 
 const DEMO_PASSWORD = 'Password1234!';
 
@@ -67,6 +70,86 @@ async function ensureSeedAgent(
   });
 
   return agent.id;
+}
+
+/**
+ * The knowledge a seeded workspace has already taught its assistant.
+ *
+ * Written as source documents in `PENDING` with a real ingestion job queued, not as
+ * pre-built chunks. Faking the processed result would mean inventing vectors, and a seeded
+ * corpus of invented vectors is a retrieval test that passes without the pipeline working.
+ * Run `npm run worker` after seeding and these turn `READY` the same way a document a shop
+ * owner saves does.
+ *
+ * Idempotent on the content fingerprint, which is the same key the unique index uses. A
+ * second `npm run db:seed` therefore neither duplicates a document nor re-queues one that is
+ * already processed.
+ */
+async function ensureKnowledgeDocument(
+  workspaceId: string,
+  knowledgeBaseId: string,
+  source: KnowledgeHashSource,
+): Promise<void> {
+  // Normalised here for the same reason the validation layer normalises: the fingerprint is
+  // taken over the stored text, so text that skipped normalisation would hash to something no
+  // later save of the identical document could ever match.
+  const normalised: KnowledgeHashSource =
+    source.type === 'FAQ'
+      ? {
+          type: 'FAQ',
+          title: normalizeKnowledgeLine(source.title),
+          question: normalizeKnowledgeLine(source.question),
+          answer: normalizeKnowledgeText(source.answer),
+        }
+      : {
+          type: 'TEXT',
+          title: normalizeKnowledgeLine(source.title),
+          content: normalizeKnowledgeText(source.content),
+        };
+
+  const contentHash = knowledgeContentHash(normalised);
+
+  const existing = await prisma.knowledgeDocument.findFirst({
+    where: { workspaceId, contentHash },
+    select: { id: true },
+  });
+
+  if (existing) return;
+
+  const document = await prisma.knowledgeDocument.create({
+    data: {
+      workspaceId,
+      knowledgeBaseId,
+      type: normalised.type,
+      title: normalised.title,
+      content: normalised.type === 'TEXT' ? normalised.content : null,
+      question: normalised.type === 'FAQ' ? normalised.question : null,
+      answer: normalised.type === 'FAQ' ? normalised.answer : null,
+      byteSize: sourceByteSize(
+        normalised.type === 'TEXT'
+          ? { content: normalised.content }
+          : { question: normalised.question, answer: normalised.answer },
+      ),
+      contentHash,
+      status: 'PENDING',
+    },
+    select: { id: true },
+  });
+
+  await scheduleIngest(workspaceId, document.id);
+}
+
+/** One knowledge base per workspace, created on the same terms ingestion creates it: the
+ *  intended model comes from configuration, never from a hardcoded provider name. */
+async function ensureKnowledgeBase(workspaceId: string): Promise<string> {
+  const base = await prisma.knowledgeBase.upsert({
+    where: { workspaceId },
+    update: {},
+    create: { workspaceId, embeddingModel: intendedEmbeddingModel() },
+    select: { id: true },
+  });
+
+  return base.id;
 }
 
 async function main() {
@@ -220,6 +303,41 @@ async function main() {
       'Assalamualaikum! Akmal Couture mein khush aamdeed. Main Zara hoon — collection, prices ya delivery ke baare mein poochein.',
     persona:
       'You represent a luxury Pakistani pret and formalwear house in Karachi. Warm and unhurried, never pushy. Customers write in English, Urdu and Roman Urdu, often mixed, and you reply in whichever they used. Quote a price, a size or a delivery time only when a tool has returned it.',
+  });
+
+  // Knowledge for Workspace 1 — the three things this kind of shop answers most often.
+  console.log('Seeding knowledge for Akmal Couture...');
+  const ws1KnowledgeBase = await ensureKnowledgeBase(ws1.id);
+
+  await ensureKnowledgeDocument(ws1.id, ws1KnowledgeBase, {
+    type: 'TEXT',
+    title: 'Delivery charges and timings',
+    content: `We deliver all over Pakistan through TCS and Leopards.
+
+Karachi and Lahore: 2 to 3 working days.
+Islamabad, Rawalpindi, Faisalabad and Multan: 3 to 4 working days.
+All other cities: 4 to 6 working days.
+
+Delivery charges are Rs. 250 per order, and delivery is free on orders over Rs. 5,000. Cash on delivery is available everywhere we deliver. Orders placed after 4pm are dispatched the next working day, and we do not dispatch on Sundays.`,
+  });
+
+  await ensureKnowledgeDocument(ws1.id, ws1KnowledgeBase, {
+    type: 'TEXT',
+    title: 'Exchange and return policy',
+    content: `Exchange is possible within 7 days of delivery. The item must be unworn and unwashed with its original tags attached, and the packing slip must be included.
+
+Stitched and altered pieces cannot be exchanged, because they are cut to the customer's measurements. Sale items can be exchanged for a different size only, not returned for a refund.
+
+Return delivery charges are paid by the customer unless we sent the wrong item or the piece arrived damaged, in which case we cover both directions and send a replacement at no cost.`,
+  });
+
+  await ensureKnowledgeDocument(ws1.id, ws1KnowledgeBase, {
+    type: 'FAQ',
+    title: 'Do you stitch to measurement?',
+    question: 'Kya aap measurement pe stitching karte hain?',
+    answer: `Yes, we offer stitching to your measurements on all unstitched suits. Stitching takes 7 to 10 working days on top of the delivery time, and the charge is Rs. 3,500 for a 3-piece suit and Rs. 2,000 for a kurta.
+
+We need bust, waist, hip, shirt length, shoulder, sleeve length and trouser length. Send them on WhatsApp and we will confirm before we cut. Please note that stitched pieces cannot be exchanged.`,
   });
 
   // Members for Workspace 1
@@ -793,6 +911,22 @@ async function main() {
       'You help customers of a consumer electronics and gadgets store in Karachi. Direct and practical. Customers ask about specifications, warranty, stock and instalment plans, in English, Urdu and Roman Urdu. State a specification, a price or a warranty term only when a tool or the business knowledge has returned it.',
   });
 
+  // Knowledge for Workspace 2. A different trade with a different policy, in the second
+  // tenant — so that "does retrieval stay inside one workspace" is a question this database
+  // can actually answer rather than one it has no data to fail.
+  console.log('Seeding knowledge for Karachi Electronics...');
+  const ws2KnowledgeBase = await ensureKnowledgeBase(ws2.id);
+
+  await ensureKnowledgeDocument(ws2.id, ws2KnowledgeBase, {
+    type: 'TEXT',
+    title: 'Warranty and repairs',
+    content: `All mobile phones and laptops carry the official Pakistani warranty from the brand's authorised service centre. Phones are 1 year and laptops are 1 year, extendable to 2 years on selected models.
+
+Accessories such as chargers, cables and cases carry a 3 month replacement warranty from us directly.
+
+Warranty does not cover physical damage, water damage or an unauthorised repair. Bring the device with its box and invoice to our Saddar branch, or send it by courier and we will forward it to the service centre. Turnaround at the service centre is usually 7 to 14 working days and we cannot speed that up.`,
+  });
+
   // Members for Workspace 2
   await prisma.workspaceMember.upsert({
     where: { workspaceId_userId: { workspaceId: ws2.id, userId: electronicsOwnerUser.id } },
@@ -949,6 +1083,7 @@ async function main() {
   console.log(`- Seeded Workspace 1: ${ws1.name} (${ws1.slug})`);
   console.log(`- Seeded Workspace 2: ${ws2.name} (${ws2.slug})`);
   console.log(`- Demo Login: ahmed@akmalcouture.pk / ${DEMO_PASSWORD}`);
+  console.log('- Knowledge documents are queued: run `npm run worker` to process them.');
 }
 
 main()

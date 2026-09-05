@@ -883,9 +883,11 @@ model KnowledgeBase {
   /// request actually embeds with comes from `AI_EMBEDDING_MODEL` through the
   /// embedding provider factory, never from this row — a row that can be edited
   /// under a corpus already embedded with something else. `KnowledgeChunk`'s
-  /// provenance columns record what each vector really is. The column default is
-  /// pre-Gemini and stays until the ingestion task owns these rows.
-  embeddingModel String              @default("text-embedding-3-small")
+  /// provenance columns record what each vector really is. Deliberately without a
+  /// default: the old one named an OpenAI model this deployment never calls, so
+  /// every row claimed a provenance that was false. Ingestion writes the model it
+  /// is about to embed with, which is the only value that can be true.
+  embeddingModel String
   embeddingDims  Int                 @default(1536)
   chunkSize      Int                 @default(900)
   chunkOverlap   Int                 @default(150)
@@ -914,14 +916,27 @@ model KnowledgeDocument {
   byteSize        Int?
   status          IngestStatus     @default(PENDING)
   errorMessage    String?
+  /// Stable machine code for the failure, kept apart from `errorMessage` because
+  /// that string is shown to a shop owner and must stay prose. Support and metrics
+  /// read this; nobody parses the sentence.
+  failureCode     String?
   chunkCount      Int              @default(0)
+  /// When the current ingestion attempt claimed this row. Distinguishes a document
+  /// genuinely being processed from one stuck in PROCESSING because a worker died.
+  startedAt       DateTime?
   ingestedAt      DateTime?
+  /// SHA-256 over the normalised source. The unique index below is the *only*
+  /// race-free defence against the same policy being added twice: a service-layer
+  /// "does this already exist" check loses to a double-submitted form, and then two
+  /// identical documents each burn a plan slot and both get retrieved.
+  contentHash     String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   chunks          KnowledgeChunk[]
   knowledgeBase   KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
   workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  @@unique([workspaceId, contentHash])
   @@index([workspaceId, status])
   @@index([workspaceId, type])
   @@map("knowledge_documents")
@@ -955,6 +970,11 @@ model KnowledgeChunk {
   document       KnowledgeDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)
   workspace      Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  /// Positions are dense and zero-based within a document, so a duplicate is a bug
+  /// in the chunker or a half-finished re-ingestion. The constraint makes the
+  /// delete-then-insert swap fail loudly rather than leave a corpus with two
+  /// chunk 3s, one of them from the previous version of the text.
+  @@unique([documentId, position])
   @@index([workspaceId])
   @@index([workspaceId, documentId, position])
   /// Answers "which of this workspace's chunks are on the old model" without a

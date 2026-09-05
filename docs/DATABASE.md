@@ -126,6 +126,12 @@ Unique constraints do real work rather than documenting intent:
 - Workspace slugs are globally unique; membership is unique per user and workspace.
 - `ConversationParticipant` is unique per conversation and member, and per conversation and contact.
 - Product SKUs are unique per workspace, not globally — two unrelated shops may both sell `KURTA-BLK`.
+- `@@unique([workspaceId, contentHash])` on `KnowledgeDocument` — **the duplicate check.** Saving the same
+  policy twice conflicts on insert and is answered as a conflict rather than quietly costing a second slot of
+  the plan's allowance. A service-layer "does this already exist?" read races two concurrent saves; the
+  constraint does not.
+- `@@unique([documentId, position])` on `KnowledgeChunk` — a document's sections are dense and zero-based, and
+  two rows claiming the same position would mean one attempt's output had been mixed with another's.
 
 ---
 
@@ -154,6 +160,11 @@ different models are not comparable. Re-embed before trusting retrieval.
 `KnowledgeChunk.embeddingModel`, `embeddingDims` and `embeddedAt` record what produced the vector in that row.
 `KnowledgeBase.embeddingModel` is what the workspace's corpus is *meant* to be built with and can be edited under a
 corpus built with something else, which is why "does this chunk need re-embedding" is only answerable from the chunk.
+
+Because of that, the retrieval query filters on `embeddingModel` as well as `workspaceId`, and both filters are part
+of the correctness boundary rather than tidiness. A distance between vectors from two different models is a number
+with no meaning, and the nearest of those meaningless numbers is what the assistant would quote as fact. A corpus
+half re-embedded by a new model therefore answers from the half that matches the query, and never from a mixture.
 
 ---
 
@@ -186,14 +197,17 @@ drop it in a later migration.
 
 ## Seed data
 
-`npm run db:seed` runs `db/seed.ts`. **That file does not exist yet** — it arrives with Phase 2, when there are
-products, contacts and orders worth seeding.
+`npm run db:seed` runs `db/seed.ts`, which is idempotent: every record is found or created by a natural key, so
+running it twice does not double the catalogue and running it against a partly-seeded database fills in the rest.
 
-When written, it creates a realistic Pakistani clothing business — "Akmal Fashion", a product catalogue of
-kurtas and shalwar kameez with sizes and colours, 10–20 contacts, 20–30 orders, 20+ conversations, and a
-knowledge base of FAQ, shipping, returns and payment entries — so the dashboard is immediately testable and every
-empty state has a populated counterpart to compare against.
+It creates a realistic Pakistani clothing business — "Akmal Couture", a catalogue of kurtas, unstitched lawn and
+festive formals with sizes and colours, contacts, orders, conversations, and the knowledge its assistant has
+already been taught: delivery information, returns and exchanges, and a Q&A about cash on delivery. Knowledge is
+seeded the way the product creates it, hash and all, and the ingest job is queued rather than faked — so a seeded
+database shows "Processing…" until the worker runs, exactly as a real save does. Run `npm run worker` once to see
+those rows turn ready.
 
-All of it is fictional. **No real phone number, address, national ID number or person's name goes into seed data**
-, and it must also include a second workspace, because the cross-tenant acceptance test needs two tenants to
-prove isolation between.
+There is a second workspace, "Karachi Electronics", with its own knowledge, because the cross-tenant acceptance
+test needs two tenants to prove isolation between.
+
+All of it is fictional. **No real phone number, address, national ID number or person's name goes into seed data.**

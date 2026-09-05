@@ -166,6 +166,94 @@ export const KNOWLEDGE_RETRIEVAL = {
   maxCharsPerChunk: 1_200,
 } as const;
 
+// ── Knowledge ingestion ────────────────────────────────────────────────────
+/**
+ * How a knowledge document is cut into the pieces that get embedded.
+ *
+ * The unit is **characters** — JavaScript string length, i.e. UTF-16 code units — not
+ * tokens. Tokens would be the theoretically better unit and are the wrong choice here:
+ * the only accurate tokeniser for the embedding model is a network call, so a
+ * token-exact chunker would make chunking non-deterministic, unavailable offline, and
+ * untestable without a provider. Characters are deterministic, dependency-free, and
+ * behave sanely across English, Urdu and Roman Urdu.
+ *
+ * `maxChars` is not written as a literal on purpose. It is the same quantity as
+ * `KNOWLEDGE_RETRIEVAL.maxCharsPerChunk`, which is the point at which retrieval
+ * *truncates* a chunk before showing it to the model. A chunker allowed to emit
+ * something longer would be storing text that can never be retrieved whole, so the two
+ * are wired to one value rather than kept equal by hand.
+ */
+export const KNOWLEDGE_CHUNKING = {
+  /** What a chunk aims for. Roughly a long paragraph — big enough to carry a whole
+   *  policy statement, small enough that six of them fit the evidence budget. */
+  targetChars: 900,
+
+  /** Carried from the end of one chunk into the start of the next, so a fact that
+   *  straddles a boundary is still complete in one of them. */
+  overlapChars: 150,
+
+  /** Below this a chunk is a fragment: it is merged backwards rather than emitted,
+   *  because a lone half-sentence retrieves badly and pollutes the evidence block. */
+  minChars: 80,
+
+  /** Hard ceiling. Equal to what retrieval will show, by construction. */
+  maxChars: KNOWLEDGE_RETRIEVAL.maxCharsPerChunk,
+} as const;
+
+/**
+ * Chunks embedded per provider request.
+ *
+ * The Gemini adapter sends whatever array it is handed as a single request with no
+ * internal splitting, so batch sizing is entirely the caller's business. 32 keeps a
+ * request comfortably inside provider payload limits while cutting the number of
+ * round-trips for a 50,000-character document from hundreds to a handful. Batches run
+ * sequentially: a document is not urgent enough to justify hammering the provider in
+ * parallel and inviting a rate limit that fails the whole ingestion.
+ */
+export const KNOWLEDGE_EMBEDDING_BATCH_SIZE = 32;
+
+/**
+ * Bounds on what an owner may submit, enforced server-side.
+ *
+ * Both a character cap and a byte cap exist because they defend different things.
+ * Characters bound the work: 50,000 is a long policy document and still chunks and
+ * embeds inside one job. Bytes bound the storage and the transport, and they are not
+ * derivable from the character count — Urdu costs two bytes per character in UTF-8 and
+ * an emoji costs four, so a 50,000-character Urdu document is 100kB while an English
+ * one is 50kB. Checking only characters would let a well-formed submission be four
+ * times larger than intended.
+ */
+export const KNOWLEDGE_MAX_TITLE_CHARS = 200;
+export const KNOWLEDGE_MAX_CONTENT_CHARS = 50_000;
+export const KNOWLEDGE_MAX_CONTENT_BYTES = 200_000;
+export const KNOWLEDGE_MAX_QUESTION_CHARS = 500;
+export const KNOWLEDGE_MAX_ANSWER_CHARS = 5_000;
+
+/**
+ * Ceiling on the pieces one document may produce.
+ *
+ * Reachable only by pathological input — 50,000 characters at the 900-character target
+ * is under 70 pieces — so hitting it means the text defeated every separator in the
+ * ladder. It exists so that case fails as a named, permanent error instead of as
+ * hundreds of embedding calls and a multi-megabyte insert.
+ */
+export const KNOWLEDGE_MAX_CHUNKS_PER_DOCUMENT = 400;
+
+/**
+ * How often the knowledge list re-reads itself while a document is being processed.
+ *
+ * Processing is a background job, so the row that says "Processing…" has no way to learn it
+ * finished — and telling a shop owner to refresh the page to find out whether their return
+ * policy saved is the kind of small indignity that makes software feel broken.
+ *
+ * Three seconds is chosen against the work being waited on: a short text document is chunked,
+ * embedded and published in a few seconds, so a slower poll would usually show the result
+ * long after it happened, and a faster one would spend requests to shave off a wait nobody
+ * perceives. The poll only runs while something is actually in flight, and stops when the
+ * last row settles.
+ */
+export const KNOWLEDGE_STATUS_POLL_MS = 3_000;
+
 // ── Uploads ────────────────────────────────────────────────────────────────
 export const ALLOWED_IMAGE_MIME_TYPES = [
   'image/jpeg',
@@ -194,6 +282,22 @@ export const JOB_BACKOFF_BASE_SECONDS = 5;
 export const JOB_LOCK_TIMEOUT_SECONDS = 300;
 export const JOB_POLL_INTERVAL_MS = 2000;
 export const JOB_BATCH_SIZE = 5;
+
+/**
+ * How long a knowledge document may claim to be processing before the list offers a way out.
+ *
+ * Declared here rather than beside `KNOWLEDGE_STATUS_POLL_MS` because it is derived from the
+ * queue's lock timeout, and a `const` cannot reference one declared below it. The derivation
+ * is the point: a worker that holds a job past `JOB_LOCK_TIMEOUT_SECONDS` is, by the queue's
+ * own definition, no longer alive, so this is not a guess about how long processing "should"
+ * take — it is the moment the queue stops believing in the worker.
+ *
+ * What it buys is an escape from the one state a shop owner cannot otherwise leave. A
+ * document stuck on "Processing…" for ever is worse than a visible failure: there is nothing
+ * to press, nothing to read, and no way to tell a slow job from a dead one. Past this point
+ * the row says so and offers Try again.
+ */
+export const KNOWLEDGE_STALLED_AFTER_MS = JOB_LOCK_TIMEOUT_SECONDS * 1_000;
 
 // ── Inventory ──────────────────────────────────────────────────────────────
 export const DEFAULT_LOW_STOCK_THRESHOLD = 3;
@@ -314,7 +418,7 @@ export const ONBOARDING_STEP_META: Record<
   knowledge_added: {
     title: 'Teach your AI about your business',
     description: 'Add FAQs, delivery and return policies so answers are accurate.',
-    href: '/settings/knowledge',
+    href: '/knowledge',
     action: 'Add knowledge',
   },
   product_added: {

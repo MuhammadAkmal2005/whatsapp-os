@@ -106,12 +106,20 @@ the fast model. Summarising every turn would cost more than it saves.
 
 ## Retrieval
 
-Knowledge sources, per `KnowledgeType`: `TEXT`, `FAQ`, `PDF`, `DOCX`, `URL`, `CATALOG`, `POLICY`.
+`KnowledgeType` carries `TEXT`, `FAQ`, `PDF`, `DOCX`, `URL`, `CATALOG` and `POLICY`. **Only `TEXT` and `FAQ` are
+implemented**; the rest are rejected at the validation boundary and the enum keeps them because removing an enum
+value is a destructive migration. `docs/KNOWLEDGE.md` is the whole of that story — what can be taught, what
+happens to it, and what to do when it fails.
 
-Ingestion runs as a background job — upload, extract, chunk, embed, store — with `IngestStatus` moving
-`PENDING → PROCESSING → READY | FAILED`. A document is not retrievable until `READY`, and a failure is surfaced to
-the owner with a reason. Silent failure here is particularly bad: the owner believes they taught the agent
-something and the agent quietly does not know it.
+Ingestion runs as a background job — read, split, embed, publish — with `IngestStatus` moving
+`PENDING → PROCESSING → READY | FAILED`, and a failure surfaced to the owner with a reason. Silent failure here is
+particularly bad: the owner believes they taught the agent something and the agent quietly does not know it.
+
+**Retrieval does not filter on document status**, deliberately. A document being re-processed still has its
+previously published chunks, and they are the best answer available until the new ones are ready; excluding them
+would make an edit to a delivery policy a window during which the agent knows nothing about delivery. The
+publish step replaces a document's chunks in one transaction, so what retrieval can see is always one complete
+version rather than a half-replaced mixture.
 
 Embeddings live in `KnowledgeChunk.embedding`, a `vector(1536)` column matching `gemini-embedding-001` requested at
 1536 output dimensions. An HNSW index over it with `vector_cosine_ops` is created by the migration, and the
@@ -135,8 +143,16 @@ Retrieval is workspace-scoped. Because the vector query is raw SQL, that scope c
 `where` clause, which makes it **the single highest-risk query in the codebase** on both injection and
 cross-tenant leakage. The `workspaceId` is parameterised. Never interpolated.
 
+It is also scoped to the model that produced the query vector, in the same SQL and for the same reason: a
+distance between vectors from two different models is a number with no meaning, and the nearest of those
+meaningless numbers is what the agent would state as a fact about someone's shop. Chunks with no vector yet are
+excluded there too, rather than filtered out afterwards — `LIMIT` applies to what the database returns, so
+anything removed after the query has already eaten the budget.
+
 Changing `AI_EMBEDDING_MODEL` invalidates every stored embedding even if the dimension count matches, because
-vectors from different models are not comparable. Re-embed before trusting retrieval again.
+vectors from different models are not comparable. Retrieval will return nothing for the new model until the
+corpus is re-processed rather than quietly mixing the two, which turns that migration into an obvious gap
+instead of a subtle wrongness. Re-embed before trusting retrieval again.
 
 ---
 

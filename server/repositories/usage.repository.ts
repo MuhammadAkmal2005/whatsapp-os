@@ -96,6 +96,20 @@ export type CreateEmbeddingUsageParams = {
    */
   estimatedInputTokens: number;
   costMicros: number;
+  /**
+   * What the row was for, when the answer is not "a customer's message".
+   *
+   * `UsageRecord` has no column for this and should not grow one: the ledger's columns are
+   * the things every metric shares, and "which subsystem asked" is not. Ingestion stamps
+   * `{ kind: 'knowledge_ingest' }` here so a bill can be split between teaching the
+   * assistant and answering with it — two costs an owner experiences completely
+   * differently, one a one-off when they add a policy and one that recurs per conversation.
+   *
+   * `estimated` rides here too, for the reason `estimatedInputTokens` documents: there is
+   * no column for it either, and an approximate figure that does not say so is worse than
+   * one that does.
+   */
+  metadata?: Prisma.InputJsonValue;
 };
 
 /**
@@ -123,6 +137,7 @@ export async function recordEmbeddingUsage(
       provider: params.provider,
       model: params.model,
       costMicros: params.costMicros,
+      ...(params.metadata === undefined ? {} : { metadata: params.metadata }),
     },
   });
 }

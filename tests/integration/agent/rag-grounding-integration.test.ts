@@ -155,10 +155,17 @@ describe('Phase 5 Unit 5: Knowledge Base RAG + Grounding', () => {
     });
 
     const vectorStr = `[${vector.join(',')}]`;
-    
+
+    // The provenance columns are load-bearing, not decoration. Retrieval filters on
+    // `embeddingModel` so a corpus embedded with one model is never mixed with vectors from
+    // another, and a row without them is invisible to the search these tests exercise. They
+    // must match the stub provider above, which is what the query is embedded with.
     await prisma.$executeRaw`
-      INSERT INTO knowledge_chunks (id, "workspaceId", "documentId", content, position, embedding)
-      VALUES (gen_random_uuid(), ${workspaceId}::uuid, ${doc.id}::uuid, ${content}, 1, ${vectorStr}::vector)
+      INSERT INTO knowledge_chunks
+        (id, "workspaceId", "documentId", content, position, embedding,
+         "embeddingModel", "embeddingDims", "embeddedAt")
+      VALUES (gen_random_uuid(), ${workspaceId}::uuid, ${doc.id}::uuid, ${content}, 1,
+              ${vectorStr}::vector, 'mock-embedding', 1536, now())
     `;
 
     return doc;

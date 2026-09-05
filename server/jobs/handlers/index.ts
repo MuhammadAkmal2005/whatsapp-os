@@ -22,6 +22,7 @@ import { registerHandler, registeredTypes } from '../registry';
 import { aiRespondHandler } from './ai-turn.handler';
 import { analyticsRollupDailyHandler } from './analytics.handler';
 import { automationCheckIdleHandler, automationResumeHandler, automationRunHandler } from './automation.handler';
+import { knowledgeIngestDocumentHandler } from './knowledge.handler';
 import { maintenanceSweep } from './maintenance.handler';
 import { notificationDeliverHandler } from './notification.handler';
 import { whatsappSendMessageHandler } from './whatsapp-send.handler';
@@ -37,6 +38,7 @@ export function registerAllHandlers(): void {
   registerHandler('automation.check_idle', automationCheckIdleHandler);
   registerHandler('notification.deliver', notificationDeliverHandler);
   registerHandler('analytics.rollup_daily', analyticsRollupDailyHandler);
+  registerHandler('knowledge.ingest_document', knowledgeIngestDocumentHandler);
 
   const registered = new Set<JobType>(registeredTypes());
   const pending = JOB_TYPES.filter((type) => !registered.has(type));

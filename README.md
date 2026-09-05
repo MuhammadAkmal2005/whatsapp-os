@@ -207,6 +207,7 @@ labelled mock implementation is the deliverable, and that is where it stops.
 | [docs/TESTING.md](docs/TESTING.md) | What is tested where, how to run it, what is not covered yet |
 | [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) | Every environment variable and what breaks without it |
 | [docs/AI.md](docs/AI.md) | Prompt architecture, retrieval, tools, confidence, cost control |
+| [docs/KNOWLEDGE.md](docs/KNOWLEDGE.md) | What a business can teach its assistant, and what happens to it |
 | [docs/WHATSAPP.md](docs/WHATSAPP.md) | Cloud API integration, webhooks, message states, mock mode |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Hosting, managed services, migrations, rollback |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What comes after the MVP, and what was deliberately deferred |

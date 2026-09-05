@@ -66,6 +66,7 @@ async function seed(
   workspaceId: string,
   documentId: string,
   chunks: ReadonlyArray<{ content: string; embedding: number[]; position?: number }>,
+  embeddingModel: string = EMBEDDING_MODEL,
 ): Promise<number> {
   return insertKnowledgeChunks(
     prisma,
@@ -76,7 +77,7 @@ async function seed(
       content: chunk.content,
       embedding: chunk.embedding,
     })),
-    { embeddingModel: EMBEDDING_MODEL, embeddedAt: EMBEDDED_AT },
+    { embeddingModel, embeddedAt: EMBEDDED_AT },
   );
 }
 
@@ -250,6 +251,52 @@ describe('searchKnowledgeChunks', () => {
     );
 
     expect(results.map((row) => row.content)).toEqual(['Embedded and searchable']);
+  });
+
+  // Model filtering is correctness, not tidiness. `text-embedding-3-small` is also
+  // 1536-wide, so the width guard cannot be what excludes it — only the model name can.
+  // A distance between vectors from two different models is a number with no meaning,
+  // and the nearest of those meaningless numbers is what the agent would quote.
+  it('never mixes a corpus embedded by another model into the results', async () => {
+    const { workspaceId } = await createWorkspaceFixture();
+    const document = await createDocument(workspaceId);
+
+    // The same vector on both rows, so relevance cannot be the reason either is excluded.
+    await seed(
+      workspaceId,
+      document.id,
+      [{ content: 'Embedded by the configured model', embedding: axisVector(0), position: 0 }],
+      EMBEDDING_MODEL,
+    );
+    await seed(
+      workspaceId,
+      document.id,
+      [{ content: 'Embedded by a different model', embedding: axisVector(0), position: 1 }],
+      'text-embedding-3-small',
+    );
+
+    const results = await searchKnowledgeChunks(
+      prisma,
+      { workspaceId },
+      { embedding: axisVector(0), embeddingModel: EMBEDDING_MODEL, topK: 10, similarityFloor: 0 },
+    );
+
+    expect(results.map((row) => row.content)).toEqual(['Embedded by the configured model']);
+
+    // And symmetrically: asking as the other model returns only its own rows, so this is
+    // a filter on provenance rather than a hardcoded preference for one name.
+    const asOther = await searchKnowledgeChunks(
+      prisma,
+      { workspaceId },
+      {
+        embedding: axisVector(0),
+        embeddingModel: 'text-embedding-3-small',
+        topK: 10,
+        similarityFloor: 0,
+      },
+    );
+
+    expect(asOther.map((row) => row.content)).toEqual(['Embedded by a different model']);
   });
 
   it('returns an empty array when the workspace has no knowledge at all', async () => {

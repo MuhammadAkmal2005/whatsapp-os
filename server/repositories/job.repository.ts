@@ -187,6 +187,59 @@ export async function markJobDead(db: Db, jobId: string, lastError: string): Pro
 }
 
 /**
+ * Frees one dead job's dedupe key so a deliberate retry can queue again.
+ *
+ * The counterpart to the decision above, and it exists because that decision has a sharp
+ * edge. A key held by a DEAD row makes `insertJob` return the dead job with
+ * `created: false` — which is right for an automatic re-enqueue and wrong for a person
+ * pressing Retry, because from their side the button did nothing at all. The row stays
+ * DEAD and visible; only the key is released.
+ *
+ * Scoped to one workspace and one key, never a status-wide clear. `dedupeKey` is globally
+ * unique, so a caller that could pass a bare key would be able to unblock another tenant's
+ * queue — the `workspaceId` predicate is what makes this callable from a tenant-scoped
+ * service at all. The count tells the caller whether there was anything to release,
+ * which is not an error either way: no dead job under that key is the normal case.
+ */
+export async function releaseDeadJobDedupeKey(
+  db: Db,
+  params: { readonly workspaceId: string; readonly dedupeKey: string },
+): Promise<number> {
+  const released = await db.job.updateMany({
+    where: { status: 'DEAD', workspaceId: params.workspaceId, dedupeKey: params.dedupeKey },
+    data: { dedupeKey: null },
+  });
+  return released.count;
+}
+
+/**
+ * Frees the running job's own key so it can queue its successor.
+ *
+ * For the case where a handler discovers, at the end of its work, that the work is already
+ * out of date — the document was edited while it was being processed — and has to queue a
+ * fresh attempt. It cannot simply enqueue: it is still holding the key that would dedupe
+ * the new job against itself, and `insertJob` would hand back this job with
+ * `created: false`. Nor can it wait, because the key is only cleared once the handler has
+ * returned and the queue marks the job complete, and by then the handler has no way to
+ * enqueue anything.
+ *
+ * Releasing early only widens the window in which a duplicate could be queued, and a
+ * duplicate is harmless here: claiming is conditional, so the second arrival finds nothing
+ * to do and completes. Keyed on the job id rather than the key string, so a caller can only
+ * ever release its own, and scoped to the workspace for the reason above.
+ */
+export async function releaseJobDedupeKey(
+  db: Db,
+  params: { readonly workspaceId: string; readonly jobId: string },
+): Promise<number> {
+  const released = await db.job.updateMany({
+    where: { id: params.jobId, workspaceId: params.workspaceId },
+    data: { dedupeKey: null },
+  });
+  return released.count;
+}
+
+/**
  * Returns jobs whose worker died mid-flight to the pending pool.
  *
  * Only jobs with attempts left are revived; one that has exhausted its budget
