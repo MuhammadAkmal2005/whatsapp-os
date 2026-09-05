@@ -184,6 +184,41 @@ export const DEFAULT_AI_AGENT_NAME = 'AI Assistant';
 export const DEFAULT_AI_AGENT_GREETING =
   'Assalamualaikum! Kya poochna chahte hain? Main products, prices aur delivery ke baare mein bata sakta hoon.';
 
+/**
+ * The bounds the AI agent configuration form and its schema both hold to.
+ *
+ * Lengths are generous enough for real use and tight enough that no single field can
+ * dominate the system prompt. The prompt is assembled from these values plus retrieved
+ * evidence and a window of recent messages, and every token spent restating the persona
+ * is a token not spent on the customer's actual question — so `persona` is a paragraph,
+ * `customInstructions` is a page, and neither is unbounded.
+ *
+ * `temperature` stops at 1 even though the provider accepts more. This agent quotes
+ * prices and stock from tool results; the value of sampling further out is nil and the
+ * cost is a fluent answer that drifts from the evidence.
+ *
+ * `maxOutputTokens` mirrors the range `AI_MAX_OUTPUT_TOKENS` is validated against in
+ * `config/env.ts`, because it is the same quantity decided one level down. Below 64 a
+ * reply cannot finish a sentence about delivery; above 4,096 a WhatsApp message is an
+ * essay nobody reads and the workspace pays for every token of it.
+ *
+ * `handoffKeywords` is capped at 20 because the runtime tests every keyword against
+ * every inbound message, and a list longer than that is a sign the owner wants intent
+ * detection rather than keywords.
+ */
+export const AGENT_CONFIG_LIMITS = {
+  nameMax: 60,
+  personaMax: 500,
+  greetingMax: 1000,
+  customInstructionsMax: 2000,
+  temperatureMin: 0,
+  temperatureMax: 1,
+  maxOutputTokensMin: 64,
+  maxOutputTokensMax: 4096,
+  handoffKeywordsMax: 20,
+  handoffKeywordMax: 40,
+} as const;
+
 // ── Onboarding ─────────────────────────────────────────────────────────────
 /**
  * Ordered. The checklist renders in this sequence and the "next step" hint
@@ -236,8 +271,8 @@ export const ONBOARDING_STEP_META: Record<
   },
   ai_configured: {
     title: 'Set up your AI assistant',
-    description: 'Choose its name, tone and the language it replies in.',
-    href: '/settings/agent',
+    description: 'Give it a name, choose the job it does, and add your own instructions.',
+    href: '/agent',
     action: 'Set up your AI',
   },
   knowledge_added: {

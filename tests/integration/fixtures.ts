@@ -12,7 +12,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import type { Prisma } from '@prisma/client';
+import type { AgentRole, AgentTone, Prisma } from '@prisma/client';
 
 import type { SupportedCurrency } from '@/config/constants';
 import { prisma } from '@/db/prisma';
@@ -272,4 +272,57 @@ export async function createContactFixture(
   });
 
   return { id: contact.id, phoneE164, name };
+}
+
+/**
+ * The workspace's AI assistant, inserted directly.
+ *
+ * `isActive` defaults to true here while the column defaults to false, and the mismatch is
+ * deliberate. Almost every test that wants an agent wants one that answers, and agent
+ * resolution requires `isActive` — an inactive agent is never selected for an automatic
+ * reply. A fixture carrying the column default would silently produce a workspace whose
+ * assistant is switched off, which reads as a bug in the code under test rather than as a
+ * property of the fixture. Tests of the switched-off case pass `isActive: false` explicitly,
+ * which is exactly how it should look on the page.
+ *
+ * `model` is set rather than left to the column default because that default is an OpenAI
+ * identifier and no OpenAI adapter is wired.
+ */
+export async function createAgentFixture(
+  workspaceId: string,
+  overrides: {
+    name?: string;
+    isActive?: boolean;
+    isDefault?: boolean;
+    role?: AgentRole;
+    tone?: AgentTone;
+    model?: string;
+    temperature?: number;
+    maxOutputTokens?: number;
+    handoffKeywords?: string[];
+    greeting?: string | null;
+    persona?: string | null;
+    customInstructions?: string | null;
+  } = {},
+): Promise<{ id: string }> {
+  const agent = await prisma.aIAgent.create({
+    data: {
+      workspaceId,
+      name: overrides.name ?? 'Sana',
+      isActive: overrides.isActive ?? true,
+      isDefault: overrides.isDefault ?? true,
+      role: overrides.role ?? 'SALES_SUPPORT',
+      tone: overrides.tone ?? 'FRIENDLY',
+      model: overrides.model ?? 'mock-model',
+      temperature: overrides.temperature ?? 0.3,
+      maxOutputTokens: overrides.maxOutputTokens ?? 600,
+      handoffKeywords: overrides.handoffKeywords ?? [],
+      greeting: overrides.greeting ?? null,
+      persona: overrides.persona ?? null,
+      customInstructions: overrides.customInstructions ?? null,
+    },
+    select: { id: true },
+  });
+
+  return agent;
 }

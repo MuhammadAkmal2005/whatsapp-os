@@ -18,6 +18,7 @@
  */
 
 import type { LimitName, PlanFeature } from '@/config/plans';
+import type { AgentRoleValue, AgentToneValue } from '@/server/validation/agent';
 import type { ActionType, RunStatus, TriggerType } from '@/server/validation/automation';
 import type { HANDOFF_REASONS } from '@/server/validation/conversation';
 
@@ -277,4 +278,66 @@ export const PLAN_FEATURE_LABELS: Record<PlanFeature, string> = {
 
 export function planFeatureLabel(feature: PlanFeature): string {
   return PLAN_FEATURE_LABELS[feature] ?? humaniseCode(feature);
+}
+
+/* ------------------------------------------------------------------------- */
+/* AI assistant                                                              */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * The job the assistant is doing, in the words an owner would use for a member of staff.
+ *
+ * Not a cosmetic choice of wording: the role decides which tools the runtime hands the
+ * assistant, so picking "Takes orders" is what allows it to place an order on a customer's
+ * behalf. The descriptions below say so plainly, because a picker that reads as a personality
+ * setting while silently granting write access to the order book is a picker that lies.
+ */
+export const AGENT_ROLE_LABELS: Record<AgentRoleValue, string> = {
+  SALES_SUPPORT: 'Sells and helps',
+  SALES: 'Sells',
+  SUPPORT: 'Helps with questions',
+  ORDER_TAKER: 'Takes orders',
+  RECEPTIONIST: 'Greets and directs',
+  FOLLOW_UP: 'Follows up',
+};
+
+export const AGENT_ROLE_DESCRIPTIONS: Record<AgentRoleValue, string> = {
+  SALES_SUPPORT:
+    'Answers questions about your products and can place an order when a customer is ready. The best fit for most shops.',
+  SALES: 'Focuses on turning interest into a sale, and can place an order.',
+  SUPPORT:
+    'Answers questions about your products, delivery and policies. Cannot place orders — a customer who wants to buy is handed to your team.',
+  ORDER_TAKER:
+    'Confirms what the customer wants and places the order. Keeps small talk to a minimum.',
+  RECEPTIONIST:
+    'Welcomes customers, answers the basics and passes anything else to your team. Cannot place orders.',
+  FOLLOW_UP:
+    'Checks back in on quiet chats and unfinished orders. Cannot place orders on its own.',
+};
+
+/** How the assistant sounds. */
+export const AGENT_TONE_LABELS: Record<AgentToneValue, string> = {
+  FRIENDLY: 'Friendly',
+  PROFESSIONAL: 'Professional',
+  CASUAL: 'Casual',
+  LUXURY: 'Premium',
+  CONCISE: 'Short and direct',
+  DETAILED: 'Thorough',
+};
+
+export const AGENT_TONE_DESCRIPTIONS: Record<AgentToneValue, string> = {
+  FRIENDLY: 'Warm and approachable, the way most WhatsApp shops write.',
+  PROFESSIONAL: 'Polite and businesslike, without being stiff.',
+  CASUAL: 'Relaxed and informal, close to how friends message.',
+  LUXURY: 'Polished and unhurried, for a premium brand.',
+  CONCISE: 'Straight to the answer. Good for busy customers.',
+  DETAILED: 'Explains fully, with the extra context a first-time buyer needs.',
+};
+
+export function agentRoleLabel(role: string): string {
+  return AGENT_ROLE_LABELS[role as AgentRoleValue] ?? humaniseCode(role);
+}
+
+export function agentToneLabel(tone: string): string {
+  return AGENT_TONE_LABELS[tone as AgentToneValue] ?? humaniseCode(tone);
 }

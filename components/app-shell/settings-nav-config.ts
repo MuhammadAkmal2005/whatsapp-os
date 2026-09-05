@@ -1,5 +1,4 @@
 import {
-  Bot,
   BookOpen,
   Building2,
   CreditCard,
@@ -74,15 +73,6 @@ export const SETTINGS_NAV: readonly SettingsNavItem[] = [
     description: 'Connect your WhatsApp Business number.',
     permission: 'whatsapp:read',
     available: true,
-  },
-  {
-    label: 'AI agent',
-    href: '/settings/agent',
-    icon: Bot,
-    description: 'How your AI employee talks and when it hands over to you.',
-    permission: 'agent:read',
-    available: false,
-    reason: IN_PROGRESS,
   },
   {
     label: 'Knowledge',

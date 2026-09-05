@@ -26,6 +26,20 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }));
 
+/**
+ * An upper bound for a query window that cannot exclude a row inserted a moment ago.
+ *
+ * `createdAt` is stamped by Postgres, but a window left implicit ends at the *application's*
+ * `new Date()`. Those are two independent clocks — here the test database container runs a few
+ * milliseconds ahead of the host — so a row written immediately before the query can carry a
+ * timestamp later than a "now" computed afterwards, and drop out of its own window. Tests that
+ * assert "the row I just inserted is counted" say which window they mean rather than depending on
+ * the two clocks agreeing to the millisecond.
+ */
+function windowEndSafelyAfterNow(): Date {
+  return new Date(Date.now() + 60_000);
+}
+
 describe('Phase 7 Unit 2: Analytics UI & Server Actions Integration', () => {
   beforeEach(async () => {
     await resetDatabase();
@@ -119,7 +133,7 @@ describe('Phase 7 Unit 2: Analytics UI & Server Actions Integration', () => {
       },
     });
 
-    const populatedResult = await fetchAnalyticsOverviewAction();
+    const populatedResult = await fetchAnalyticsOverviewAction({ to: windowEndSafelyAfterNow() });
     expect(populatedResult.success).toBe(true);
     if (populatedResult.success) {
       expect(populatedResult.data.summary.ordersCount).toBe(1);
@@ -158,7 +172,10 @@ describe('Phase 7 Unit 2: Analytics UI & Server Actions Integration', () => {
       },
     });
 
-    const result = await fetchAITelemetryAction({ model: 'gemini-2.5-flash' });
+    const result = await fetchAITelemetryAction({
+      model: 'gemini-2.5-flash',
+      to: windowEndSafelyAfterNow(),
+    });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.totalRequests).toBe(1);

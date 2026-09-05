@@ -51,6 +51,10 @@ describe('Phase 5 Unit 6: Human Handoff Orchestration Integration', () => {
       data: {
         workspaceId,
         name: 'Handoff Test Agent',
+        // The column defaults to false. Agent resolution requires an active agent — an
+        // inactive one is deliberately never selected for an automatic reply — so a fixture
+        // that means "this workspace has a working assistant" has to say so.
+        isActive: true,
         model: 'gemini-2.5-flash',
         temperature: 0.3,
         maxOutputTokens: 500,

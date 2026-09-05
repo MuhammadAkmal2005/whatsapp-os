@@ -49,6 +49,9 @@ async function setupAgentFixture(
     data: {
       workspaceId,
       name: 'Test Support Agent',
+      // The column defaults to false, and an inactive agent is never selected for an
+      // automatic reply. Retrieval is only reached once an agent has been resolved.
+      isActive: true,
       model: 'gpt-4o',
       role: 'SUPPORT',
       tone: 'PROFESSIONAL',

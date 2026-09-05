@@ -249,9 +249,23 @@ export async function executeAgentTurn(
   }
 
   // 3. Resolve AI Agent Configuration
-  const agent = params.agentId
+  const resolvedAgent = params.agentId
     ? await findAgentById(db, params.workspaceId, params.agentId)
     : await findDefaultOrActiveAgent(db, params.workspaceId);
+
+  // A switched-off assistant answers nobody, however it was resolved. `findDefaultOrActiveAgent`
+  // already filters on `isActive`, but a caller that names an agent by id gets whichever row
+  // carries that id — by design, since the configuration screen has to be able to load an
+  // inactive one. Normalising to null here means the deactivation switch has the same effect on
+  // every path into the runtime, and the branch below already reports it correctly.
+  const agent = resolvedAgent?.isActive ? resolvedAgent : null;
+  if (resolvedAgent && !agent) {
+    logger.info('ai.agent.inactive', {
+      workspaceId: params.workspaceId,
+      conversationId: params.conversationId,
+      agentId: resolvedAgent.id,
+    });
+  }
 
   // 3.1 Rate Limit Guard
   const rateLimitDecision = await consume(

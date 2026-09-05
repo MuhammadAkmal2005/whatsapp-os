@@ -130,8 +130,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: '/agent',
         icon: Bot,
         permission: 'agent:read',
-        available: false,
-        reason: IN_PROGRESS,
+        available: true,
       },
       {
         label: 'Knowledge',

@@ -64,6 +64,9 @@ describe('Phase 5 Final Acceptance / End-to-End Validation', () => {
       data: {
         workspaceId,
         name: 'Acceptance Test Agent',
+        // The column defaults to false, and an inactive agent is never selected for an
+        // automatic reply. These scenarios are all about an assistant that answers.
+        isActive: true,
         model: 'gemini-2.5-flash',
         temperature: 0.3,
         maxOutputTokens: 500,
