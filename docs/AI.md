@@ -23,6 +23,11 @@ check that runs after generation and can replace the reply. `AITurn.groundingPas
 record every time it fires, which makes "how often does our agent try to make things up" a number on a dashboard
 rather than a worry.
 
+Grounding validation enforces three specific checks before any text reaches the customer:
+1. **Retrieval Failure (`RETRIEVAL_FAILED`)**: When vector search or embedding fails non-fatally, the turn degrades safely; `groundingPassed` is marked `false`, prompt warns the assistant not to guess, and handoff triggers for human review.
+2. **Unsupported Policy Claims (`UNSUPPORTED_POLICY_CLAIM`)**: When no policy documentation is retrieved or returned by tools, specific commitments regarding return periods, refund guarantees, or warranties are blocked, replaced with transparent refusal text, and handed off.
+3. **Unauthorized Discount Claims (`UNSUPPORTED_DISCOUNT_CLAIM`)**: Promises of percentage discounts, promo codes, or coupons not present in retrieved knowledge or tools are blocked and rewritten.
+
 The commercial reason is sharper than the safety one. A shop owner whose agent invents a seven-day return policy
 has been handed a liability by software they paid for. One such incident ends the account, and it should.
 

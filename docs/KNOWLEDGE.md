@@ -236,6 +236,17 @@ the query shape.
 
 ---
 
+## Retrieval & Grounding in the AI Turn
+
+During an incoming conversation turn, knowledge retrieval is invoked unless a human handoff was already triggered:
+1. **Scope & Provenance**: The query vector is searched against `knowledge_chunks` with `workspaceId`, matching `embeddingModel`, and matching dimension constraints.
+2. **Relevance Floor**: Results below `similarityFloor` (0.6) are discarded.
+3. **Evidence Budgeting & Deduplication**: Surviving chunks are deduplicated by content, truncated to `maxCharsPerChunk` (1,200 chars), and capped to `evidenceTokenBudget` (800 tokens).
+4. **Tool Precedence**: Retrieved text is framed inside `=== RETRIEVED KNOWLEDGE EVIDENCE ===` with explicit instruction that authoritative tool data (live catalog pricing, inventory, order calculations) takes precedence over text prose.
+5. **Absence Handling**: If 0 chunks survive, an explicit notice (`=== KNOWLEDGE BASE SEARCH STATUS ===`) instructs the model not to invent or guess policies. Post-generation validation inspects the reply for ungrounded commitments.
+
+---
+
 ## Limits, and what is deliberately absent
 
 The plan's knowledge allowance counts **every** row, whatever its status. A failed document still occupies a
