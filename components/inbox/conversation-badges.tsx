@@ -206,3 +206,101 @@ export function MessageStatusIcon({
     </span>
   );
 }
+
+/* ── Conversation & Lead Lifecycle V1 Badges ─────────────────────────────── */
+
+export type ConversationLifecycleStage =
+  | 'NEW'
+  | 'ACTIVE'
+  | 'PRODUCT_INTEREST'
+  | 'READY_TO_ORDER'
+  | 'AWAITING_CUSTOMER'
+  | 'AWAITING_HUMAN'
+  | 'CONVERTED'
+  | 'CLOSED';
+
+export type CustomerLifecycleStage =
+  | 'NEW_CUSTOMER'
+  | 'PROSPECT'
+  | 'INTERESTED'
+  | 'ORDERED'
+  | 'REPEAT_CUSTOMER';
+
+const CONVERSATION_LIFECYCLE_LABELS: Record<ConversationLifecycleStage, string> = {
+  NEW: 'New Conversation',
+  ACTIVE: 'Active Chat',
+  PRODUCT_INTEREST: 'Product Interest',
+  READY_TO_ORDER: 'Ready to Order',
+  AWAITING_CUSTOMER: 'Awaiting Customer',
+  AWAITING_HUMAN: 'Awaiting Human',
+  CONVERTED: 'Converted',
+  CLOSED: 'Closed',
+};
+
+const CONVERSATION_LIFECYCLE_VARIANTS: Record<ConversationLifecycleStage, BadgeProps['variant']> = {
+  NEW: 'outline',
+  ACTIVE: 'default',
+  PRODUCT_INTEREST: 'info',
+  READY_TO_ORDER: 'warning',
+  AWAITING_CUSTOMER: 'secondary',
+  AWAITING_HUMAN: 'warning',
+  CONVERTED: 'success',
+  CLOSED: 'muted',
+};
+
+export function ConversationLifecycleBadge({
+  stage,
+  size = 'sm',
+  className,
+}: {
+  stage: ConversationLifecycleStage;
+  size?: BadgeProps['size'];
+  className?: string;
+}) {
+  return (
+    <Badge
+      variant={CONVERSATION_LIFECYCLE_VARIANTS[stage] ?? 'outline'}
+      size={size}
+      className={cn('font-medium', className)}
+    >
+      {CONVERSATION_LIFECYCLE_LABELS[stage] ?? stage}
+    </Badge>
+  );
+}
+
+const CUSTOMER_LIFECYCLE_LABELS: Record<CustomerLifecycleStage, string> = {
+  NEW_CUSTOMER: 'New Customer',
+  PROSPECT: 'Prospect',
+  INTERESTED: 'Interested',
+  ORDERED: 'Ordered',
+  REPEAT_CUSTOMER: 'Repeat Customer',
+};
+
+const CUSTOMER_LIFECYCLE_VARIANTS: Record<CustomerLifecycleStage, BadgeProps['variant']> = {
+  NEW_CUSTOMER: 'outline',
+  PROSPECT: 'secondary',
+  INTERESTED: 'info',
+  ORDERED: 'default',
+  REPEAT_CUSTOMER: 'success',
+};
+
+export function CustomerLifecycleBadge({
+  stage,
+  size = 'sm',
+  className,
+}: {
+  stage: CustomerLifecycleStage;
+  size?: BadgeProps['size'];
+  className?: string;
+}) {
+  return (
+    <Badge
+      variant={CUSTOMER_LIFECYCLE_VARIANTS[stage] ?? 'outline'}
+      size={size}
+      className={cn('font-medium', className)}
+    >
+      {CUSTOMER_LIFECYCLE_LABELS[stage] ?? stage}
+    </Badge>
+  );
+}
+

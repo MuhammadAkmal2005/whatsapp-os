@@ -50,6 +50,10 @@ import {
   type ContactWriteFields,
 } from '@/server/repositories/contact.repository';
 import {
+  getCustomerLifecycle,
+  type CustomerLifecycleResult,
+} from '@/server/services/lifecycle/lifecycle.service';
+import {
   findMemberById,
   listMembers,
   type MemberRow,
@@ -219,6 +223,7 @@ export type ContactDetail = {
   contact: Contact;
   notes: ContactNote[];
   assignees: { id: string; name: string }[];
+  lifecycle?: CustomerLifecycleResult | null;
   can: ContactDetailCapability;
 };
 
@@ -230,9 +235,10 @@ export async function getContact(ctx: TenantContext, contactId: string): Promise
   // and it is what catches a query someone later writes without the scope.
   if (!row || row.workspaceId !== ctx.workspaceId) throw new NotFoundError('Customer');
 
-  const [notes, members] = await Promise.all([
+  const [notes, members, lifecycle] = await Promise.all([
     listContactNotes(prisma, ctx.workspaceId, contactId),
     listMembers(prisma, ctx.workspaceId),
+    getCustomerLifecycle(prisma, ctx.workspaceId, contactId).catch(() => null),
   ]);
 
   const assignees = assigneeView(members);
@@ -242,6 +248,7 @@ export async function getContact(ctx: TenantContext, contactId: string): Promise
     contact: toContact(row, assignees.names, capability),
     notes: notes.map(toNote),
     assignees: assignees.options,
+    lifecycle,
     can: capability,
   };
 }

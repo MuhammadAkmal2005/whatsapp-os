@@ -32,6 +32,10 @@ import {
   type ConversationListCapability,
 } from '@/server/services/conversation/conversation.capability';
 import {
+  getCombinedLifecycleContext,
+  type CombinedLifecycleContext,
+} from '@/server/services/lifecycle/lifecycle.service';
+import {
   assertTouched,
   auditConversation,
   loadConversationInWorkspace,
@@ -58,6 +62,7 @@ export type ConversationSummary = ConversationListRow & {
 
 export type ConversationDetail = ConversationDetailRow & {
   can: ConversationDetailCapability;
+  lifecycle?: CombinedLifecycleContext | null;
 };
 
 export type ConversationListPage = {
@@ -91,8 +96,15 @@ export async function getConversation(
     }
   }
 
+  const lifecycle = await getCombinedLifecycleContext(
+    prisma,
+    ctx.workspaceId,
+    conversationId,
+  ).catch(() => null);
+
   return {
     ...row,
+    lifecycle,
     can: conversationDetailCapability(ctx),
   };
 }

@@ -61,6 +61,12 @@ import {
   type BusinessRuleEvaluation,
   type BusinessRulesEvaluationResult,
 } from './business-rules.service';
+import {
+  getCombinedLifecycleContext,
+  type CombinedLifecycleContext,
+  type ConversationLifecycleStage,
+  type CustomerLifecycleStage,
+} from '@/server/services/lifecycle/lifecycle.service';
 import type { EmbeddingProvider } from '@/services/ai/embedding-provider.interface';
 
 export const RUNTIME_DEFAULTS = {
@@ -121,6 +127,8 @@ export type AgentTurnResult = {
   businessBrainTopics?: string[];
   customerMemoryCount?: number;
   businessRuleEvaluations?: BusinessRuleEvaluation[];
+  customerLifecycleStage?: CustomerLifecycleStage;
+  conversationLifecycleStage?: ConversationLifecycleStage;
 };
 
 /**
@@ -223,6 +231,7 @@ function buildSystemPromptWithEvidence(
   businessBrain?: BusinessBrainContext,
   customerMemory?: CustomerMemoryContext,
   businessRules?: BusinessRulesEvaluationResult,
+  lifecycle?: CombinedLifecycleContext | null,
 ): string {
   const basePrompt = buildSystemPrompt(agent, context);
   const parts = [basePrompt];
@@ -237,6 +246,10 @@ function buildSystemPromptWithEvidence(
 
   if (customerMemory?.formattedContext) {
     parts.push(customerMemory.formattedContext);
+  }
+
+  if (lifecycle?.formattedAiContext) {
+    parts.push(lifecycle.formattedAiContext);
   }
 
   if (groundingContext?.formattedEvidence) {
@@ -471,6 +484,22 @@ export async function executeAgentTurn(
     });
   }
 
+  // 5.5 Customer Journey & Lifecycle Context Assembly (Conversation & Lead Lifecycle V1)
+  let lifecycle: CombinedLifecycleContext | null = null;
+  try {
+    lifecycle = await getCombinedLifecycleContext(
+      db,
+      aiContext.workspaceId,
+      aiContext.conversationId,
+    );
+  } catch (lifecycleErr) {
+    logger.warn('ai.agent.lifecycle_load_failed', {
+      workspaceId: aiContext.workspaceId,
+      conversationId: aiContext.conversationId,
+      error: lifecycleErr instanceof Error ? lifecycleErr.message : String(lifecycleErr),
+    });
+  }
+
   // 5.5 Grounding Pipeline
   //
   // The knowledge base row is the gate, not the source of the model: a workspace without
@@ -526,6 +555,7 @@ export async function executeAgentTurn(
     businessBrain,
     customerMemory,
     businessRules,
+    lifecycle,
   );
   const messages: AIMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -1080,5 +1110,7 @@ export async function executeAgentTurn(
     businessBrainTopics: businessBrain ? Array.from(businessBrain.relevantTopics) : undefined,
     customerMemoryCount: customerMemory?.memoryCount ?? 0,
     businessRuleEvaluations: businessRules?.evaluations,
+    customerLifecycleStage: lifecycle?.customer.stage,
+    conversationLifecycleStage: lifecycle?.conversation?.stage,
   };
 }

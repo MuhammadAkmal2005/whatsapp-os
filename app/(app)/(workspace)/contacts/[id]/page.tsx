@@ -8,6 +8,7 @@ import {
   LeadStageBadge,
   displayName,
 } from '@/components/contacts/contact-badges';
+import { CustomerLifecycleBadge } from '@/components/inbox/conversation-badges';
 import { ContactNotes } from '@/components/contacts/contact-notes';
 import { ContactQuickControls } from '@/components/contacts/contact-quick-controls';
 import { DeleteContactDialog } from '@/components/contacts/delete-contact-dialog';
@@ -126,6 +127,9 @@ export default async function ContactDetailPage({ params }: { params: RouteParam
           <>
             <ContactStatusBadge status={contact.status} />
             <LeadStageBadge stage={contact.leadStage} />
+            {detail.lifecycle?.stage ? (
+              <CustomerLifecycleBadge stage={detail.lifecycle.stage} />
+            ) : null}
             {contact.optedOutAt ? <Badge variant="muted">Opted out</Badge> : null}
           </>
         }

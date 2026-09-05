@@ -20,7 +20,12 @@ import { Button } from '@/components/ui/button';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
-import { AiStatusBadge, ChannelLabel } from './conversation-badges';
+import {
+  AiStatusBadge,
+  ChannelLabel,
+  ConversationLifecycleBadge,
+  CustomerLifecycleBadge,
+} from './conversation-badges';
 import { initials } from '@/lib/names';
 import {
   assignConversationAction,
@@ -126,12 +131,24 @@ export function ConversationHeader({
                 <ExternalLink className="size-3.5" aria-hidden />
               </Link>
             </div>
-            <div className="flex items-center gap-2 text-2xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground">
               {/* Named in full here, unlike in the list row: this is the thread's identity
                   line and has the room for it. */}
               <ChannelLabel channel={conversation.channel} />
               <span aria-hidden>·</span>
               <span className="truncate tabular-nums">{conversation.contact.phoneE164}</span>
+              {conversation.lifecycle?.customer ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <CustomerLifecycleBadge stage={conversation.lifecycle.customer.stage} size="sm" />
+                </>
+              ) : null}
+              {conversation.lifecycle?.conversation ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <ConversationLifecycleBadge stage={conversation.lifecycle.conversation.stage} size="sm" />
+                </>
+              ) : null}
             </div>
           </div>
         </div>
