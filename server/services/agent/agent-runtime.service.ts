@@ -46,6 +46,10 @@ import {
   type GroundingContext,
   type GroundingValidationResult,
 } from './grounding.service';
+import {
+  loadBusinessBrainContext,
+  type BusinessBrainContext,
+} from './business-brain.service';
 import type { EmbeddingProvider } from '@/services/ai/embedding-provider.interface';
 
 export const RUNTIME_DEFAULTS = {
@@ -103,6 +107,7 @@ export type AgentTurnResult = {
   errorCategory: AIErrorCategory | null;
   groundingPassed?: boolean;
   blockedReason?: string | null;
+  businessBrainTopics?: string[];
 };
 
 /**
@@ -186,9 +191,14 @@ function buildSystemPromptWithEvidence(
   agent: AIAgentWithInstructionsRow,
   context: AIConversationContext,
   groundingContext?: GroundingContext,
+  businessBrain?: BusinessBrainContext,
 ): string {
   const basePrompt = buildSystemPrompt(agent, context);
   const parts = [basePrompt];
+
+  if (businessBrain?.formattedContext) {
+    parts.push(businessBrain.formattedContext);
+  }
 
   if (groundingContext?.formattedEvidence) {
     parts.push(groundingContext.formattedEvidence);
@@ -387,6 +397,9 @@ export async function executeAgentTurn(
     currency: workspaceCurrency === null ? undefined : coerceCurrency(workspaceCurrency),
   });
 
+  // 5.2 Business Brain Context Assembly
+  const businessBrain = await loadBusinessBrainContext(db, aiContext, rawUserText);
+
   // 5.5 Grounding Pipeline
   //
   // The knowledge base row is the gate, not the source of the model: a workspace without
@@ -435,7 +448,12 @@ export async function executeAgentTurn(
   }
 
   // 6. Build Initial Message Payload
-  const systemPrompt = buildSystemPromptWithEvidence(agent, conversationContext, groundingContext);
+  const systemPrompt = buildSystemPromptWithEvidence(
+    agent,
+    conversationContext,
+    groundingContext,
+    businessBrain,
+  );
   const messages: AIMessage[] = [
     { role: 'system', content: systemPrompt },
     ...conversationContext.recentMessages,
@@ -767,6 +785,7 @@ export async function executeAgentTurn(
       groundingContext,
       toolCalls: recordedToolCalls,
       customerMessage: rawUserText,
+      businessBrain,
     });
 
     if (!groundingValidation.passed) {
@@ -955,5 +974,6 @@ export async function executeAgentTurn(
     errorCategory,
     groundingPassed: groundingValidation.passed,
     blockedReason: groundingValidation.blockedReason ?? null,
+    businessBrainTopics: businessBrain ? Array.from(businessBrain.relevantTopics) : undefined,
   };
 }

@@ -109,6 +109,67 @@ the fast model. Summarising every turn would cost more than it saves.
 
 ---
 
+## Business Brain V1
+
+Business Brain V1 provides a typed, bounded, tenant-isolated context layer that consolidates structured business configuration and operational policies for each AI turn (`server/services/agent/business-brain.service.ts`).
+
+### 1. Source-of-Truth Hierarchy & Precedence
+The AI operates under a strict four-tier hierarchy of authority:
+
+1. **Level 1 (Highest Authority) — Live Tool Results & Deterministic Domain Logic**
+   * Live product catalog prices (`search_products`, `get_product`)
+   * Real-time inventory counts (`check_inventory`)
+   * Authoritative order totals and fee calculations (`calculate_order_totals`)
+   * Current order delivery and payment status (`get_order`)
+   * *Rule*: Model answers must never override deterministic tool results with prose.
+
+2. **Level 2 — Authoritative Structured Business Configuration**
+   * Configured business profile fields (`BusinessProfile` and `Workspace`)
+   * Official business operating hours (`businessHours`)
+   * Configured shipping terms and delivery fees (`shippingPolicy`, `deliveryFeeMinor`, `freeDeliveryThresholdMinor`)
+   * Configured return/exchange policies (`returnPolicy`)
+   * Accepted payment methods (`paymentMethods`)
+   * Store contact and location details (`legalName`, `city`, `country`, `supportEmail`, `supportPhone`)
+   * *Rule*: Structured configuration forms the base operating facts of the store.
+
+3. **Level 3 — Supporting Knowledge Base Evidence**
+   * Retrieved knowledge chunks from store documentation and FAQs (`GroundingContext`).
+   * *Rule*: Knowledge Base content provides helpful context and rich nuance, but cannot silently contradict or override Level 1 tools or Level 2 structured configuration.
+
+4. **Level 4 (Lowest Authority) — Model Inference & Assumptions**
+   * The model must NEVER fabricate unconfigured policies, delivery guarantees, discount rates, or inventory levels. When facts are absent from Levels 1-3, it must honestly state the limitation and offer human team handoff.
+
+### 2. Relevance & Bounded Context
+To preserve context window budget and prevent attention degradation:
+* **Always-included core identity**: Legal business name, city, country, currency, contact email/phone, website.
+* **Topic-gated operational policies**: Keyword detection (`detectRelevantTopics`) selectively attaches detailed policy sections only when the customer's query requires them:
+  * `SHIPPING`: Delivery policies, rates, and free delivery thresholds.
+  * `PAYMENT`: Configured payment methods (COD, Bank Transfer, etc.).
+  * `HOURS`: Formatted weekly opening/closing hours.
+  * `RETURNS`: Return windows, refund policies, and exchange rules.
+  * `CATALOG_INVENTORY`: Directs query to live catalog tools (`search_products`, `get_product`, `check_inventory`).
+  * `ORDER`: Directs query to authenticated live order tools (`get_order`).
+
+### 3. Security & Tenant Isolation
+* All Business Brain data is derived strictly from verified `AITenantContext.workspaceId`.
+* Client-supplied workspace IDs are never accepted or trusted.
+* Private operational metadata (internal database IDs, secrets, physical street address lines `addressLine1`/`addressLine2`, logo storage keys) are explicitly excluded from prompt context.
+
+### 4. Grounding & Post-Generation Validation
+`validateGrounding` coordinates across Tools, Business Brain, and Knowledge retrieval:
+* **`UNSUPPORTED_POLICY_CLAIM`**: If the assistant attempts to commit to specific return periods ("30 days return", "100% money back guarantee") without backing in Business Brain, Tools, or Knowledge, the reply is blocked, replaced with safe transparent referral, and handed off.
+* **`UNSUPPORTED_DISCOUNT_CLAIM`**: Unauthorized discount percentages or promo codes not present in Knowledge, Tools, or Business Brain are blocked and rewritten.
+
+### 5. Intentionally Deferred Scope
+Business Brain V1 deliberately excludes:
+* Customer memory and durable facts
+* Conversation summarization across sessions
+* Autonomous workflow automation and background triggers
+* Revenue intelligence and multi-channel orchestration
+* Dynamic policy DSL / rules engine
+
+---
+
 ## Retrieval
 
 `KnowledgeType` carries `TEXT`, `FAQ`, `PDF`, `DOCX`, `URL`, `CATALOG` and `POLICY`. **Only `TEXT` and `FAQ` are

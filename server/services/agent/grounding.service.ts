@@ -277,11 +277,14 @@ export interface GroundingToolCall {
   isError?: boolean;
 }
 
+import type { BusinessBrainContext } from './business-brain.service';
+
 export interface GroundingValidationInput {
   replyText: string | null;
   groundingContext?: GroundingContext;
   toolCalls?: readonly GroundingToolCall[];
   customerMessage?: string;
+  businessBrain?: BusinessBrainContext;
 }
 
 export interface GroundingValidationResult {
@@ -298,7 +301,7 @@ export interface GroundingValidationResult {
  * and providing a safe, transparent replacement reply.
  */
 export function validateGrounding(input: GroundingValidationInput): GroundingValidationResult {
-  const { replyText, groundingContext, toolCalls, customerMessage } = input;
+  const { replyText, groundingContext, toolCalls, customerMessage, businessBrain } = input;
 
   if (!replyText || replyText.trim().length === 0) {
     return { passed: true, blockedReason: null, replacementReply: null };
@@ -341,12 +344,28 @@ export function validateGrounding(input: GroundingValidationInput): GroundingVal
     return false;
   };
 
+  // Helper to check authoritative Business Brain policies for keywords
+  const businessBrainProvidedTopic = (topicKeywords: string[]): boolean => {
+    if (!businessBrain) return false;
+    const p = businessBrain.policies;
+    const combined = [
+      p.returnPolicy,
+      p.shippingPolicy,
+      ...p.paymentMethods,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return topicKeywords.some((kw) => combined.includes(kw));
+  };
+
   // 2. Check for unauthorized discount claims (e.g. "20% discount", "50% off", "promo code")
   const discountPattern = /\b(\d{1,2}%\s*(?:discount|off)|coupon\s*code|promo\s*code)\b/i;
   if (discountPattern.test(replyText)) {
     const supportedInKnowledge = knowledgeProvidedTopic(['discount', 'off', 'coupon', 'promo']);
     const supportedInTools = toolsProvidedTopic(['discount', 'coupon', 'promo', 'percent']);
-    if (!supportedInKnowledge && !supportedInTools) {
+    const supportedInBusinessBrain = businessBrainProvidedTopic(['discount', 'off', 'coupon', 'promo']);
+    if (!supportedInKnowledge && !supportedInTools && !supportedInBusinessBrain) {
       return {
         passed: false,
         blockedReason: 'UNSUPPORTED_DISCOUNT_CLAIM',
@@ -356,36 +375,50 @@ export function validateGrounding(input: GroundingValidationInput): GroundingVal
     }
   }
 
-  // 3. Check for unsupported policy claims when NO evidence was found
-  if (groundingContext?.status === 'NO_EVIDENCE') {
-    const customerLower = (customerMessage ?? '').toLowerCase();
-    const isPolicyInquiry =
-      customerLower.includes('return') ||
-      customerLower.includes('refund') ||
-      customerLower.includes('warranty') ||
-      customerLower.includes('guarantee') ||
-      customerLower.includes('exchange');
+  // 3. Check for unsupported policy claims
+  const customerLower = (customerMessage ?? '').toLowerCase();
+  const isPolicyInquiry =
+    customerLower.includes('return') ||
+    customerLower.includes('refund') ||
+    customerLower.includes('warranty') ||
+    customerLower.includes('guarantee') ||
+    customerLower.includes('exchange');
 
-    if (isPolicyInquiry) {
-      const specificCommitmentPattern =
-        /\b(\d+\s*days?\s*(?:return|refund|exchange)|100%\s*(?:refund|money\s*back)|money\s*back\s*guarantee|\d+\s*years?\s*warranty)\b/i;
+  if (isPolicyInquiry) {
+    const specificCommitmentPattern =
+      /\b(\d+\s*days?\s*(?:return|refund|exchange)|100%\s*(?:refund|money\s*back)|money\s*back\s*guarantee|\d+\s*years?\s*warranty)\b/i;
 
-      if (specificCommitmentPattern.test(replyText)) {
-        const supportedInTools = toolsProvidedTopic([
-          'return',
-          'refund',
-          'warranty',
-          'shipping',
-          'policy',
-        ]);
-        if (!supportedInTools) {
-          return {
-            passed: false,
-            blockedReason: 'UNSUPPORTED_POLICY_CLAIM',
-            replacementReply:
-              'I do not have our official policy details on file for this. Please allow me to connect you with our team so they can confirm the exact details for you.',
-          };
-        }
+    if (specificCommitmentPattern.test(replyText)) {
+      const supportedInKnowledge = knowledgeProvidedTopic([
+        'return',
+        'refund',
+        'warranty',
+        'guarantee',
+        'exchange',
+        'policy',
+      ]);
+      const supportedInTools = toolsProvidedTopic([
+        'return',
+        'refund',
+        'warranty',
+        'shipping',
+        'policy',
+      ]);
+      const supportedInBusinessBrain = businessBrainProvidedTopic([
+        'return',
+        'refund',
+        'warranty',
+        'shipping',
+        'exchange',
+        'policy',
+      ]);
+      if (!supportedInKnowledge && !supportedInTools && !supportedInBusinessBrain) {
+        return {
+          passed: false,
+          blockedReason: 'UNSUPPORTED_POLICY_CLAIM',
+          replacementReply:
+            'I do not have our official policy details on file for this. Please allow me to connect you with our team so they can confirm the exact details for you.',
+        };
       }
     }
   }
