@@ -278,6 +278,8 @@ export interface GroundingToolCall {
 }
 
 import type { BusinessBrainContext } from './business-brain.service';
+import type { BusinessRuleEvaluation } from './business-rules.service';
+import { extractReturnWindowDays } from './business-rules.service';
 
 export interface GroundingValidationInput {
   replyText: string | null;
@@ -285,6 +287,7 @@ export interface GroundingValidationInput {
   toolCalls?: readonly GroundingToolCall[];
   customerMessage?: string;
   businessBrain?: BusinessBrainContext;
+  businessRules?: readonly BusinessRuleEvaluation[];
 }
 
 export interface GroundingValidationResult {
@@ -294,14 +297,13 @@ export interface GroundingValidationResult {
 }
 
 /**
- * Validates generated assistant output against system evidence.
+ * Validates generated assistant output against system evidence and authoritative business rules.
  *
- * Catches ungrounded policy and discount claims before they reach a customer,
- * writing honest telemetry (`groundingPassed = false`, `blockedReason = ...`)
- * and providing a safe, transparent replacement reply.
+ * Catches ungrounded policy claims, unauthorized discounts, forbidden payment promises,
+ * and unsupported autonomous order modifications before they reach the customer.
  */
 export function validateGrounding(input: GroundingValidationInput): GroundingValidationResult {
-  const { replyText, groundingContext, toolCalls, customerMessage, businessBrain } = input;
+  const { replyText, groundingContext, toolCalls, customerMessage, businessBrain, businessRules } = input;
 
   if (!replyText || replyText.trim().length === 0) {
     return { passed: true, blockedReason: null, replacementReply: null };
@@ -359,7 +361,99 @@ export function validateGrounding(input: GroundingValidationInput): GroundingVal
     return topicKeywords.some((kw) => combined.includes(kw));
   };
 
-  // 2. Check for unauthorized discount claims (e.g. "20% discount", "50% off", "promo code")
+  // 2. Enforce Deterministic Business Rules (Precedence Level 2 > Level 3 Knowledge)
+  if (businessRules && businessRules.length > 0) {
+    // 2.1 Discount Rule Enforcement: If discount rule evaluated to NOT_ALLOWED, reject any discount promises
+    const discountRule = businessRules.find((r) => r.category === 'DISCOUNT');
+    if (discountRule && discountRule.outcome === 'NOT_ALLOWED') {
+      const discountPattern = /\b(\d{1,2}%\s*(?:discount|off)|coupon\s*code|promo\s*code|special\s*discount)\b/i;
+      if (discountPattern.test(replyText)) {
+        return {
+          passed: false,
+          blockedReason: 'UNSUPPORTED_DISCOUNT_CLAIM',
+          replacementReply:
+            'I cannot confirm any special discounts or promotional pricing at this time. Please check with our team for available offers.',
+        };
+      }
+    }
+
+    // 2.2 Payment Method Rule Enforcement: E.g., if COD is NOT_ALLOWED, reject false claims that COD is available
+    const paymentRule = businessRules.find((r) => r.category === 'PAYMENT');
+    if (paymentRule && paymentRule.outcome === 'NOT_ALLOWED') {
+      const claimsCodAvailable =
+        /\b(?:we (?:accept|offer|provide)|available via|can pay (?:via|with|through)?|accepted via|confirm (?:your )?order with)\s*(?:cash on delivery|cod)\b/i.test(
+          replyText,
+        ) || /\bcod is (?:available|accepted|an option)\b/i.test(replyText);
+
+      if (claimsCodAvailable) {
+        return {
+          passed: false,
+          blockedReason: 'UNSUPPORTED_POLICY_CLAIM',
+          replacementReply:
+            'We do not currently offer Cash on Delivery (COD). Please choose from our accepted payment options.',
+        };
+      }
+    }
+
+    // 2.3 Return Window Rule Enforcement: If return requested exceeds configured return window
+    const returnRule = businessRules.find((r) => r.category === 'RETURNS');
+    if (returnRule && returnRule.outcome === 'NOT_ALLOWED') {
+      const promisesReturnAccepted =
+        /\b(?:can return|returns are accepted|eligible for return|accept (?:your )?return|return is possible)\b/i.test(
+          replyText,
+        );
+      if (promisesReturnAccepted) {
+        return {
+          passed: false,
+          blockedReason: 'UNSUPPORTED_POLICY_CLAIM',
+          replacementReply:
+            'Returns outside our official return window cannot be accepted under store policy.',
+        };
+      }
+    }
+
+    // 2.4 Conflicting Sources Precedence (Structured Rule Level 2 > Knowledge Level 3)
+    // E.g., Structured policy says 14 days, but knowledge document says 30 days
+    if (businessBrain?.policies.returnPolicy) {
+      const configuredDays = extractReturnWindowDays(businessBrain.policies.returnPolicy);
+      if (configuredDays !== null) {
+        // If reply discusses returns and quotes a different day window that conflicts with structured policy
+        const isReturnContext = /\b(return|refund|exchange|wapsi)\b/i.test(replyText);
+        if (isReturnContext) {
+          const replyMatch = replyText.match(/\b(\d+)\s*(?:-| )?days?\b/i);
+          if (replyMatch && replyMatch[1]) {
+            const statedDays = parseInt(replyMatch[1], 10);
+            if (statedDays !== configuredDays) {
+              return {
+                passed: false,
+                blockedReason: 'UNSUPPORTED_POLICY_CLAIM',
+                replacementReply: `Our official return policy allows returns within ${configuredDays} days for eligible items.`,
+              };
+            }
+          }
+        }
+      }
+    }
+
+    // 2.5 Order Modification / Cancellation Rule Enforcement
+    const orderModRule = businessRules.find((r) => r.category === 'ORDER_MODIFICATION');
+    if (orderModRule && (orderModRule.outcome === 'NEEDS_HUMAN' || orderModRule.outcome === 'NOT_ALLOWED')) {
+      const claimsMutation =
+        /\b(?:i have (?:cancelled|canceled|modified|changed)|your order has been (?:cancelled|canceled|modified)|order (?:is|was) (?:cancelled|canceled))\b/i.test(
+          replyText,
+        );
+      if (claimsMutation) {
+        return {
+          passed: false,
+          blockedReason: 'UNSUPPORTED_ORDER_MUTATION_CLAIM',
+          replacementReply:
+            'I cannot modify or cancel orders autonomously. I am connecting you with our human team to assist with your order.',
+        };
+      }
+    }
+  }
+
+  // 3. Check for unauthorized discount claims (fallback when no specific rule evaluation)
   const discountPattern = /\b(\d{1,2}%\s*(?:discount|off)|coupon\s*code|promo\s*code)\b/i;
   if (discountPattern.test(replyText)) {
     const supportedInKnowledge = knowledgeProvidedTopic(['discount', 'off', 'coupon', 'promo']);
@@ -375,7 +469,7 @@ export function validateGrounding(input: GroundingValidationInput): GroundingVal
     }
   }
 
-  // 3. Check for unsupported policy claims
+  // 4. Check for unsupported policy claims
   const customerLower = (customerMessage ?? '').toLowerCase();
   const isPolicyInquiry =
     customerLower.includes('return') ||

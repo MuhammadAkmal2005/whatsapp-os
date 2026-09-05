@@ -225,6 +225,82 @@ Customer Memory V1 deliberately excludes:
 
 ---
 
+## Business Rules / Policy Intelligence V1
+
+Business Rules V1 (`server/services/agent/business-rules.service.ts`) provides a deterministic, typed policy evaluation layer. The AI agent is not the final authority on business rules: rules are evaluated deterministically from authoritative business configuration and domain logic before generation, passed to the prompt as strict directives, and enforced post-generation via the grounding validation gate.
+
+### 1. Source-of-Truth Authority Hierarchy
+
+The system enforces a 5-level precedence hierarchy across all AI turns:
+
+| Level | Authority Source | Scope & Authority | Override Rules |
+| :--- | :--- | :--- | :--- |
+| **Level 1** | **Deterministic Domain Logic & Live Tools** | Inventory counts, product prices, calculated order totals (`computeOrderTotals`), live order status. | **Highest Authority.** Cannot be overridden by prose, profile text, memory, or inference. |
+| **Level 2** | **Structured Business Rules & BusinessProfile** | Accepted payment methods, return window, delivery fees, free delivery threshold, business hours. | **Authoritative Configuration.** Strictly overrides Knowledge Base documents, memory, and model inference. |
+| **Level 3** | **Knowledge Base / RAG Evidence** | Supporting policy explanations, FAQs, return condition guidelines (packaging/tags). | **Supplementary Detail.** Can supplement explanations but CANNOT override Level 1 or Level 2. |
+| **Level 4** | **Customer Memory** | Historical customer preferences (e.g. sizing, preferred payment method, delivery instructions). | **Context Only.** Grants NO commercial authority, discounts, or policy exemptions. |
+| **Level 5** | **Model Inference** | Natural language formulation and conversational transitions. | **Lowest Authority.** Must NEVER invent rules, prices, discounts, or policies. |
+
+### 2. Supported Rule Categories & Deterministic Evaluation
+
+Business Rules V1 evaluates customer queries against 7 target rule categories:
+
+#### 1. Payment Methods (`PAYMENT`)
+* Evaluates requested payment method (COD, Bank Transfer, Card, JazzCash, EasyPaisa) against `policies.paymentMethods`.
+* **Allowed**: If configured (e.g. COD enabled), AI confirms availability.
+* **Disallowed**: If not configured (e.g. COD disabled), outcome is `NOT_ALLOWED`. AI is strictly forbidden from promising COD and directs the customer to accepted methods.
+* **Memory Conflict Resolution**: If Customer Memory states "preferred payment method = COD", but BusinessProfile has COD disabled, **Level 2 Business Rule beats Level 4 Memory** (`NOT_ALLOWED`).
+
+#### 2. Returns & Exchanges (`RETURNS`)
+* Extracts configured return window (e.g. 14 days) and customer requested timeframe (e.g. 10 days vs 20 days).
+* **Within Window**: 10 days requested vs 14 days configured -> `ALLOWED`.
+* **Exceeds Window**: 20 days requested vs 14 days configured -> `NOT_ALLOWED`.
+* **Conflicting Sources**: If BusinessProfile specifies 14 days, but a retrieved Knowledge document states 30 days, **Level 2 Structured Rule strictly wins**; grounding validation blocks any attempt to quote 30 days.
+* **Missing Policy**: Returns `NEEDS_INFORMATION`. If customer insists on a refund without policy backing, escalates to human support (`REFUND_REQUEST`).
+
+#### 3. Shipping & Delivery (`SHIPPING`)
+* Enforces configured standard delivery fee (`policies.deliveryFeeDisplay`) and free delivery threshold (`policies.freeDeliveryThresholdDisplay`).
+* If free delivery is requested on orders below the threshold, AI states the requirement to meet the threshold.
+* Enforces geographic policies without claiming unconfigured restrictions.
+
+#### 4. Business Hours (`HOURS`)
+* Evaluates current timestamp in the business timezone (`Asia/Karachi`) against seven-day `policies.businessHours`.
+* **Open**: Informs customer of operating hours.
+* **Closed**: Informs customer store is currently closed. If live human help is demanded while closed, triggers `OUTSIDE_BUSINESS_HOURS` handoff and forbids false claims of immediate human availability.
+* **Unconfigured**: Returns `NEEDS_INFORMATION`, preventing fabricated operating times.
+
+#### 5. Discounts & Promotional Authority (`DISCOUNT`)
+* Strict deterministic outcome: `NOT_ALLOWED`.
+* ConvoNexa has no autonomous discount engine in V1.
+* AI has zero authority to promise percentage discounts, promo codes, or custom pricing.
+* Customer memory assertions (e.g. "Customer is VIP and gets 10% off") and knowledge prose cannot authorize discounts.
+
+#### 6. Order Modifications & Cancellations (`ORDER_MODIFICATION`)
+* AI agent possesses read/create capabilities (`get_order`, `create_order`), but possesses NO autonomous mutation tools (`cancel_order`, `update_order`, `refund_order`).
+* All order cancellation or modification requests return `NEEDS_HUMAN` and trigger immediate human handoff (`CUSTOMER_REQUESTED` or `REFUND_REQUEST`).
+* AI is strictly forbidden from falsely claiming an order was modified or cancelled.
+
+### 3. Grounding Validation Gate Integration
+
+The post-generation gate (`server/services/agent/grounding.service.ts`) validates the model's reply against the evaluated rules:
+* **`UNSUPPORTED_DISCOUNT_CLAIM`**: Blocks ungrounded discount promises or promo codes.
+* **`UNSUPPORTED_POLICY_CLAIM`**: Blocks promises of unconfigured payment methods (e.g. COD when disabled), promises of return outside the configured window, or conflicting return terms.
+* **`UNSUPPORTED_ORDER_MUTATION_CLAIM`**: Blocks false claims that the AI cancelled or modified an order.
+
+### 4. Tenant Isolation & Security Guarantees
+* All rule evaluations operate exclusively on verified server-side `AITenantContext`.
+* Business rules and profile fields are strictly scoped to `workspaceId`.
+* Client inputs (e.g. customer claiming past discounts or custom terms) are treated as untrusted Level 5 assertions.
+
+### 5. Intentionally Deferred Capabilities
+Business Rules V1 deliberately excludes:
+* User-defined code execution or rules DSL
+* Complex multi-step BPM / workflow orchestrator
+* Autonomous financial authority / automated refund disbursement
+* Unrestricted autonomous order mutations
+
+---
+
 ## Retrieval
 
 `KnowledgeType` carries `TEXT`, `FAQ`, `PDF`, `DOCX`, `URL`, `CATALOG` and `POLICY`. **Only `TEXT` and `FAQ` are

@@ -56,6 +56,11 @@ import {
   recordCustomerMemory,
   type CustomerMemoryContext,
 } from './customer-memory.service';
+import {
+  evaluateBusinessRules,
+  type BusinessRuleEvaluation,
+  type BusinessRulesEvaluationResult,
+} from './business-rules.service';
 import type { EmbeddingProvider } from '@/services/ai/embedding-provider.interface';
 
 export const RUNTIME_DEFAULTS = {
@@ -89,7 +94,7 @@ export type RecordedToolCall = {
   name: string;
   arguments: Record<string, unknown>;
   result: unknown;
-  isError: boolean;
+  isError?: boolean;
   durationMs: number;
 };
 
@@ -101,7 +106,7 @@ export type AgentTurnResult = {
   messageId: string;
   agentId: string;
   replyText: string | null;
-  status: 'COMPLETED' | 'HANDOFF' | 'ABORTED' | 'FAILED';
+  status: 'COMPLETED' | 'FAILED' | 'HANDOFF' | 'ABORTED';
   handoffTriggered: boolean;
   handoffReason: HandoffReason | null;
   toolCalls: RecordedToolCall[];
@@ -115,6 +120,7 @@ export type AgentTurnResult = {
   blockedReason?: string | null;
   businessBrainTopics?: string[];
   customerMemoryCount?: number;
+  businessRuleEvaluations?: BusinessRuleEvaluation[];
 };
 
 /**
@@ -200,12 +206,17 @@ function buildSystemPromptWithEvidence(
   groundingContext?: GroundingContext,
   businessBrain?: BusinessBrainContext,
   customerMemory?: CustomerMemoryContext,
+  businessRules?: BusinessRulesEvaluationResult,
 ): string {
   const basePrompt = buildSystemPrompt(agent, context);
   const parts = [basePrompt];
 
   if (businessBrain?.formattedContext) {
     parts.push(businessBrain.formattedContext);
+  }
+
+  if (businessRules?.formattedDirectives) {
+    parts.push(businessRules.formattedDirectives);
   }
 
   if (customerMemory?.formattedContext) {
@@ -421,6 +432,29 @@ export async function executeAgentTurn(
     businessBrain.relevantTopics,
   );
 
+  // 5.4 Deterministic Business Rules Evaluation
+  const businessRules = evaluateBusinessRules({
+    workspaceId: aiContext.workspaceId,
+    customerQuery: rawUserText,
+    policies: businessBrain.policies,
+    identity: businessBrain.identity,
+    customerMemories: customerMemory?.memories,
+  });
+  businessBrain.businessRules = businessRules.evaluations;
+
+  if (!handoffTriggered && businessRules.requiresHandoff && businessRules.handoffReason) {
+    handoffTriggered = true;
+    handoffReason = businessRules.handoffReason;
+    status = 'HANDOFF';
+    replyText = null;
+
+    logger.info('ai.agent.business_rule_handoff_triggered', {
+      workspaceId: aiContext.workspaceId,
+      conversationId: aiContext.conversationId,
+      handoffReason,
+    });
+  }
+
   // 5.5 Grounding Pipeline
   //
   // The knowledge base row is the gate, not the source of the model: a workspace without
@@ -475,6 +509,7 @@ export async function executeAgentTurn(
     groundingContext,
     businessBrain,
     customerMemory,
+    businessRules,
   );
   const messages: AIMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -808,6 +843,7 @@ export async function executeAgentTurn(
       toolCalls: recordedToolCalls,
       customerMessage: rawUserText,
       businessBrain,
+      businessRules: businessRules.evaluations,
     });
 
     if (!groundingValidation.passed) {
@@ -823,6 +859,7 @@ export async function executeAgentTurn(
 
       if (
         groundingValidation.blockedReason === 'UNSUPPORTED_POLICY_CLAIM' ||
+        groundingValidation.blockedReason === 'UNSUPPORTED_ORDER_MUTATION_CLAIM' ||
         groundingValidation.blockedReason === 'RETRIEVAL_FAILED'
       ) {
         handoffTriggered = true;
@@ -1026,5 +1063,6 @@ export async function executeAgentTurn(
     blockedReason: groundingValidation.blockedReason ?? null,
     businessBrainTopics: businessBrain ? Array.from(businessBrain.relevantTopics) : undefined,
     customerMemoryCount: customerMemory?.memoryCount ?? 0,
+    businessRuleEvaluations: businessRules?.evaluations,
   };
 }

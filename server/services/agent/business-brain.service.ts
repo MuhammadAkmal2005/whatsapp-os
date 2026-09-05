@@ -67,6 +67,7 @@ export interface BusinessBrainContext {
   policies: BusinessBrainPolicies;
   relevantTopics: Set<BusinessBrainTopic>;
   formattedContext: string;
+  businessRules?: import('./business-rules.service').BusinessRuleEvaluation[];
 }
 
 const TOPIC_KEYWORDS: Record<BusinessBrainTopic, string[]> = {
