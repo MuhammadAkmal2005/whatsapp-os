@@ -103,6 +103,7 @@ model Workspace {
   campaigns                Campaign[]
   categories               Category[]
   contactNotes             ContactNote[]
+  customerMemories         CustomerMemory[]
   contacts                 Contact[]
   conversations            Conversation[]
   integrations             Integration[]
@@ -448,6 +449,7 @@ model Contact {
   appointments       Appointment[]
   campaignRecipients CampaignRecipient[]
   notes              ContactNote[]
+  memories           CustomerMemory[]
   tags               ContactTag[]
   assignedTo         WorkspaceMember?          @relation("ContactAssignee", fields: [assignedToMemberId], references: [id])
   workspace          Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -506,6 +508,27 @@ model ContactNote {
 
   @@index([workspaceId, contactId, createdAt(sort: Desc)])
   @@map("contact_notes")
+}
+
+model CustomerMemory {
+  id          String         @id @default(uuid()) @db.Uuid
+  workspaceId String         @db.Uuid
+  contactId   String         @db.Uuid
+  category    MemoryCategory @default(PREFERENCE)
+  key         String
+  value       String
+  source      MemorySource   @default(EXPLICIT_STATEMENT)
+  confidence  Float          @default(1.0)
+  lastUsedAt  DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  contact     Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, contactId, key])
+  @@index([workspaceId, contactId, category])
+  @@index([workspaceId, contactId, updatedAt(sort: Desc)])
+  @@map("customer_memories")
 }
 
 model Category {
@@ -1793,4 +1816,16 @@ enum ActorType {
   SYSTEM
   AUTOMATION
   CUSTOMER
+}
+
+enum MemoryCategory {
+  PREFERENCE
+  PRODUCT_INTEREST
+  CUSTOMER_CONTEXT
+}
+
+enum MemorySource {
+  EXPLICIT_STATEMENT
+  ORDER_BEHAVIOR
+  MANUAL_STAFF
 }

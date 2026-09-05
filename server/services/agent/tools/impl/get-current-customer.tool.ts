@@ -8,12 +8,15 @@ import { findContactById } from '@/server/repositories/contact.repository';
 import { findConversationById } from '@/server/repositories/conversation.repository';
 import type { ContactStatus, LeadStage } from '@/server/validation/contact';
 
+import { listCustomerMemories } from '@/server/repositories/customer-memory.repository';
+
 export interface CurrentCustomerResultDTO {
   name?: string;
   status: ContactStatus;
   leadStage: LeadStage;
   totalOrders: number;
   lastOrderAt?: string;
+  memories?: Array<{ key: string; value: string; category: string }>;
 }
 
 export const getCurrentCustomerTool: AITool<
@@ -51,12 +54,20 @@ export const getCurrentCustomerTool: AITool<
       };
     }
 
+    const memoryRows = await listCustomerMemories(prisma, ctx.workspaceId, contact.id, { limit: 5 }).catch(() => []);
+    const memories = memoryRows.map((m) => ({
+      key: m.key,
+      value: m.value,
+      category: m.category,
+    }));
+
     return {
       name: contact.name ?? contact.waProfileName ?? undefined,
       status: contact.status,
       leadStage: contact.leadStage,
       totalOrders: contact.totalOrders,
       lastOrderAt: contact.lastOrderAt ? contact.lastOrderAt.toISOString() : undefined,
+      memories: memories.length > 0 ? memories : undefined,
     };
   },
 };

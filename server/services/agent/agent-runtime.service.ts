@@ -50,6 +50,12 @@ import {
   loadBusinessBrainContext,
   type BusinessBrainContext,
 } from './business-brain.service';
+import {
+  loadCustomerMemoryContext,
+  extractDurableFactsFromMessage,
+  recordCustomerMemory,
+  type CustomerMemoryContext,
+} from './customer-memory.service';
 import type { EmbeddingProvider } from '@/services/ai/embedding-provider.interface';
 
 export const RUNTIME_DEFAULTS = {
@@ -108,6 +114,7 @@ export type AgentTurnResult = {
   groundingPassed?: boolean;
   blockedReason?: string | null;
   businessBrainTopics?: string[];
+  customerMemoryCount?: number;
 };
 
 /**
@@ -192,12 +199,17 @@ function buildSystemPromptWithEvidence(
   context: AIConversationContext,
   groundingContext?: GroundingContext,
   businessBrain?: BusinessBrainContext,
+  customerMemory?: CustomerMemoryContext,
 ): string {
   const basePrompt = buildSystemPrompt(agent, context);
   const parts = [basePrompt];
 
   if (businessBrain?.formattedContext) {
     parts.push(businessBrain.formattedContext);
+  }
+
+  if (customerMemory?.formattedContext) {
+    parts.push(customerMemory.formattedContext);
   }
 
   if (groundingContext?.formattedEvidence) {
@@ -400,6 +412,15 @@ export async function executeAgentTurn(
   // 5.2 Business Brain Context Assembly
   const businessBrain = await loadBusinessBrainContext(db, aiContext, rawUserText);
 
+  // 5.3 Customer Memory Context Assembly
+  const customerMemory = await loadCustomerMemoryContext(
+    db,
+    aiContext,
+    conversationContext.contactId,
+    rawUserText,
+    businessBrain.relevantTopics,
+  );
+
   // 5.5 Grounding Pipeline
   //
   // The knowledge base row is the gate, not the source of the model: a workspace without
@@ -453,6 +474,7 @@ export async function executeAgentTurn(
     conversationContext,
     groundingContext,
     businessBrain,
+    customerMemory,
   );
   const messages: AIMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -954,6 +976,34 @@ export async function executeAgentTurn(
     }
   }
 
+  // 8.1 Conservative Customer Memory Fact Extraction
+  if (conversationContext.contactId && !handoffTriggered && rawUserText) {
+    try {
+      const extracted = extractDurableFactsFromMessage(rawUserText);
+      if (extracted) {
+        recordCustomerMemory(db, aiContext, {
+          contactId: conversationContext.contactId,
+          category: extracted.category,
+          key: extracted.key,
+          value: extracted.value,
+          source: 'EXPLICIT_STATEMENT',
+          confidence: 1.0,
+        }).catch((err) => {
+          logger.warn('ai.customer_memory.auto_extract_failed', {
+            workspaceId: aiContext.workspaceId,
+            contactId: conversationContext.contactId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+      }
+    } catch (extractErr) {
+      logger.warn('ai.customer_memory.extraction_check_failed', {
+        workspaceId: aiContext.workspaceId,
+        error: extractErr instanceof Error ? extractErr.message : String(extractErr),
+      });
+    }
+  }
+
   return {
     turnId: turnRecord?.id ?? '',
     executionId: aiContext.executionId,
@@ -975,5 +1025,6 @@ export async function executeAgentTurn(
     groundingPassed: groundingValidation.passed,
     blockedReason: groundingValidation.blockedReason ?? null,
     businessBrainTopics: businessBrain ? Array.from(businessBrain.relevantTopics) : undefined,
+    customerMemoryCount: customerMemory?.memoryCount ?? 0,
   };
 }

@@ -162,11 +162,66 @@ To preserve context window budget and prevent attention degradation:
 
 ### 5. Intentionally Deferred Scope
 Business Brain V1 deliberately excludes:
-* Customer memory and durable facts
 * Conversation summarization across sessions
 * Autonomous workflow automation and background triggers
 * Revenue intelligence and multi-channel orchestration
 * Dynamic policy DSL / rules engine
+
+---
+
+## Customer Memory V1
+
+Customer Memory V1 provides a typed, bounded, tenant-isolated memory layer (`server/services/agent/customer-memory.service.ts`) that preserves durable customer facts across conversations so that the AI can offer personalized, context-aware service.
+
+### 1. What Customer Memory Stores
+* **`PREFERENCE`**: Stable customer preferences such as payment method (`Cash on Delivery (COD)`, `Bank Transfer`), clothing/shoe sizes (`Medium (M)`, `Large (L)`), or preferred colors (`Black`, `Blue`).
+* **`PRODUCT_INTEREST`**: Durable product associations, such as previous purchases or product categories of interest.
+* **`CUSTOMER_CONTEXT`**: Practical service requirements, such as delivery timing instructions ("Deliver after 5 PM", "Call before delivery").
+
+### 2. What Customer Memory NEVER Stores
+To protect customer privacy and maintain business security, memory strictly forbids:
+* Passwords, PINs, OTPs, or authentication secrets
+* Credit/debit card numbers, CVVs, or bank credentials
+* Government IDs (CNIC, SSN)
+* Transient emotions or casual compliments (e.g., "yeh shirt achi lagti hai" is rejected)
+* Speculative or hallucinated model assumptions
+* Unauthorized discount claims or promo promises (e.g., "VIP customer gets 10% off" is rejected)
+
+### 3. Source & Trust Model
+Every memory fact carries an explicit provenance:
+* **`EXPLICIT_STATEMENT`**: Direct, unambiguous statement made by the customer (e.g., "Mujhe COD pasand hai", "Mera size Medium hai").
+* **`ORDER_BEHAVIOR`**: Confirmed historical order records (e.g., confirmed purchase of size Medium).
+* **`MANUAL_STAFF`**: Verified notes or preferences entered by human workspace team members.
+
+### 4. Deduplication & Race-Free Merging
+Memory does not grow into an uncontrolled append-only log. The database enforces uniqueness on `(workspaceId, contactId, key)`.
+When a customer updates an existing preference (e.g., switching from COD to Bank Transfer: "Ab bank transfer karunga"):
+* The existing memory row is atomically updated with the new value.
+* `updatedAt` is refreshed.
+* Zero duplicate rows are created.
+
+### 5. Relevance & Bounded Budget
+Customer memory avoids semantic prompt dumps. Before prompt assembly:
+* **Scoring & Relevance**: Memories are scored against current query intent and detected `BusinessBrain` topics (`PAYMENT` prioritizes payment preference; `CATALOG_INVENTORY` prioritizes size and color; `SHIPPING` prioritizes delivery notes).
+* **Budget Limits**: Injected memories are hard-capped to a maximum of 5 items and 600 characters total.
+
+### 6. Live-Data Precedence & Safety Guardrails
+Customer memory is historical context, not live state. Prompt framing strictly enforces:
+1. **Tool Precedence**: Memory never overrides live inventory counts, product prices, or order status. If a customer who usually wears Medium asks if Large is in stock, live inventory tools must be queried.
+2. **Discount Protection**: Customer memory cannot authorize discounts or promotional pricing. All pricing logic remains authoritative in tools and Business Brain.
+3. **Customer Recency**: If the customer states a different preference in the current turn, the current statement immediately supersedes historical memory.
+
+### 7. Tenant Isolation & Auditability
+* All memory operations are scoped strictly to verified `AITenantContext.workspaceId`.
+* Workspace A cannot read or mutate Workspace B customer memory under any condition.
+* Mutations emit audit records (`customer_memory.upserted`, `customer_memory.deleted`, `customer_memory.cleared`).
+
+### 8. Intentionally Deferred Capabilities
+Customer Memory V1 deliberately excludes:
+* Vector / embedding similarity search for customer memories
+* Cross-session customer graph relationships
+* Autonomous unbounded profile generation
+* Cross-workspace profile sharing
 
 ---
 
