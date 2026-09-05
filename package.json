@@ -25,7 +25,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
-    "db:seed": "tsx db/seed.ts",
+    "db:seed": "tsx --env-file-if-exists=.env db/seed.ts",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio",
     "db:ensure-agents": "tsx tools/ensure-default-agents.ts",
@@ -33,7 +33,7 @@
     "db:restore": "tsx tools/db-restore.ts",
     "verify:prod": "tsx tools/production-readiness.ts",
     "deploy:check": "tsx tools/production-readiness.ts",
-    "worker": "tsx server/jobs/worker-entry.ts"
+    "worker": "tsx --env-file-if-exists=.env server/jobs/worker-entry.ts"
   },
   "prisma": {
     "seed": "tsx db/seed.ts"
