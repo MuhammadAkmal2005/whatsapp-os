@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { Bot, Gauge, TrendingUp } from 'lucide-react';
+import { Bot, DollarSign, Gauge, TrendingUp } from 'lucide-react';
 
 import { AITelemetryView } from '@/components/analytics/ai-telemetry-view';
 import { AnalyticsHeader } from '@/components/analytics/analytics-header';
@@ -9,6 +9,7 @@ import { AIUsageChart } from '@/components/analytics/charts/ai-usage-chart';
 import { MessagingVolumeChart } from '@/components/analytics/charts/messaging-volume-chart';
 import { RevenueOrdersChart } from '@/components/analytics/charts/revenue-orders-chart';
 import { EmptyAnalyticsState } from '@/components/analytics/empty-analytics-state';
+import { RevenueIntelligenceView } from '@/components/analytics/revenue-intelligence-view';
 import { UsageMeteringCard } from '@/components/analytics/usage-metering-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { roleHasPermission } from '@/server/authz/permissions';
@@ -18,6 +19,7 @@ import {
   getWorkspaceUsageAndLimits,
   type UsageLimitStatus,
 } from '@/server/services/analytics/analytics.service';
+import { getRevenueIntelligence } from '@/server/services/analytics/revenue-intelligence.service';
 import { getTenantContext } from '@/server/tenancy/resolve';
 
 export const metadata: Metadata = {
@@ -121,9 +123,10 @@ export default async function AnalyticsPage(props: PageProps) {
 
   const canReadUsage = roleHasPermission(context.role, 'usage:read');
 
-  const [overview, telemetry, usageStatus] = await Promise.all([
+  const [overview, telemetry, revenueReport, usageStatus] = await Promise.all([
     getAnalyticsOverview(context, { from, to }),
     getAITelemetry(context, { from, to }),
+    getRevenueIntelligence(context, { from, to, range: rangeKey }),
     canReadUsage ? getWorkspaceUsageAndLimits(context) : (null as UsageLimitStatus | null),
   ]);
 
@@ -131,7 +134,10 @@ export default async function AnalyticsPage(props: PageProps) {
     overview.summary.totalMessages === 0 &&
     overview.summary.ordersCount === 0 &&
     overview.summary.aiRequests === 0 &&
-    overview.summary.contactsTotal === 0;
+    overview.summary.contactsTotal === 0 &&
+    revenueReport.summary.totalOrdersCount === 0;
+
+  const activeTab = searchParams.tab || 'overview';
 
   return (
     <div className="flex flex-col gap-6">
@@ -145,7 +151,7 @@ export default async function AnalyticsPage(props: PageProps) {
       {isEmpty ? (
         <EmptyAnalyticsState />
       ) : (
-        <Tabs defaultValue="overview" className="flex flex-col">
+        <Tabs defaultValue={activeTab} className="flex flex-col">
           {/* The list scrolls horizontally on a narrow screen rather than wrapping — three
               labels in a two-column grid put one on a second row inside a fixed-height
               track, which clipped it. */}
@@ -153,6 +159,10 @@ export default async function AnalyticsPage(props: PageProps) {
             <TabsTrigger value="overview">
               <TrendingUp aria-hidden />
               Overview
+            </TabsTrigger>
+            <TabsTrigger value="revenue">
+              <DollarSign aria-hidden />
+              Revenue intelligence
             </TabsTrigger>
             <TabsTrigger value="ai">
               <Bot aria-hidden />
@@ -173,6 +183,10 @@ export default async function AnalyticsPage(props: PageProps) {
               <RevenueOrdersChart data={overview.timeSeries} currency={context.currency} />
               <MessagingVolumeChart data={overview.timeSeries} />
             </div>
+          </TabsContent>
+
+          <TabsContent value="revenue" className="flex flex-col gap-6">
+            <RevenueIntelligenceView report={revenueReport} currency={context.currency} />
           </TabsContent>
 
           <TabsContent value="ai" className="flex flex-col gap-6">

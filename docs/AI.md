@@ -645,4 +645,43 @@ The AI runtime prohibits the model from falsely claiming an order is cancelled o
 - Real-time `APPROVAL_REQUESTED` notifications route staff directly to `/approvals`.
 - Comprehensive audit trail records every approval request, decision, execution, and stale-prevention event.
 
+---
+
+## Revenue Intelligence V1
+
+Revenue Intelligence V1 gives workspace owners reliable, data-driven answers to:
+> *"What is happening to my customer conversations and revenue?"*
+
+Deriving insights strictly from authoritative domain records without speculative statistical modeling or fabricated causal attribution.
+
+### 1. Source of Truth & Qualification Rules
+
+| Metric | Source Table | Filter & Qualification Rules | Limitations / Notes |
+| :--- | :--- | :--- | :--- |
+| **Realized Revenue** | `Order` | `paymentStatus = 'PAID'`, `status NOT IN ('CANCELLED', 'REFUNDED')`, `deletedAt IS NULL` | Excludes unpaid COD and cancelled orders |
+| **Booked Revenue** | `Order` | `status NOT IN ('CANCELLED', 'REFUNDED', 'DRAFT')`, `deletedAt IS NULL` | Reflects valid gross orders (including confirmed COD orders) |
+| **Cancelled Orders** | `Order` | `status = 'CANCELLED'`, `deletedAt IS NULL` | Tracked separately; never counted as realized revenue |
+| **Average Order Value (AOV)** | `Order` | `Booked Revenue / Booked Orders` (and `Paid Revenue / Paid Orders`) | Guarded against division by zero (floors at 0) |
+| **Orders from Chat** | `Order` | `conversationId IS NOT NULL`, `status NOT IN ('CANCELLED', 'REFUNDED', 'DRAFT')` | Direct orders placed within customer chat |
+| **Chat Conversion Rate** | `Conversation`, `Order` | `(Distinct Contacts with Chat Who Ordered) / (Total Distinct Contacts with Chat) * 100` | Honest chat-to-order rate; guarded against duplicate conversations |
+| **Unconverted Conversations** | `Conversation`, `Order` | Contacts with active chat in period who placed 0 orders in period | Drop-off signal without labeling customers as "lost leads" |
+| **Top In-Demand Products** | `OrderItem`, `Order` | Grouped by `productId` / `nameSnapshot` across non-cancelled orders in period | Ranked by `unitsSold` (descending) and revenue |
+| **AI Automation Outcomes** | `Order`, `ActionApproval` | `createdByAi = true`, `ActionApproval` statuses (`APPROVED`, `EXECUTED`, `REJECTED`, `PENDING`) | Audits automated orders and human approval decisions |
+| **Escalation Triggers** | `Conversation`, `AITurn` | `handoffReason` counts and `groundingBlockedReason` counts | Deterministic customer inquiry and friction signals |
+
+### 2. Attribution Governance & Honest Wording
+
+ConvoNexa strictly avoids claiming causal attribution without an experimental model:
+- **PROHIBITED**: *"AI generated $50,000 in sales"* or *"AI increased conversions by 20%"*.
+- **APPROVED**: *"Orders from customers who chatted"* or *"Orders created by AI employee"*.
+- Clearly distinguishes chat-correlated orders from general store orders.
+- Customers participating in multiple conversations are deduplicated to avoid duplicate customer counts or inflated conversion rates.
+
+### 3. Multi-Tenant Isolation & Privacy Guarantees
+
+- **Tenant Scoping**: All database queries enforce `workspaceId: context.workspaceId`. Workspace A cannot view or aggregate Workspace B orders, conversations, or revenue.
+- **Data Minimization**: Summary payloads exclude customer phone numbers, addresses, and raw chat transcripts.
+- **Zero Hallucination / Division by Zero**: Rates and averages safely handle empty periods (`0%` or `—`), never producing `NaN` or unhandled exceptions.
+
+
 
