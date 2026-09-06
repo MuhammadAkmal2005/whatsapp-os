@@ -3,7 +3,9 @@
 WhatsApp is the first channel and, for the MVP, the only one. The architecture treats it as *a* channel rather
 than *the* channel, so Instagram, Messenger, web chat and SMS can be added later without rewriting the inbox.
 
-> **Implementation Status.** Phase 4 is **Complete & Released** across all 5 units (`a823b83`, `8b857df`, `75360a5`, `9f28ecb`, `96efc21`): `MetaWhatsAppProvider`, signed HMAC webhook receiver (`/api/webhooks/whatsapp`), logical event parser (`webhook.parser.ts`), background job processor (`whatsapp.process_webhook`), WhatsApp account management UI, and master text acceptance suite. In Phase 6, asynchronous outbound send handling (`whatsapp.send_message`) was added to background worker handlers (`whatsapp-send.handler.ts`). Media download/storage is deferred.
+This document covers the channel: the provider abstraction, the webhook receiver, routing, message
+semantics and the 24-hour window. **How a business's own Meta assets get connected — Embedded Signup, the
+token exchange, subscription, registration, connection health — is in [META_INTEGRATION.md](META_INTEGRATION.md).**
 
 ---
 
@@ -24,7 +26,8 @@ reputation for spam loses its API access, and every tenant on it loses their num
 
 ## Never invent the API
 
-Meta's Graph API is versioned and changes. `WHATSAPP_API_VERSION` pins it, currently `v21.0`.
+Meta's Graph API is versioned and changes. `WHATSAPP_API_VERSION` pins it, defaulting to `v26.0`, and the
+same value initialises the browser SDK during Embedded Signup so the two halves of the flow cannot drift.
 
 **If the current documentation for an endpoint cannot be read, write the interface and a mock implementation and
 stop.** A plausible-looking endpoint that does not exist is worse than an honest gap: the gap gets filled, while
@@ -69,8 +72,17 @@ implying a live one. A shop owner must never be unsure whether their customers a
 
 ## Connecting an account
 
-`WhatsAppAccount` holds the Meta WhatsApp Business Account id, a display name, a `ChannelStatus` of
-`DISCONNECTED | PENDING | CONNECTED | ERROR`, the `isMock` flag, and `accessTokenEncrypted`.
+Summarised here; the full pipeline, including Embedded Signup and the asset-ownership checks, is in
+[META_INTEGRATION.md](META_INTEGRATION.md).
+
+`WhatsAppAccount` holds the Meta WhatsApp Business Account id, the owning Meta business id, a display name, a
+`ChannelStatus` of `DISCONNECTED | PENDING | CONNECTED | DEGRADED | ERROR`, the `isMock` flag, token metadata, the
+subscription and health timestamps, and `accessTokenEncrypted`.
+
+**Every one of these is per workspace.** There is no global `WHATSAPP_ACCESS_TOKEN`, no global phone number id and
+no global WABA id: `config/env.ts` holds only the platform's own Meta identity (`META_APP_ID`, `META_APP_SECRET`,
+`META_LOGIN_CONFIG_ID`, `WHATSAPP_VERIFY_TOKEN`), and a customer's credentials live encrypted on their own row. A
+global token would mean every tenant sending from one number, which is the opposite of the product.
 
 **The access token is encrypted at rest** under a key derived from `AUTH_SECRET`, and is never returned to the
 browser under any circumstance — not masked, not partially, not to an OWNER. A leaked token lets an attacker send
@@ -80,6 +92,10 @@ by the server-side provider adapter.
 `lastErrorAt` and `lastErrorMessage` exist so a broken connection is visible in the UI as a state with a reason,
 rather than as messages that quietly stop arriving. Silent failure is the worst outcome here: the business
 believes it is talking to customers.
+
+`CONNECTED` is never inferred from a token existing. It requires two things Meta told us: that this app is on the
+WABA's subscription edge, and that the number is on the Cloud API. Anything short of both persists as `DEGRADED`
+with the reason attached — see [Connection health](META_INTEGRATION.md#connection-health).
 
 The owner-facing language is "Connect WhatsApp", never "configure webhook". The person doing this runs a clothing
 shop.
@@ -109,10 +125,17 @@ retrying it forever helps nobody.
 
 ### `GET /api/webhooks/whatsapp`
 
-The one-time subscription handshake. Meta sends `hub.mode=subscribe`, `hub.verify_token` and `hub.challenge`; we
-echo the challenge only if the token matches `WHATSAPP_VERIFY_TOKEN`, compared in **constant time** because the
-verify token is a shared secret and a variable-time compare leaks it one character at a time. Mismatch returns
-403. `verifySubscription` implements this.
+**The callback-URL verification handshake, and nothing more.** Meta sends `hub.mode=subscribe`,
+`hub.verify_token` and `hub.challenge`; we echo the challenge only if the token matches `WHATSAPP_VERIFY_TOKEN`,
+compared in **constant time** because the verify token is a shared secret and a variable-time compare leaks it one
+character at a time. Mismatch returns 403. `verifySubscription` implements this.
+
+What this proves is narrow, and the distinction matters: Meta has confirmed that *this URL* is reachable and
+answers with the right token. It says nothing about whether any particular WhatsApp Business Account will actually
+deliver events here. That is a separate, per-WABA subscription — `POST /<WABA_ID>/subscribed_apps` — established
+during onboarding and re-verified by the health check. Treating a passing GET as evidence of subscription is the
+mistake that produces a green connection with an empty inbox. See
+[META_INTEGRATION.md](META_INTEGRATION.md#subscription-is-per-waba).
 
 ### `POST /api/webhooks/whatsapp`
 

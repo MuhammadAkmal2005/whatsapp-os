@@ -293,22 +293,217 @@ describe('Phase 4 Unit 1: Meta WhatsApp Provider & Secure Credentials', () => {
         }),
       ).rejects.toThrow(ProviderError);
 
-      // 1. Verify Message record was updated to FAILED with sanitized error message
+      // 1. Meta looked at the request and refused it, so FAILED is a claim we can make.
+      //    The stored sentence is ours, not Meta's: the row is read by a shop owner, and
+      //    a token cannot leak from a sentence that never carried one.
       const failedMsg = await findMessageById(prisma, ws.workspaceId, message.id);
       expect(failedMsg).not.toBeNull();
       expect(failedMsg?.status).toBe('FAILED');
-      expect(failedMsg?.errorCode).toBe('PROVIDER_ERROR');
-      expect(failedMsg?.errorMessage).toContain('WhatsApp authentication failed');
+      expect(failedMsg?.errorCode).toBe('META_CREDENTIALS_REJECTED');
+      expect(failedMsg?.errorMessage).toContain('Reconnect it in Settings');
       expect(failedMsg?.errorMessage).not.toContain('EAAB_expired_secret_token_123');
+      // A credential rejection is never retried: a second identical request earns a
+      // second identical refusal.
+      expect(failedMsg?.deliveryUncertainAt).toBeNull();
 
-      // 2. Verify WhatsAppAccount status was automatically updated to ERROR with sanitized lastErrorMessage
+      // 2. Verify WhatsAppAccount status was automatically updated to ERROR
       const failedAcc = await findAccountById(prisma, ws.workspaceId, waFixture.accountId);
       expect(failedAcc).not.toBeNull();
       expect(failedAcc?.status).toBe('ERROR');
       expect(failedAcc?.lastErrorAt).toBeInstanceOf(Date);
-      expect(failedAcc?.lastErrorMessage).toContain('WhatsApp authentication failed');
+      expect(failedAcc?.lastErrorMessage).toContain('Reconnect it in Settings');
       expect(failedAcc?.lastErrorMessage).not.toContain('EAAB_expired_secret_token_123');
-      expect(failedAcc?.lastErrorMessage).toContain('[REDACTED_ACCESS_TOKEN]');
+    });
+
+    it('records a timed-out send as uncertain and never sends it a second time', async () => {
+      // Phase 21's whole point. Meta's /messages endpoint has no idempotency key, so a
+      // retry of a send whose answer was lost is the one action guaranteed to be wrong if
+      // the first attempt arrived.
+      const ws = await createWorkspaceFixture();
+      const waFixture = await createWhatsAppAccountFixture(ws.workspaceId, {
+        phoneNumberId: 'meta_phone_timeout',
+      });
+
+      const contact = await createContactFixture(ws.workspaceId);
+      const conv = await createConversation(ws.context, {
+        contactId: contact.id,
+        phoneNumberId: waFixture.phoneRecordId,
+      });
+
+      const message = await sendMessage(ws.context, {
+        conversationId: conv.id,
+        direction: 'OUTBOUND',
+        body: 'Aap ka order kal deliver ho jayega.',
+      });
+
+      const timingOutFetch = vi.fn(async () => {
+        throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError' });
+      }) as unknown as typeof fetch;
+
+      await expect(
+        dispatchOutboundMessage(ws.context, message.id, {
+          providerOptions: { forceMeta: true, fetchFn: timingOutFetch },
+        }),
+      ).rejects.toThrow(ProviderError);
+
+      const uncertain = await findMessageById(prisma, ws.workspaceId, message.id);
+      expect(uncertain?.deliveryUncertainAt).toBeInstanceOf(Date);
+      expect(uncertain?.errorCode).toBe('TRANSPORT_ABORT_ERR');
+      // Not FAILED — that would assert the customer did not receive it — and not SENT,
+      // which would assert they did.
+      expect(uncertain?.status).toBe('SENDING');
+      expect(uncertain?.providerMessageId).toBeNull();
+      expect(timingOutFetch).toHaveBeenCalledTimes(1);
+
+      // The retry the queue will attempt. A provider that would answer successfully is
+      // supplied on purpose: if the gate were absent, this call would send the duplicate.
+      const wouldSucceedFetch = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              messaging_product: 'whatsapp',
+              messages: [{ id: 'wamid.duplicate_that_must_not_happen' }],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+      ) as unknown as typeof fetch;
+
+      const retried = await dispatchOutboundMessage(ws.context, message.id, {
+        providerOptions: { forceMeta: true, fetchFn: wouldSucceedFetch },
+      });
+
+      expect(wouldSucceedFetch).not.toHaveBeenCalled();
+      expect(retried.providerMessageId).toBeNull();
+      expect(retried.deliveryUncertainAt).toBeInstanceOf(Date);
+
+      // A channel-level flag would be wrong here: we have no evidence the credentials
+      // are bad, only that one exchange did not complete.
+      const account = await findAccountById(prisma, ws.workspaceId, waFixture.accountId);
+      expect(account?.status).toBe('CONNECTED');
+    });
+
+    it('records a Meta 5xx as uncertain rather than as a failed send', async () => {
+      const ws = await createWorkspaceFixture();
+      const waFixture = await createWhatsAppAccountFixture(ws.workspaceId, {
+        phoneNumberId: 'meta_phone_5xx',
+      });
+
+      const contact = await createContactFixture(ws.workspaceId);
+      const conv = await createConversation(ws.context, {
+        contactId: contact.id,
+        phoneNumberId: waFixture.phoneRecordId,
+      });
+
+      const message = await sendMessage(ws.context, {
+        conversationId: conv.id,
+        direction: 'OUTBOUND',
+        body: 'Thank you for shopping with us.',
+      });
+
+      const failingFetch = vi.fn(
+        async () => new Response('Internal Server Error', { status: 503 }),
+      ) as unknown as typeof fetch;
+
+      await expect(
+        dispatchOutboundMessage(ws.context, message.id, {
+          providerOptions: { forceMeta: true, fetchFn: failingFetch },
+        }),
+      ).rejects.toThrow(ProviderError);
+
+      const uncertain = await findMessageById(prisma, ws.workspaceId, message.id);
+      expect(uncertain?.deliveryUncertainAt).toBeInstanceOf(Date);
+      expect(uncertain?.errorCode).toBe('META_HTTP_503');
+      expect(uncertain?.status).toBe('SENDING');
+    });
+
+    it('marks a rejected recipient FAILED without flagging the whole connection', async () => {
+      // A per-message refusal must not train the owner to ignore the connection banner.
+      const ws = await createWorkspaceFixture();
+      const waFixture = await createWhatsAppAccountFixture(ws.workspaceId, {
+        phoneNumberId: 'meta_phone_bad_recipient',
+      });
+
+      const contact = await createContactFixture(ws.workspaceId);
+      const conv = await createConversation(ws.context, {
+        contactId: contact.id,
+        phoneNumberId: waFixture.phoneRecordId,
+      });
+
+      const message = await sendMessage(ws.context, {
+        conversationId: conv.id,
+        direction: 'OUTBOUND',
+        body: 'Order confirmed.',
+      });
+
+      const rejectingFetch = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              error: {
+                message: 'Recipient phone number not in allowed list',
+                type: 'OAuthException',
+                code: 131_030,
+              },
+            }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } },
+          ),
+      ) as unknown as typeof fetch;
+
+      await expect(
+        dispatchOutboundMessage(ws.context, message.id, {
+          providerOptions: { forceMeta: true, fetchFn: rejectingFetch },
+        }),
+      ).rejects.toThrow();
+
+      const failed = await findMessageById(prisma, ws.workspaceId, message.id);
+      expect(failed?.status).toBe('FAILED');
+      expect(failed?.deliveryUncertainAt).toBeNull();
+
+      const account = await findAccountById(prisma, ws.workspaceId, waFixture.accountId);
+      expect(account?.status).toBe('CONNECTED');
+      expect(account?.lastErrorMessage).toBeNull();
+    });
+
+    it('records the outbound success that connection health reads', async () => {
+      // `lastOutboundSuccessAt` is the half of health Meta cannot tell us: a token that
+      // just sent a message works, whatever a status column claims.
+      const ws = await createWorkspaceFixture();
+      const waFixture = await createWhatsAppAccountFixture(ws.workspaceId, {
+        phoneNumberId: 'meta_phone_health',
+      });
+
+      const contact = await createContactFixture(ws.workspaceId);
+      const conv = await createConversation(ws.context, {
+        contactId: contact.id,
+        phoneNumberId: waFixture.phoneRecordId,
+      });
+
+      const message = await sendMessage(ws.context, {
+        conversationId: conv.id,
+        direction: 'OUTBOUND',
+        body: 'Your parcel is on its way.',
+      });
+
+      const okFetch = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              messaging_product: 'whatsapp',
+              messages: [{ id: 'wamid.health_probe_1' }],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+      ) as unknown as typeof fetch;
+
+      await dispatchOutboundMessage(ws.context, message.id, {
+        providerOptions: { forceMeta: true, fetchFn: okFetch },
+      });
+
+      const account = await findAccountById(prisma, ws.workspaceId, waFixture.accountId);
+      expect(account?.lastOutboundSuccessAt).toBeInstanceOf(Date);
+
+      const phone = await findPhoneNumberById(prisma, ws.workspaceId, waFixture.phoneRecordId);
+      expect(phone?.lastOutboundAt).toBeInstanceOf(Date);
     });
   });
 });

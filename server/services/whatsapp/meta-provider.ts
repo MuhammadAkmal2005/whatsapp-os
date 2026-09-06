@@ -15,6 +15,7 @@ import {
   RateLimitError,
   ValidationError,
 } from '@/server/errors';
+import { transportFailure, type MetaGraphFailure } from './meta-failure';
 import type {
   ProviderSendMediaParams,
   ProviderSendResult,
@@ -22,6 +23,18 @@ import type {
   ProviderSendTextParams,
   WhatsAppProvider,
 } from './provider.interface';
+
+/**
+ * How long we wait for Meta to answer a send.
+ *
+ * A send runs either inside a human's request or inside a job with a five-minute lock,
+ * so an unbounded wait is a worker slot held hostage by one hung socket. Twenty seconds
+ * is far beyond Meta's normal response time, which matters because *aborting* is not
+ * free: an abort tells us nothing about whether Meta accepted the message, so every
+ * timeout costs a message that has to be reported as uncertain rather than sent.
+ */
+const SEND_TIMEOUT_MS = 20_000;
+
 
 export type MetaWhatsAppProviderConfig = {
   phoneNumberId: string;
@@ -82,9 +95,16 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
 
   /**
    * Sends a POST request to Meta WhatsApp Graph API endpoint.
+   *
+   * Every throw carries a `MetaGraphFailure` as its cause, because the caller's next
+   * decision — retry, give up, or record "we do not know" — turns entirely on whether
+   * the request bytes could have reached Meta. An error that omits that fact forces the
+   * caller to guess, and the safe guess is the expensive one.
    */
   private async postToMeta<T>(body: Record<string, unknown>): Promise<T> {
     const url = this.messagesUrl;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
 
     let response: Response;
     try {
@@ -95,10 +115,17 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
     } catch (networkError) {
-      const msg = networkError instanceof Error ? networkError.message : 'Network error';
-      throw new ProviderError('whatsapp', `Failed to connect to Meta WhatsApp Cloud API: ${msg}`, networkError);
+      const failure = transportFailure(networkError);
+      throw new ProviderError(
+        'whatsapp',
+        `Failed to reach Meta WhatsApp Cloud API (${failure.transportCode ?? 'network error'}).`,
+        failure,
+      );
+    } finally {
+      clearTimeout(timer);
     }
 
     if (!response.ok) {
@@ -109,7 +136,22 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
       const data = (await response.json()) as T;
       return data;
     } catch (parseError) {
-      throw new ProviderError('whatsapp', 'Malformed JSON response from Meta WhatsApp Cloud API', parseError);
+      // A 2xx we cannot read. Meta accepted the request; we simply lost the id.
+      const failure: MetaGraphFailure = {
+        kind: 'malformed',
+        status: response.status,
+        metaCode: null,
+        metaSubcode: null,
+        requestPossiblySent: true,
+        transportCode: null,
+      };
+      throw new ProviderError(
+        'whatsapp',
+        `Malformed JSON response from Meta WhatsApp Cloud API: ${
+          parseError instanceof Error ? parseError.message : 'unreadable body'
+        }`,
+        failure,
+      );
     }
   }
 
@@ -131,13 +173,20 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     const rawMessage = metaError?.message || `HTTP ${response.status} ${response.statusText}`;
     const sanitizedMessage = this.sanitizeErrorMessage(rawMessage);
 
+    const failure: MetaGraphFailure = {
+      kind: 'http',
+      status: response.status,
+      metaCode: errorCode ?? null,
+      metaSubcode: errorSubcode ?? null,
+      // Meta answered, so it received the request. Whether it acted on it is only in
+      // doubt when it failed on its own side.
+      requestPossiblySent: response.status >= 500,
+      transportCode: null,
+    };
+
     // 1. Authentication / Authorization Failures
     if (response.status === 401 || response.status === 403 || errorCode === 190 || errorCode === 10) {
-      throw new ProviderError('whatsapp', `WhatsApp authentication failed: ${sanitizedMessage}`, {
-        status: response.status,
-        metaCode: errorCode,
-        metaSubcode: errorSubcode,
-      });
+      throw new ProviderError('whatsapp', `WhatsApp authentication failed: ${sanitizedMessage}`, failure);
     }
 
     // 2. Rate Limiting
@@ -167,15 +216,39 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
       throw new ProviderError(
         'whatsapp',
         `WhatsApp service temporarily unavailable (${response.status}): ${sanitizedMessage}`,
+        failure,
       );
     }
 
     // 6. Generic Provider Error
-    throw new ProviderError('whatsapp', `WhatsApp API error: ${sanitizedMessage}`, {
-      status: response.status,
-      metaCode: errorCode,
-      metaSubcode: errorSubcode,
-    });
+    throw new ProviderError('whatsapp', `WhatsApp API error: ${sanitizedMessage}`, failure);
+  }
+
+  /**
+   * Reads the id Meta assigned, or refuses to guess.
+   *
+   * A 2xx without an id is the worst-shaped answer we can get: Meta almost certainly
+   * accepted the message, and we have nothing to correlate the delivery callback
+   * against. It is reported as `malformed` so the send path records it as uncertain
+   * rather than retrying it into a duplicate.
+   */
+  private extractMessageId(data: MetaSendMessageResponse): string {
+    const providerMessageId = data.messages?.[0]?.id;
+    if (providerMessageId && typeof providerMessageId === 'string') return providerMessageId;
+
+    const failure: MetaGraphFailure = {
+      kind: 'malformed',
+      status: 200,
+      metaCode: null,
+      metaSubcode: null,
+      requestPossiblySent: true,
+      transportCode: null,
+    };
+    throw new ProviderError(
+      'whatsapp',
+      'Meta accepted the request but returned no message id.',
+      failure,
+    );
   }
 
   /**
@@ -221,11 +294,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     }
 
     const data = await this.postToMeta<MetaSendMessageResponse>(body);
-
-    const providerMessageId = data.messages?.[0]?.id;
-    if (!providerMessageId || typeof providerMessageId !== 'string') {
-      throw new ProviderError('whatsapp', 'Malformed Meta API response: missing message ID');
-    }
+    const providerMessageId = this.extractMessageId(data);
 
     return {
       providerMessageId,
@@ -264,11 +333,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     };
 
     const data = await this.postToMeta<MetaSendMessageResponse>(body);
-
-    const providerMessageId = data.messages?.[0]?.id;
-    if (!providerMessageId || typeof providerMessageId !== 'string') {
-      throw new ProviderError('whatsapp', 'Malformed Meta API response: missing message ID');
-    }
+    const providerMessageId = this.extractMessageId(data);
 
     return {
       providerMessageId,
@@ -294,11 +359,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     };
 
     const data = await this.postToMeta<MetaSendMessageResponse>(body);
-
-    const providerMessageId = data.messages?.[0]?.id;
-    if (!providerMessageId || typeof providerMessageId !== 'string') {
-      throw new ProviderError('whatsapp', 'Malformed Meta API response: missing message ID');
-    }
+    const providerMessageId = this.extractMessageId(data);
 
     return {
       providerMessageId,

@@ -91,9 +91,34 @@ export const RATE_LIMITS = {
   aiRequestPerUser: { limit: 60, windowSeconds: 60 },
   aiRequestPerWorkspace: { limit: 300, windowSeconds: 60 },
   messageSend: { limit: 120, windowSeconds: 60 },
+  /**
+   * The transport ceiling, keyed per workspace — distinct from `messageSend`, which
+   * bounds how fast a *human* can compose in the inbox.
+   *
+   * Every send reaches Meta through one dispatch path: human replies, AI replies,
+   * automations, and campaigns. Without a bucket here, one workspace's campaign can
+   * occupy every worker slot and delay another workspace's customer reply. Ten per
+   * second sits far below Meta's default 80 messages/second per number, so we are never
+   * the reason Meta returns a 429, and a denial defers rather than drops — the message
+   * stays queued, and eight attempts of exponential backoff span roughly an hour, enough
+   * for a several-thousand-recipient campaign to drain.
+   */
+  messageDispatch: { limit: 600, windowSeconds: 60 },
   fileUpload: { limit: 30, windowSeconds: 300 },
   publicApi: { limit: 100, windowSeconds: 60 },
   webhook: { limit: 2000, windowSeconds: 60 },
+  /**
+   * Rejected webhook deliveries only, keyed per source IP.
+   *
+   * The WhatsApp endpoint deliberately does *not* throttle deliveries that carry a valid
+   * `X-Hub-Signature-256`: only Meta and this deployment hold the app secret, so a valid
+   * signature is proof of origin, and dropping such a request loses a real customer
+   * message and pushes Meta towards disabling the subscription. Meta also delivers every
+   * tenant's traffic from a small pool of addresses, so an IP bucket in front of the
+   * signature check is a tenant-starvation mechanism rather than a defence. What does
+   * deserve bounding is a source sending signatures that do not verify.
+   */
+  webhookRejected: { limit: 60, windowSeconds: 60 },
 } as const;
 
 export type RateLimitKey = keyof typeof RATE_LIMITS;

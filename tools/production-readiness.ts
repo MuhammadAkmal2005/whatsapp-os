@@ -175,30 +175,53 @@ export function auditEnvironment(
       remediation: 'Set MOCK_WHATSAPP=false and configure Meta WhatsApp credentials.',
     });
   } else if (!mockWhatsApp) {
-    const requiredKeys = [
-      'WHATSAPP_ACCESS_TOKEN',
-      'WHATSAPP_PHONE_NUMBER_ID',
-      'WHATSAPP_BUSINESS_ACCOUNT_ID',
-      'WHATSAPP_VERIFY_TOKEN',
-      'META_APP_SECRET',
-    ];
+    // Platform identity only. A tenant's own access token, phone number id and
+    // WABA id are captured during onboarding and stored encrypted per workspace,
+    // so their absence from the environment is correct rather than a gap.
+    const requiredKeys = ['META_APP_ID', 'META_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN'];
     const missing = requiredKeys.filter((k) => !envMap[k]);
     if (missing.length > 0) {
       checks.push({
         id: 'env_whatsapp_credentials',
-        name: 'Meta WhatsApp Cloud API Credentials',
+        name: 'Meta Platform Credentials',
         category: 'environment',
         status: isProd ? 'BLOCKER' : 'WARN',
-        details: `Missing Meta credentials for live mode: ${missing.join(', ')}`,
-        remediation: 'Set all 5 Meta WhatsApp credentials in environment configuration.',
+        details: `Missing Meta platform configuration for live mode: ${missing.join(', ')}`,
+        remediation:
+          'Set META_APP_ID, META_APP_SECRET and WHATSAPP_VERIFY_TOKEN. Per-tenant WhatsApp credentials are not environment variables — each workspace connects its own assets.',
       });
     } else {
       checks.push({
         id: 'env_whatsapp_credentials',
-        name: 'Meta WhatsApp Cloud API Credentials',
+        name: 'Meta Platform Credentials',
         category: 'environment',
         status: 'PASS',
-        details: 'All 5 Meta WhatsApp Cloud API credentials are configured.',
+        details:
+          'Meta app id, app secret and webhook verify token are configured. Tenant WhatsApp credentials are per workspace.',
+      });
+    }
+
+    // Embedded Signup is the one-click onboarding path. Without the login
+    // configuration id a business can still connect by pasting a System User
+    // token, so this is a degraded-experience warning and never a blocker.
+    if (!envMap.META_LOGIN_CONFIG_ID) {
+      checks.push({
+        id: 'env_meta_embedded_signup',
+        name: 'WhatsApp Embedded Signup Availability',
+        category: 'environment',
+        status: 'WARN',
+        details:
+          'META_LOGIN_CONFIG_ID is not set, so one-click Embedded Signup is unavailable and businesses must paste a System User token manually.',
+        remediation:
+          'Create a Facebook Login for Business configuration in the Meta app dashboard once Tech Provider status and advanced access are granted, then set META_LOGIN_CONFIG_ID.',
+      });
+    } else {
+      checks.push({
+        id: 'env_meta_embedded_signup',
+        name: 'WhatsApp Embedded Signup Availability',
+        category: 'environment',
+        status: 'PASS',
+        details: 'Embedded Signup is configured; businesses can connect WhatsApp in one flow.',
       });
     }
   } else {

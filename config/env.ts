@@ -69,12 +69,49 @@ const schema = z
     AI_CONTEXT_MESSAGE_WINDOW: intFromString(12).pipe(z.number().min(2).max(60)),
 
     MOCK_WHATSAPP: optionalBooleanish(true),
-    WHATSAPP_API_VERSION: z.string().default('v21.0'),
-    WHATSAPP_ACCESS_TOKEN: z.string().optional(),
-    WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
-    WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().optional(),
-    WHATSAPP_VERIFY_TOKEN: z.string().optional(),
+
+    /**
+     * Graph API version for every Meta call — messaging, onboarding, and asset
+     * management alike. One variable rather than three, because sending a message
+     * against v26.0 while exchanging a code against v21.0 is a bug waiting for a
+     * deprecation window to expose it.
+     *
+     * Meta dates every version: v21.0 stops working on 2027-01-21. The default
+     * tracks the version Meta currently labels latest, and is overridable so a
+     * deployment can pin back if a release breaks something.
+     */
+    WHATSAPP_API_VERSION: z.string().regex(/^v\d+\.\d+$/, 'Must look like v26.0').default('v26.0'),
+
+    /**
+     * ConvoNexa's own Meta app id. Platform-level: one app serves every customer.
+     * Not a secret — it reaches the browser as the `appId` the Facebook JS SDK
+     * initialises with — but it lives here rather than in a `NEXT_PUBLIC_`
+     * variable so a server component passes it down deliberately instead of it
+     * being ambiently available to the whole client bundle.
+     */
+    META_APP_ID: z.string().optional(),
+
+    /** App secret. Verifies the webhook HMAC and signs the OAuth code exchange. */
     META_APP_SECRET: z.string().optional(),
+
+    /**
+     * The Facebook Login for Business configuration id that drives Embedded
+     * Signup. Created in the Meta app dashboard, tied to the WhatsApp asset
+     * permissions the flow requests. Absent means Embedded Signup is unavailable
+     * and a business connects by pasting a System User token instead — a slower
+     * but equally official path.
+     */
+    META_LOGIN_CONFIG_ID: z.string().optional(),
+
+    /**
+     * Only needed for the redirect-based login flow. Codes minted by the JS SDK
+     * carry no redirect_uri, and sending one that Meta did not issue the code
+     * against makes the exchange fail, so this is passed through only when set.
+     */
+    META_OAUTH_REDIRECT_URI: z.string().url().optional(),
+
+    /** Echoed back to Meta during the webhook handshake, compared in constant time. */
+    WHATSAPP_VERIFY_TOKEN: z.string().optional(),
 
     QUEUE_DRIVER: z.enum(['postgres', 'redis']).default('postgres'),
     REDIS_URL: z.string().optional(),
@@ -144,14 +181,12 @@ const schema = z
       fail('MOCK_WHATSAPP', 'Must be false in production. A live deployment must not run the mock WhatsApp driver.');
     }
 
+    // Live mode requires the *platform's* Meta identity and nothing more. A
+    // customer's access token, phone number id and WABA id are per-workspace facts
+    // that live encrypted on their own rows — a global WHATSAPP_ACCESS_TOKEN would
+    // mean every tenant sent from one number, which is the opposite of the product.
     if (!value.MOCK_WHATSAPP) {
-      for (const key of [
-        'WHATSAPP_ACCESS_TOKEN',
-        'WHATSAPP_PHONE_NUMBER_ID',
-        'WHATSAPP_BUSINESS_ACCOUNT_ID',
-        'WHATSAPP_VERIFY_TOKEN',
-        'META_APP_SECRET',
-      ] as const) {
+      for (const key of ['META_APP_ID', 'META_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN'] as const) {
         if (!value[key]) fail(key, 'Required when MOCK_WHATSAPP=false.');
       }
     }
@@ -213,3 +248,27 @@ export const isDeploymentProduction = env.DEPLOYMENT_ENV === 'production';
 /** True when no real WhatsApp credentials are in play. Surfaced in the UI. */
 export const isWhatsAppMocked = env.MOCK_WHATSAPP;
 export const isAIMocked = env.AI_PROVIDER === 'mock';
+
+/**
+ * Whether the one-click Embedded Signup flow can be offered at all.
+ *
+ * Three platform values have to be present together: the app id the browser SDK
+ * initialises with, the app secret that signs the server-side code exchange, and the
+ * Facebook Login for Business configuration id that defines which WhatsApp assets the
+ * dialog asks for. Any one missing and the flow would fail mid-way through a business
+ * owner's onboarding, so the UI hides the button and offers the manual token path
+ * instead — a slower but equally official Meta flow.
+ */
+export const isEmbeddedSignupConfigured = Boolean(
+  env.META_APP_ID && env.META_APP_SECRET && env.META_LOGIN_CONFIG_ID,
+);
+
+/**
+ * Whether the platform holds the credentials needed to talk to Meta at all —
+ * management calls, code exchange, webhook signature verification.
+ *
+ * Distinct from `isEmbeddedSignupConfigured`: a deployment can accept manually pasted
+ * System User tokens and verify webhooks with only the app secret and verify token,
+ * which is the state a business starts in before Tech Provider approval lands.
+ */
+export const isMetaPlatformConfigured = Boolean(env.META_APP_SECRET && env.WHATSAPP_VERIFY_TOKEN);

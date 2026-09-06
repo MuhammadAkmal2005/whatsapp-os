@@ -16,6 +16,7 @@ import {
   createHash,
   createHmac,
   randomBytes,
+  randomInt,
   scryptSync,
   timingSafeEqual,
 } from 'node:crypto';
@@ -55,6 +56,21 @@ export function generateToken(byteLength = 32): string {
 
 export function generateHexToken(byteLength = 32): string {
   return randomBytes(byteLength).toString('hex');
+}
+
+/**
+ * A digit string of `length`, uniformly random.
+ *
+ * `randomInt` per digit rather than a modulo over `randomBytes`: modulo over 256 skews
+ * towards the low digits, and this is used for the PIN that gates re-registering a
+ * WhatsApp number with Meta, where a predictable value is a real weakness.
+ */
+export function generateNumericPin(length: number): string {
+  let value = '';
+  for (let index = 0; index < length; index += 1) {
+    value += String(randomInt(0, 10));
+  }
+  return value;
 }
 
 // ── Hashing ────────────────────────────────────────────────────────────────

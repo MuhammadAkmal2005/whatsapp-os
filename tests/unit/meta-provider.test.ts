@@ -2,11 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   BusinessRuleError,
+  isAppError,
   ProviderError,
   RateLimitError,
   ValidationError,
 } from '@/server/errors';
+import { isMetaGraphFailure } from '@/server/services/whatsapp/meta-failure';
 import { MetaWhatsAppProvider } from '@/server/services/whatsapp/meta-provider';
+import { classifySendFailure } from '@/server/services/whatsapp/send-failure';
 
 describe('Meta WhatsApp Provider Unit Tests', () => {
   const defaultCredentials = {
@@ -462,6 +465,160 @@ describe('Meta WhatsApp Provider Unit Tests', () => {
       await expect(
         provider.sendText({ toPhone: '+923001234567', body: 'Hello' }),
       ).rejects.toThrow(ProviderError);
+    });
+  });
+
+  /**
+   * The provider's job on failure is not to explain itself but to say whether Meta could
+   * already hold the message. These tests assert the failure record on the thrown error
+   * and then the classification the dispatch path derives from it, because a correct
+   * throw with a wrong classification still sends the customer a duplicate.
+   */
+  describe('Failure records carried to the send path', () => {
+    async function captureFailure(mockFetch: typeof fetch): Promise<unknown> {
+      const provider = new MetaWhatsAppProvider({ ...defaultCredentials, fetchFn: mockFetch });
+      return provider
+        .sendText({ toPhone: '+923001234567', body: 'Hello' })
+        .then(() => undefined)
+        .catch((error: unknown) => error);
+    }
+
+    it('reports a refused socket as never sent, so the send is safe to retry', async () => {
+      const error = await captureFailure(
+        vi.fn(async () => {
+          throw Object.assign(new TypeError('fetch failed'), {
+            cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }),
+          });
+        }),
+      );
+
+      if (!isAppError(error) || !isMetaGraphFailure(error.cause)) {
+        throw new Error('expected a Meta failure record on the error cause');
+      }
+      expect(error.cause.kind).toBe('transport');
+      expect(error.cause.requestPossiblySent).toBe(false);
+      expect(classifySendFailure(error).classification).toBe('NOT_SENT_RETRYABLE');
+    });
+
+    it('reports an aborted request as possibly sent, so the send is never retried', async () => {
+      const error = await captureFailure(
+        vi.fn(async () => {
+          throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError' });
+        }),
+      );
+
+      if (!isAppError(error) || !isMetaGraphFailure(error.cause)) {
+        throw new Error('expected a Meta failure record on the error cause');
+      }
+      expect(error.cause.requestPossiblySent).toBe(true);
+      expect(error.cause.transportCode).toBe('ABORT_ERR');
+      expect(classifySendFailure(error).classification).toBe('UNCERTAIN');
+    });
+
+    it('reports a 5xx as possibly sent, because Meta received the bytes', async () => {
+      const error = await captureFailure(
+        vi.fn(
+          async () =>
+            new Response('Internal Server Error', { status: 500, statusText: 'Server Error' }),
+        ),
+      );
+
+      if (!isAppError(error) || !isMetaGraphFailure(error.cause)) {
+        throw new Error('expected a Meta failure record on the error cause');
+      }
+      expect(error.cause.status).toBe(500);
+      expect(error.cause.requestPossiblySent).toBe(true);
+      expect(classifySendFailure(error).classification).toBe('UNCERTAIN');
+    });
+
+    it('reports a 401 as received-and-refused, which must not become a retry', async () => {
+      const error = await captureFailure(
+        vi.fn(
+          async () =>
+            new Response(
+              JSON.stringify({ error: { message: 'Invalid token', code: 190 } }),
+              { status: 401, headers: { 'Content-Type': 'application/json' } },
+            ),
+        ),
+      );
+
+      if (!isAppError(error) || !isMetaGraphFailure(error.cause)) {
+        throw new Error('expected a Meta failure record on the error cause');
+      }
+      expect(error.cause.requestPossiblySent).toBe(false);
+      const classified = classifySendFailure(error);
+      expect(classified.classification).toBe('NOT_SENT_PERMANENT');
+      expect(classified.errorCode).toBe('META_CREDENTIALS_REJECTED');
+    });
+
+    it('reports a 2xx with no message id as uncertain rather than as a failure', async () => {
+      const error = await captureFailure(
+        vi.fn(
+          async () =>
+            new Response(JSON.stringify({ messaging_product: 'whatsapp', messages: [] }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+        ),
+      );
+
+      if (!isAppError(error) || !isMetaGraphFailure(error.cause)) {
+        throw new Error('expected a Meta failure record on the error cause');
+      }
+      expect(error.cause.kind).toBe('malformed');
+      expect(classifySendFailure(error).classification).toBe('UNCERTAIN');
+    });
+
+    it('reports an unreadable 2xx body as uncertain', async () => {
+      const error = await captureFailure(
+        vi.fn(
+          async () =>
+            new Response('not json at all', {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+        ),
+      );
+
+      if (!isAppError(error) || !isMetaGraphFailure(error.cause)) {
+        throw new Error('expected a Meta failure record on the error cause');
+      }
+      expect(error.cause.kind).toBe('malformed');
+      expect(classifySendFailure(error).classification).toBe('UNCERTAIN');
+    });
+
+    it('abandons a send that never answers, rather than holding the worker slot forever', async () => {
+      // The abort has to come from our own timeout, so the fetch stub only resolves when
+      // the signal fires. A regression here is not a wrong status — it is a hung worker.
+      vi.useFakeTimers();
+      try {
+        const provider = new MetaWhatsAppProvider({
+          ...defaultCredentials,
+          fetchFn: vi.fn(
+            (_url, init) =>
+              new Promise<Response>((_resolve, reject) => {
+                init?.signal?.addEventListener('abort', () => {
+                  reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+                });
+              }),
+          ) as unknown as typeof fetch,
+        });
+
+        const attempt = provider
+          .sendText({ toPhone: '+923001234567', body: 'Hello' })
+          .catch((error: unknown) => error);
+
+        await vi.advanceTimersByTimeAsync(20_000);
+        const error = await attempt;
+
+        if (!isAppError(error) || !isMetaGraphFailure(error.cause)) {
+          throw new Error('expected a Meta failure record on the error cause');
+        }
+        expect(error.cause.transportCode).toBe('ABORT_ERR');
+        expect(classifySendFailure(error).classification).toBe('UNCERTAIN');
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

@@ -126,7 +126,7 @@ describe('Phase 9 Unit 3: Health & Readiness Service', () => {
       expect(res.body.dependencies.queue.stats?.running).toBe(2);
       expect(res.body.dependencies.queue.stats?.dead).toBe(1);
       expect(res.body.integrations).toBeDefined();
-      expect(['mock', 'live']).toContain(res.body.integrations.whatsapp);
+      expect(['mock', 'live', 'unconfigured']).toContain(res.body.integrations.whatsapp);
       expect(['local', 's3']).toContain(res.body.integrations.storage);
     });
 

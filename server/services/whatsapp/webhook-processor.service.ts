@@ -14,7 +14,11 @@ import { prisma } from '@/db/prisma';
 import { logger } from '@/lib/logger';
 import { NotFoundError, ValidationError } from '@/server/errors';
 import { appendAuditLog } from '@/server/repositories/audit.repository';
-import { findPhoneNumberWithAccountByPhoneNumberId } from '@/server/repositories/whatsapp-account.repository';
+import {
+  findPhoneNumberWithAccountByPhoneNumberId,
+  touchInboundActivity,
+  type ChannelStatus,
+} from '@/server/repositories/whatsapp-account.repository';
 import {
   findWebhookEventById,
   updateWebhookEventStatus,
@@ -22,12 +26,27 @@ import {
 import { processInboundMessage, processStatusUpdate } from './inbound.service';
 import { queue } from '@/server/jobs';
 import { triggerAutomations } from '@/server/services/automation/automation-engine.service';
+import { emitMessageReceived } from '@/server/telemetry/meta-events';
 import type {
   InboundMediaMessage,
   InboundStatusUpdate,
   InboundTextMessage,
 } from './provider.interface';
 import type { JobContext } from '@/server/jobs/registry';
+
+/**
+ * Whether an arriving message should be processed for a channel in this state.
+ *
+ * Only a deliberate disconnect stops ingestion. Every other state means the number is
+ * still live from the customer's point of view: DEGRADED is "something needs fixing",
+ * ERROR is "our last outbound send was refused", PENDING is "mid-connect" — and in all
+ * three, a customer has just messaged the shop. Discarding that message because our own
+ * connection metadata is unhappy would lose the business a sale over an internal detail,
+ * and the message would be unrecoverable because Meta does not re-deliver a 200.
+ */
+function acceptsInbound(status: ChannelStatus): boolean {
+  return status !== 'DISCONNECTED';
+}
 
 export type DomainEvent =
   | { kind: 'message'; message: InboundTextMessage | InboundMediaMessage }
@@ -258,14 +277,14 @@ export async function processWebhookEvent(
     return;
   }
 
-  if (phone.status !== 'CONNECTED' || phone.account.status !== 'CONNECTED') {
+  if (!acceptsInbound(phone.status) || !acceptsInbound(phone.account.status)) {
     await updateWebhookEventStatus(prisma, webhookEventId, {
       status: 'IGNORED',
       workspaceId: phone.workspaceId,
-      error: `Channel or account not connected (phone: ${phone.status}, account: ${phone.account.status})`,
+      error: `Channel disconnected (phone: ${phone.status}, account: ${phone.account.status})`,
       processedAt: new Date(),
     });
-    logger.warn('whatsapp.webhook.ignored_channel_not_connected', {
+    logger.warn('whatsapp.webhook.ignored_channel_disconnected', {
       jobId: context.jobId,
       webhookEventId,
       workspaceId: phone.workspaceId,
@@ -278,7 +297,7 @@ export async function processWebhookEvent(
       actorType: 'SYSTEM',
       metadata: {
         webhookEventId,
-        reason: 'Channel or account not connected',
+        reason: 'Channel disconnected',
         phoneStatus: phone.status,
         accountStatus: phone.account.status,
       },
@@ -320,6 +339,15 @@ export async function processWebhookEvent(
         processedAt: new Date(),
         error: null,
       });
+
+      // The one health fact that is not Meta's opinion: a real customer message arrived on
+      // this number. `workspaceId` here is the resolved row's, never the payload's.
+      await touchInboundActivity(prisma, workspaceId, {
+        accountId: phone.accountId,
+        phoneNumberRowId: phone.id,
+        at: domainEvent.message.occurredAt,
+      });
+      await emitMessageReceived(prisma, { workspaceId, messageType: domainEvent.message.type });
 
       if (!result.isDuplicate) {
         await queue.enqueue(

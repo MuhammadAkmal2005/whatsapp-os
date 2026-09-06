@@ -22,7 +22,13 @@ import 'server-only';
 
 import os from 'node:os';
 
-import { env, isAIMocked, isProduction, isWhatsAppMocked } from '@/config/env';
+import {
+  env,
+  isAIMocked,
+  isMetaPlatformConfigured,
+  isProduction,
+  isWhatsAppMocked,
+} from '@/config/env';
 import {
   connectionConfigFacts,
   connectionLifecycle,
@@ -108,7 +114,16 @@ export type HealthOverviewResponse = {
     bootstrapConnectMs: number | null;
   };
   integrations: {
-    whatsapp: 'mock' | 'live';
+    /**
+     * How this *deployment* is wired for WhatsApp, not whether any tenant is connected.
+     *
+     * `unconfigured` is the case worth having: a live deployment missing the app secret or
+     * the verify token rejects every webhook Meta sends, and it does so silently from the
+     * operator's point of view. Per-tenant connection health is a different question with a
+     * different answer per workspace, and it lives in
+     * `server/services/whatsapp/meta-connection-health.service.ts`.
+     */
+    whatsapp: 'mock' | 'live' | 'unconfigured';
     ai: 'mock' | 'live';
     storage: 'local' | 's3';
     email: 'console' | 'smtp';
@@ -307,7 +322,7 @@ export async function getHealthOverview(
       bootstrapConnectMs: connectionLifecycle().bootstrapConnectMs,
     },
     integrations: {
-      whatsapp: isWhatsAppMocked ? 'mock' : 'live',
+      whatsapp: isWhatsAppMocked ? 'mock' : isMetaPlatformConfigured ? 'live' : 'unconfigured',
       ai: isAIMocked ? 'mock' : 'live',
       storage: env.STORAGE_PROVIDER,
       email: env.EMAIL_PROVIDER,

@@ -58,6 +58,15 @@ export type MessageRow = {
   deliveredAt: Date | null;
   readAt: Date | null;
   failedAt: Date | null;
+  /**
+   * Set when a send failed in a way that does not tell us whether Meta received it.
+   *
+   * A read timeout is not a delivery failure. The request may have been accepted and the
+   * response lost, so the message is neither SENT (we have no id to prove it) nor FAILED
+   * (claiming that invites a retry that double-sends to a real customer). This column is
+   * what lets the inbox say "we do not know" instead of guessing.
+   */
+  deliveryUncertainAt: Date | null;
 };
 
 export type MessageWithDetailsRow = MessageRow & {
@@ -149,6 +158,7 @@ const MESSAGE_SELECT = {
   deliveredAt: true,
   readAt: true,
   failedAt: true,
+  deliveryUncertainAt: true,
   attachments: true,
   senderMember: {
     select: {
@@ -386,8 +396,35 @@ export async function recordMessageDispatch(
       providerMessageId: dispatch.providerMessageId,
       status,
       sentAt,
+      // Meta answered with an id, so whatever we were unsure about before is now settled.
+      deliveryUncertainAt: null,
     },
   });
 
   return findMessageById(db, workspaceId, messageId);
+}
+
+/**
+ * Records that a send's outcome is unknown, without claiming success or failure.
+ *
+ * The status is left where it is — SENDING — on purpose. Advancing it to SENT would put a
+ * message in the customer's thread that may never have been delivered; advancing it to
+ * FAILED would invite the retry that sends a second copy of a message Meta may already
+ * have accepted. The row keeps the transport's own words in `errorMessage` so an operator
+ * can see why we are unsure.
+ */
+export async function markDeliveryUncertain(
+  db: Db,
+  workspaceId: string,
+  messageId: string,
+  detail: { errorCode: string; errorMessage: string; at?: Date },
+): Promise<void> {
+  await db.message.updateMany({
+    where: { id: messageId, workspaceId },
+    data: {
+      deliveryUncertainAt: detail.at ?? new Date(),
+      errorCode: detail.errorCode,
+      errorMessage: detail.errorMessage,
+    },
+  });
 }

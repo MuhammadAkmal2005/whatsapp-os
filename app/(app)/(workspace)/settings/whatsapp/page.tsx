@@ -1,10 +1,11 @@
 import { MessageSquare } from 'lucide-react';
 import { redirect } from 'next/navigation';
 
-import { ConnectWhatsAppForm } from '@/components/settings/whatsapp/connect-whatsapp-form';
+import { ConnectWhatsAppCard } from '@/components/settings/whatsapp/connect-whatsapp-card';
 import { WhatsAppAccountCard } from '@/components/settings/whatsapp/whatsapp-account-card';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { env, isEmbeddedSignupConfigured } from '@/config/env';
+import { getConnectionHealthReports } from '@/server/services/whatsapp/meta-connection-health.service';
 import { getWhatsAppAccountOverview } from '@/server/services/whatsapp/whatsapp-account.service';
 import { can } from '@/server/tenancy/context';
 import { getTenantContext } from '@/server/tenancy/resolve';
@@ -18,38 +19,47 @@ export const metadata = { title: 'WhatsApp' };
  * screen are about messages arriving and customers being answered, and the technical names
  * appear only where the owner has to match them against something Meta actually shows them.
  *
- * A disconnected account is kept in the record but is not listed as a connection, because it no
- * longer carries messages — the connect card says so rather than leaving the row to imply it.
+ * All five connection states are reachable from here, and none of them is inferred from a
+ * token existing. `getConnectionHealthReports` reads the cached verdict of the last real check
+ * — one database read, no Graph traffic on page load — and the panel's "Check now" button is
+ * what spends a round trip on Meta.
+ *
+ * A disconnected account still gets a card. It holds the history the business paid for, and
+ * hiding it left an owner who had disconnected by accident with no way back to the same number;
+ * the connect card appears alongside it rather than instead of it.
+ *
+ * The three Embedded Signup values are read here, on the server, and passed down deliberately.
+ * All three are public — the app id appears in Meta's own popup URL — but they travel as props
+ * rather than through `NEXT_PUBLIC_` variables so that adding a fourth value to this flow means
+ * touching a server component, not widening what the whole client bundle can see.
  */
 export default async function WhatsAppSettingsPage() {
   const context = await getTenantContext();
   if (!context) redirect('/select-workspace');
 
-  const accounts = await getWhatsAppAccountOverview(context);
+  const [accounts, healthReports] = await Promise.all([
+    getWhatsAppAccountOverview(context),
+    getConnectionHealthReports(context),
+  ]);
+
   const canConnect = can(context, 'whatsapp:connect');
   const canDisconnect = can(context, 'whatsapp:disconnect');
 
-  // A disconnected account still exists and still holds its history; it simply no longer
-  // receives anything, so it does not belong in a list of live connections.
-  const activeAccounts = accounts.filter((account) => account.status !== 'DISCONNECTED');
-  const hasPreviousConnection = accounts.length > activeAccounts.length;
+  const healthByAccount = new Map(healthReports.map((report) => [report.accountId, report]));
 
-  if (activeAccounts.length > 0) {
-    return (
-      <div className="flex flex-col gap-6">
-        {activeAccounts.map((account) => (
-          <WhatsAppAccountCard
-            key={account.id}
-            account={account}
-            canConnect={canConnect}
-            canDisconnect={canDisconnect}
-          />
-        ))}
-      </div>
-    );
-  }
+  const embeddedSignup =
+    isEmbeddedSignupConfigured && env.META_APP_ID && env.META_LOGIN_CONFIG_ID
+      ? {
+          appId: env.META_APP_ID,
+          configId: env.META_LOGIN_CONFIG_ID,
+          graphVersion: env.WHATSAPP_API_VERSION,
+        }
+      : null;
 
-  if (!canConnect) {
+  const liveAccounts = accounts.filter((account) => account.status !== 'DISCONNECTED');
+  const disconnectedAccounts = accounts.filter((account) => account.status === 'DISCONNECTED');
+
+  if (accounts.length === 0 && !canConnect) {
     return (
       <EmptyState
         icon={MessageSquare}
@@ -60,21 +70,35 @@ export default async function WhatsAppSettingsPage() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Connect your WhatsApp Business number</CardTitle>
-        <CardDescription>
-          Your customers keep messaging the same number. Once it is connected their messages
-          arrive in your inbox, your AI can answer them, and you can raise an order straight from
-          a chat. You will need the details Meta shows for your WhatsApp Business account.
-          {hasPreviousConnection
-            ? ' A number you disconnected earlier is kept in your records, but it no longer receives messages.'
-            : ''}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ConnectWhatsAppForm />
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-6">
+      {liveAccounts.map((account) => (
+        <WhatsAppAccountCard
+          key={account.id}
+          account={account}
+          health={healthByAccount.get(account.id) ?? null}
+          embeddedSignup={canConnect ? embeddedSignup : null}
+          canConnect={canConnect}
+          canDisconnect={canDisconnect}
+        />
+      ))}
+
+      {liveAccounts.length === 0 && canConnect ? (
+        <ConnectWhatsAppCard
+          embeddedSignup={embeddedSignup}
+          hasPreviousConnection={disconnectedAccounts.length > 0}
+        />
+      ) : null}
+
+      {disconnectedAccounts.map((account) => (
+        <WhatsAppAccountCard
+          key={account.id}
+          account={account}
+          health={healthByAccount.get(account.id) ?? null}
+          embeddedSignup={canConnect ? embeddedSignup : null}
+          canConnect={canConnect}
+          canDisconnect={canDisconnect}
+        />
+      ))}
+    </div>
   );
 }

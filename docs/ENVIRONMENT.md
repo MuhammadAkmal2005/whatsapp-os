@@ -64,25 +64,31 @@ environment edit that silently alters every cost figure, or the honesty of every
 
 ---
 
-## WhatsApp
+## WhatsApp / Meta
+
+Everything here is **platform** configuration — ConvoNexa's own Meta app identity, shared by every workspace.
+A customer's own access token, phone number id and WhatsApp Business Account id are deliberately *not*
+environment variables: they are per-workspace facts captured during onboarding and stored encrypted on
+`whatsapp_accounts` / `whatsapp_phone_numbers`. A global `WHATSAPP_ACCESS_TOKEN` would mean every tenant sent
+from one WhatsApp number, which is the opposite of what the product sells.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `MOCK_WHATSAPP` | `true` | When true no real message is ever sent. Outbound sends are recorded and an inbound simulator is exposed. |
-| `WHATSAPP_API_VERSION` | `v21.0` | Graph API version. Pinned deliberately. |
-| `WHATSAPP_ACCESS_TOKEN` | — | Required when `MOCK_WHATSAPP=false`. |
-| `WHATSAPP_PHONE_NUMBER_ID` | — | Required when `MOCK_WHATSAPP=false`. |
-| `WHATSAPP_BUSINESS_ACCOUNT_ID` | — | Required when `MOCK_WHATSAPP=false`. |
+| `WHATSAPP_API_VERSION` | `v26.0` | Graph API version for **every** Meta call — messaging, onboarding and asset management. One variable so a code exchange and a send can never disagree. |
+| `META_APP_ID` | — | ConvoNexa's Meta app id. Not a secret, but not `NEXT_PUBLIC_` either: a server component passes it to the signup launcher. Required when `MOCK_WHATSAPP=false`. |
+| `META_APP_SECRET` | — | Verifies the `X-Hub-Signature-256` HMAC over the raw webhook body and signs the OAuth code exchange. Required when `MOCK_WHATSAPP=false`. |
+| `META_LOGIN_CONFIG_ID` | — | Facebook Login for Business configuration id behind Embedded Signup. Optional: without it the UI offers the manual System User token path instead. |
+| `META_OAUTH_REDIRECT_URI` | — | Only for the redirect-based login flow. Codes minted by the browser SDK carry no `redirect_uri`, and sending one Meta did not issue the code against fails the exchange, so it is passed through only when set. |
 | `WHATSAPP_VERIFY_TOKEN` | — | A string you choose. Meta echoes it during webhook verification; compared in constant time. Required when `MOCK_WHATSAPP=false`. |
-| `META_APP_SECRET` | — | Verifies the `X-Hub-Signature-256` HMAC over the raw webhook body. Required when `MOCK_WHATSAPP=false`. |
 
 **`config/env.ts` refuses to boot with `DEPLOYMENT_ENV=production` and `MOCK_WHATSAPP=true`.** The dangerous failure
 is a live deployment answering real customers from a mock and nobody noticing, so it is made impossible rather
 than documented as a caution. Staging deployments should use `DEPLOYMENT_ENV=staging`.
 
-Setting `MOCK_WHATSAPP=false` demands all five credentials at once. Half-connected is worse than disconnected:
-messages would send while webhooks failed signature verification, so the business would talk to customers and
-never hear the replies.
+Setting `MOCK_WHATSAPP=false` demands the three platform values at once. Half-configured is worse than
+unconfigured: sends would work while webhooks failed signature verification, so a business would talk to
+customers and never hear the replies.
 
 ---
 

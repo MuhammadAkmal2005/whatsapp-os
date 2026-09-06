@@ -16,6 +16,103 @@ import {
   tenantContextFor,
 } from '../fixtures';
 
+/** The number Meta lists on the stubbed WABA. Anything else must be refused. */
+const META_PHONE_NUMBER_ID = '106540352242922';
+
+/**
+ * `env.META_APP_ID` is optional in the schema — a deployment can run mock-only — but
+ * `tests/setup.ts` always sets it, so this is a type narrowing rather than a fallback.
+ */
+const APP_ID = env.META_APP_ID ?? '000000000000000';
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+/**
+ * A stub for the whole Graph sequence a live connection makes, routed by path.
+ *
+ * Real `Response` objects, because the client reads `headers`, `status` and `text()` — a
+ * duck-typed `{ok, json}` literal would satisfy the test while the production path failed
+ * on a header lookup. Routed by path rather than by call order, because the order is the
+ * service's business and a test that encodes it breaks on every harmless reordering.
+ */
+function metaFetchStub(overrides?: { subscribedApps?: Array<{ id: string; name?: string }> }) {
+  const subscribedApps = overrides?.subscribedApps ?? [{ id: APP_ID, name: 'ConvoNexa' }];
+
+  return vi.fn(async (input: string | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    const method = (init?.method ?? 'GET').toUpperCase();
+    // Drop the leading empty segment and the API version.
+    const segments = url.pathname.split('/').filter(Boolean).slice(1);
+    const [first, second] = segments;
+
+    if (first === 'debug_token') {
+      return jsonResponse({
+        data: {
+          app_id: APP_ID,
+          is_valid: true,
+          expires_at: 0,
+          scopes: ['whatsapp_business_messaging', 'whatsapp_business_management'],
+        },
+      });
+    }
+
+    if (second === 'subscribed_apps') {
+      if (method === 'POST') return jsonResponse({ success: true });
+      return jsonResponse({
+        data: subscribedApps.map((app) => ({
+          whatsapp_business_api_data: { id: app.id, name: app.name ?? 'ConvoNexa' },
+        })),
+      });
+    }
+
+    if (second === 'phone_numbers') {
+      return jsonResponse({
+        data: [
+          {
+            id: META_PHONE_NUMBER_ID,
+            display_phone_number: '+92 300 5554433',
+            verified_name: 'Verified Official Brand',
+            quality_rating: 'GREEN',
+            code_verification_status: 'VERIFIED',
+            platform_type: 'CLOUD_API',
+            throughput: { level: 'STANDARD' },
+          },
+        ],
+      });
+    }
+
+    if (second === 'register' || second === 'deregister') {
+      return jsonResponse({ success: true });
+    }
+
+    // Whatever is left is a read of the WABA itself. Echoing the requested id back keeps
+    // one stub usable for every waba id a test wants to name.
+    return jsonResponse({
+      id: first,
+      name: 'Akmal Fashion',
+      currency: 'PKR',
+      timezone_id: '73',
+      account_review_status: 'APPROVED',
+      owner_business_info: { id: '2233445566778899', name: 'Akmal Fashion Pvt Ltd' },
+    });
+  });
+}
+
+/** `['GET /waba_x/phone_numbers', …]` — what was actually asked of Meta, in order. */
+function metaOperations(mockFetch: ReturnType<typeof metaFetchStub>): string[] {
+  return mockFetch.mock.calls.map(([input, init]) => {
+    const url = new URL(String(input));
+    const method = (init?.method ?? 'GET').toUpperCase();
+    const path = url.pathname.split('/').filter(Boolean).slice(1).join('/');
+    return `${method} /${path}`;
+  });
+}
+
 describe('WhatsApp Account Service & Settings Integration', () => {
   beforeEach(async () => {
     await resetDatabase();
@@ -128,17 +225,10 @@ describe('WhatsApp Account Service & Settings Integration', () => {
     ).rejects.toThrow(ForbiddenError);
   });
 
-  it('4. performs live Meta credential validation and populates verified name on success', async () => {
+  it('4. verifies assets, confirms the subscription with Meta, and only then reports CONNECTED', async () => {
     const fixture = await createWorkspaceFixture();
 
-    const mockFetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        verified_name: 'Verified Official Brand',
-        display_phone_number: '+92 300 5554433',
-        quality_rating: 'GREEN',
-      }),
-    });
+    const mockFetch = metaFetchStub();
 
     const result = await connectWhatsAppAccount(
       fixture.context,
@@ -153,21 +243,63 @@ describe('WhatsApp Account Service & Settings Integration', () => {
 
     expect(result.status).toBe('CONNECTED');
     expect(result.isMock).toBe(false);
+    expect(result.warnings).toEqual([]);
+
+    // The number and its metadata come from Meta's own list, not from the request body.
     expect(result.phoneNumbers[0]?.verifiedName).toBe('Verified Official Brand');
     expect(result.phoneNumbers[0]?.qualityRating).toBe('GREEN');
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(result.phoneNumbers[0]?.platformType).toBe('CLOUD_API');
+    expect(result.metaBusinessId).toBe('2233445566778899');
+
+    // CONNECTED is not inferred from the token: the subscription edge was read back, and a
+    // number already on Cloud API is not re-registered.
+    const operations = metaOperations(mockFetch);
+    expect(operations).toContain('GET /waba_live_001/subscribed_apps');
+    expect(operations).toContain('POST /waba_live_001/subscribed_apps');
+    expect(operations.some((entry) => entry.includes('/register'))).toBe(false);
+
+    const dbAccount = await prisma.whatsAppAccount.findUnique({ where: { id: result.id } });
+    expect(dbAccount?.subscriptionVerifiedAt).not.toBeNull();
+  });
+
+  it('4b. persists DEGRADED with a reason when Meta does not list this app as subscribed', async () => {
+    // The failure the old `connected = token exists` indicator could not see: everything
+    // else succeeds, and not one customer message will ever arrive.
+    const fixture = await createWorkspaceFixture();
+
+    const mockFetch = metaFetchStub({ subscribedApps: [] });
+
+    const result = await connectWhatsAppAccount(
+      fixture.context,
+      {
+        wabaId: 'waba_unsubscribed',
+        phoneNumberId: '106540352242922',
+        displayPhoneNumber: '+92 300 5554433',
+        accessToken: 'EAAG_live_valid_token_123',
+      },
+      { forceMock: false, fetchFn: mockFetch as unknown as typeof fetch },
+    );
+
+    expect(result.status).toBe('DEGRADED');
+    expect(result.warnings.map((warning) => warning.code)).toContain('subscription_unconfirmed');
+
+    // The sentence explaining why is persisted on the row, so the settings page states the
+    // reason on its own next read rather than depending on this response.
+    const dbAccount = await prisma.whatsAppAccount.findUnique({ where: { id: result.id } });
+    expect(dbAccount?.subscriptionVerifiedAt).toBeNull();
+    expect(dbAccount?.lastErrorCode).toBe('subscription_unconfirmed');
+    expect(dbAccount?.lastErrorMessage).toBeTruthy();
   });
 
   it('5. live credential validation failure rejects connection and does NOT persist credentials', async () => {
     const fixture = await createWorkspaceFixture();
 
-    const mockFetch = vi.fn().mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      json: async () => ({
-        error: { message: 'Invalid OAuth token', code: 190 },
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: { message: 'Invalid OAuth token', code: 190 } }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
       }),
-    });
+    );
 
     const promise = connectWhatsAppAccount(
       fixture.context,
@@ -183,6 +315,32 @@ describe('WhatsApp Account Service & Settings Integration', () => {
     await expect(promise).rejects.toThrow(ValidationError);
 
     // Verify nothing was persisted
+    const count = await prisma.whatsAppAccount.count({
+      where: { workspaceId: fixture.workspaceId },
+    });
+    expect(count).toBe(0);
+  });
+
+  it('5b. refuses a phone number Meta does not list on the selected WABA', async () => {
+    // The security hinge of the whole onboarding flow. The client asks for a number; only
+    // the ones Meta returns for that WABA are allowed anywhere near the database.
+    const fixture = await createWorkspaceFixture();
+
+    const mockFetch = metaFetchStub();
+
+    const promise = connectWhatsAppAccount(
+      fixture.context,
+      {
+        wabaId: 'waba_live_001',
+        phoneNumberId: '999888777666555',
+        displayPhoneNumber: '+92 300 0000000',
+        accessToken: 'EAAG_live_valid_token_123',
+      },
+      { forceMock: false, fetchFn: mockFetch as unknown as typeof fetch },
+    );
+
+    await expect(promise).rejects.toThrow(ValidationError);
+
     const count = await prisma.whatsAppAccount.count({
       where: { workspaceId: fixture.workspaceId },
     });

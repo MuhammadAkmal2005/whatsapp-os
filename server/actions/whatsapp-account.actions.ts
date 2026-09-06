@@ -52,11 +52,26 @@ export async function connectWhatsAppAction(
 
     revalidateWhatsAppSettings();
 
+    if (result.isMock) {
+      return { status: 'success', message: 'WhatsApp connected in Simulated (Mock) Mode.' };
+    }
+
+    // A number that connected but could not be subscribed or registered is reported as
+    // exactly that. The old copy said "connected successfully" for every non-throwing
+    // outcome, which is the sentence a shop owner reads right before wondering why no
+    // messages arrive.
+    if (result.status !== 'CONNECTED') {
+      return {
+        status: 'success',
+        message:
+          result.warnings[0]?.message ??
+          `${result.phoneNumbers[0]?.displayPhoneNumber ?? 'This number'} is connected but needs attention. Check the connection details below.`,
+      };
+    }
+
     return {
       status: 'success',
-      message: result.isMock
-        ? 'WhatsApp connected in Simulated (Mock) Mode.'
-        : 'WhatsApp Business Account connected successfully.',
+      message: `${result.phoneNumbers[0]?.displayPhoneNumber ?? 'Your number'} is connected. Customers messaging it will reach your inbox.`,
     };
   } catch (error) {
     return formErrorFrom(error);

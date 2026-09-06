@@ -166,6 +166,7 @@ model WorkspaceMember {
   createdOrders              Order[]                   @relation("OrderCreator")
   resolvedApprovals          ActionApproval[]          @relation("ApprovalResolver")
   verifiedPayments           Payment[]
+  disconnectedWhatsAppAccounts WhatsAppAccount[]       @relation("WhatsAppAccountDisconnectedBy")
   user                       User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace                  Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -228,29 +229,75 @@ model BusinessProfile {
   @@map("business_profiles")
 }
 
+/// One customer's WhatsApp Business Account, as connected to ConvoNexa.
+///
+/// Nothing about this account is global. The token, the WABA id and the business id
+/// all belong to *this* workspace, which is why they live on a row rather than in the
+/// environment: a global token would put every tenant on one WhatsApp number.
 model WhatsAppAccount {
   id                   String                @id @default(uuid()) @db.Uuid
   workspaceId          String                @db.Uuid
   /// Meta WhatsApp Business Account id.
   wabaId               String
+  /// The Meta Business (portfolio) id that owns the WABA. Returned by Embedded
+  /// Signup and verified server-side; recorded so support can find the asset in
+  /// Business Manager without asking the customer.
+  metaBusinessId       String?
   displayName          String?
   /// Encrypted at rest with a key derived from AUTH_SECRET. Never returned to
   /// the browser under any circumstance.
   accessTokenEncrypted String?
+  /// How this token was obtained, which determines whether it can be refreshed.
+  tokenType            MetaTokenType?
+  /// Null for a System User token, which Meta issues without an expiry. Set for a
+  /// business integration token so health checks can warn before it lapses rather
+  /// than after messages start failing.
+  tokenExpiresAt       DateTime?
+  tokenUpdatedAt       DateTime?
+  /// Which onboarding path produced this connection. Kept because the two paths
+  /// have genuinely different failure modes and support needs to know which ran.
+  connectionMethod     MetaConnectionMethod  @default(MANUAL_TOKEN)
   status               ChannelStatus         @default(DISCONNECTED)
   /// True while MOCK_WHATSAPP is driving this account, so the UI can say so
   /// plainly instead of implying a live connection.
   isMock               Boolean               @default(false)
+  /// When ConvoNexa last successfully called POST /<WABA_ID>/subscribed_apps.
+  /// A callback URL existing proves nothing — this column is what proves the WABA
+  /// is actually routed to us.
+  subscribedAt         DateTime?
+  /// When a GET on the same edge last confirmed the subscription is still there.
+  /// Meta can drop it when a business revokes permissions, and the difference
+  /// between "we subscribed once" and "it is subscribed now" is a silent outage.
+  subscriptionVerifiedAt DateTime?
+  /// Last webhook event that resolved to this account. Proof of inbound liveness.
+  lastInboundEventAt   DateTime?
+  /// Last accepted Cloud API send. Proof of outbound liveness and token validity.
+  lastOutboundSuccessAt DateTime?
+  lastHealthCheckAt    DateTime?
   connectedAt          DateTime?
+  disconnectedAt       DateTime?
+  /// Who disconnected it. Nullable because the health checker and Meta-initiated
+  /// revocations disconnect with no human actor.
+  disconnectedByMemberId String?             @db.Uuid
   lastErrorAt          DateTime?
   lastErrorMessage     String?
+  /// Machine-readable classification of the last failure, so the UI can explain a
+  /// degraded connection without parsing a message string.
+  lastErrorCode        String?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   workspace            Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  disconnectedBy       WorkspaceMember?      @relation("WhatsAppAccountDisconnectedBy", fields: [disconnectedByMemberId], references: [id])
   phoneNumbers         WhatsAppPhoneNumber[]
 
   @@unique([workspaceId, wabaId])
+  /// A WABA belongs to exactly one workspace, platform-wide. Without this, two
+  /// tenants could each hold a token for the same business and both claim its
+  /// numbers. Reconnecting the same WABA updates the existing row rather than
+  /// creating a second one.
+  @@unique([wabaId])
   @@index([workspaceId])
+  @@index([workspaceId, status])
   @@map("whatsapp_accounts")
 }
 
@@ -268,6 +315,22 @@ model WhatsAppPhoneNumber {
   qualityRating      String?
   status             ChannelStatus   @default(PENDING)
   isDefault          Boolean         @default(false)
+  /// When POST /<PHONE_NUMBER_ID>/register last succeeded. A number that is not
+  /// registered to the Cloud API cannot send, no matter how valid the token is.
+  registeredAt       DateTime?
+  /// The two-step verification PIN used at registration, encrypted with the same
+  /// key as the access token. Stored because re-registration after a Meta-side
+  /// reset needs the same PIN; never returned to any client.
+  registrationPinEncrypted String?
+  /// Meta's own view of the number, mirrored for display: VERIFIED, EXPIRED, etc.
+  codeVerificationStatus String?
+  /// CLOUD_API or ON_PREMISE. Recorded so a number that is not on the Cloud API
+  /// is diagnosable rather than mysteriously unable to send.
+  platformType       String?
+  /// Meta's messaging throughput tier for the number.
+  throughputLevel    String?
+  lastInboundAt      DateTime?
+  lastOutboundAt     DateTime?
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   conversations      Conversation[]
@@ -275,6 +338,8 @@ model WhatsAppPhoneNumber {
   workspace          Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
+  @@index([workspaceId, status])
+  @@index([accountId])
   @@map("whatsapp_phone_numbers")
 }
 
@@ -367,6 +432,13 @@ model Message {
   payload                  Json?
   errorCode                String?
   errorMessage             String?
+  /// Set when a send failed in a way that does NOT prove the message was not
+  /// delivered — a timeout, a dropped connection, a 5xx after the request body was
+  /// written. The Cloud API accepts no idempotency key and offers no way to look a
+  /// message up by our own reference, so a retry could deliver a second copy to a
+  /// real customer. When this is set the message stays SENDING, is never resent
+  /// automatically, and is surfaced for a human to check the WhatsApp thread.
+  deliveryUncertainAt      DateTime?
   createdAt                DateTime            @default(now())
   /// Provider-reported timestamp, which can differ from createdAt by seconds.
   occurredAt               DateTime            @default(now())
@@ -1516,11 +1588,38 @@ enum MembershipStatus {
   SUSPENDED
 }
 
+/// Lifecycle of a messaging channel connection.
+///
+/// `PENDING` means an onboarding flow is in progress — the UI reads it as
+/// "Connecting". `DEGRADED` means the connection exists and messages may still flow,
+/// but a health check found something wrong (the webhook subscription is gone, the
+/// token is near expiry, the number is unregistered). It is deliberately distinct
+/// from `ERROR`: degraded is "working, with a problem you must fix", error is
+/// "not working". Collapsing the two is how an outage becomes invisible.
 enum ChannelStatus {
   DISCONNECTED
   PENDING
   CONNECTED
+  DEGRADED
   ERROR
+}
+
+/// How a stored Meta access token was obtained.
+enum MetaTokenType {
+  /// Long-lived System User token pasted by the business owner. No expiry.
+  SYSTEM_USER
+  /// Business integration system user token from Embedded Signup. Carries an expiry.
+  BUSINESS_INTEGRATION
+}
+
+/// Which onboarding path produced a connection.
+enum MetaConnectionMethod {
+  /// The business owner created a System User token in Business Manager and pasted it.
+  MANUAL_TOKEN
+  /// One-click WhatsApp Embedded Signup through Facebook Login for Business.
+  EMBEDDED_SIGNUP
+  /// Seeded or mock connection. Never a live Meta asset.
+  MOCK
 }
 
 enum Channel {

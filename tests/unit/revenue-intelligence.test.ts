@@ -30,16 +30,21 @@ describe('Revenue Intelligence V1', () => {
 
   const mockContext: TenantContext = {
     workspaceId,
+    workspaceSlug: 'test-apparel-store',
     workspaceName: 'Test Apparel Store',
     membershipId: 'mem-123',
-    userId: 'usr-123',
+    sessionId: 'session-123',
     role: 'ADMIN',
     currency: 'PKR',
+    planKey: 'FREE',
+    onboarding: { completedSteps: [], completedAt: null },
+    requestId: 'req-123',
     user: {
       id: 'usr-123',
       name: 'Store Owner',
       email: 'owner@test.com',
       avatarUrl: null,
+      emailVerifiedAt: null,
     },
   };
 
@@ -319,13 +324,13 @@ describe('Revenue Intelligence V1', () => {
       const summary = await getRevenueIntelligenceSummary(mockDb, workspaceId, fromDate, toDate);
 
       expect(summary.topProducts).toHaveLength(2);
-      expect(summary.topProducts[0].name).toBe('Premium Oversized Hoodie (Black)');
-      expect(summary.topProducts[0].unitsSold).toBe(15);
-      expect(summary.topProducts[0].revenueMinor).toBe(450000);
-      expect(summary.topProducts[0].orderCount).toBe(8);
+      expect(summary.topProducts[0]?.name).toBe('Premium Oversized Hoodie (Black)');
+      expect(summary.topProducts[0]?.unitsSold).toBe(15);
+      expect(summary.topProducts[0]?.revenueMinor).toBe(450000);
+      expect(summary.topProducts[0]?.orderCount).toBe(8);
 
-      expect(summary.topProducts[1].name).toBe('Classic Cotton Tee (White)');
-      expect(summary.topProducts[1].unitsSold).toBe(10);
+      expect(summary.topProducts[1]?.name).toBe('Classic Cotton Tee (White)');
+      expect(summary.topProducts[1]?.unitsSold).toBe(10);
     });
   });
 
@@ -594,19 +599,19 @@ describe('Revenue Intelligence V1', () => {
       );
 
       expect(series).toHaveLength(3); // Aug 14, 15, 16
-      expect(series[0].date).toBe('2026-08-14');
-      expect(series[0].bookedRevenueMinor).toBe(0);
+      expect(series[0]?.date).toBe('2026-08-14');
+      expect(series[0]?.bookedRevenueMinor).toBe(0);
 
-      expect(series[1].date).toBe('2026-08-15');
-      expect(series[1].bookedRevenueMinor).toBe(500000);
-      expect(series[1].paidRevenueMinor).toBe(500000);
-      expect(series[1].chatRevenueMinor).toBe(500000);
-      expect(series[1].ordersCount).toBe(1);
-      expect(series[1].conversationsCount).toBe(1);
+      expect(series[1]?.date).toBe('2026-08-15');
+      expect(series[1]?.bookedRevenueMinor).toBe(500000);
+      expect(series[1]?.paidRevenueMinor).toBe(500000);
+      expect(series[1]?.chatRevenueMinor).toBe(500000);
+      expect(series[1]?.ordersCount).toBe(1);
+      expect(series[1]?.conversationsCount).toBe(1);
 
-      expect(series[2].date).toBe('2026-08-16');
-      expect(series[2].bookedRevenueMinor).toBe(0);
-      expect(series[2].conversationsCount).toBe(1);
+      expect(series[2]?.date).toBe('2026-08-16');
+      expect(series[2]?.bookedRevenueMinor).toBe(0);
+      expect(series[2]?.conversationsCount).toBe(1);
     });
   });
 });

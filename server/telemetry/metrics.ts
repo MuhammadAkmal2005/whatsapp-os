@@ -258,6 +258,21 @@ export class MetricsRegistry {
     'status',
   ]);
 
+  // Meta WhatsApp Business Platform
+  // Deliberately labelled by outcome and method rather than by workspace: a label per
+  // tenant is unbounded cardinality, and the per-tenant view belongs in the audit log
+  // and the connection health panel, not in a Prometheus series.
+  readonly metaConnectionEvents = new Counter(
+    'meta_connection_events_total',
+    'Meta WhatsApp connection lifecycle events',
+    ['event', 'method'],
+  );
+  readonly metaMessages = new Counter(
+    'meta_messages_total',
+    'Messages exchanged with the Meta WhatsApp Cloud API',
+    ['direction', 'outcome'],
+  );
+
   // Security & Rate Limiting
   readonly rateLimitHits = new Counter('rate_limit_hits_total', 'Total rate limit rejections', ['tier']);
   readonly securityViolations = new Counter('security_violations_total', 'Total detected security anomalies', [
@@ -284,6 +299,8 @@ export class MetricsRegistry {
     this.aiTokens.reset();
     this.aiRequestDuration.reset();
     this.webhookEvents.reset();
+    this.metaConnectionEvents.reset();
+    this.metaMessages.reset();
     this.rateLimitHits.reset();
     this.securityViolations.reset();
     this.dbQueryDuration.reset();
@@ -354,6 +371,8 @@ export class MetricsRegistry {
     appendHistogram('ai_request_duration_seconds', this.aiRequestDuration.help, this.aiRequestDuration.collect(), this.aiRequestDuration.buckets);
 
     appendSimpleMetric('webhook_events_total', this.webhookEvents.help, 'counter', this.webhookEvents.collect());
+    appendSimpleMetric('meta_connection_events_total', this.metaConnectionEvents.help, 'counter', this.metaConnectionEvents.collect());
+    appendSimpleMetric('meta_messages_total', this.metaMessages.help, 'counter', this.metaMessages.collect());
     appendSimpleMetric('rate_limit_hits_total', this.rateLimitHits.help, 'counter', this.rateLimitHits.collect());
     appendSimpleMetric('security_violations_total', this.securityViolations.help, 'counter', this.securityViolations.collect());
 
@@ -377,6 +396,8 @@ export class MetricsRegistry {
       aiTokens: this.aiTokens.collect(),
       aiRequestDuration: this.aiRequestDuration.collect(),
       webhookEvents: this.webhookEvents.collect(),
+      metaConnectionEvents: this.metaConnectionEvents.collect(),
+      metaMessages: this.metaMessages.collect(),
       rateLimitHits: this.rateLimitHits.collect(),
       securityViolations: this.securityViolations.collect(),
       processUptimeSeconds: this.processUptime.get(),

@@ -46,7 +46,9 @@ const forced: Record<string, string> = {
   STORAGE_PROVIDER: 'local',
   QUEUE_DRIVER: 'postgres',
   WHATSAPP_VERIFY_TOKEN: 'test-verify-token',
+  META_APP_ID: '000000000000000',
   META_APP_SECRET: 'test-meta-app-secret-32-chars-long',
+  META_LOGIN_CONFIG_ID: '000000000000001',
   AI_API_KEY: 'test-only-ai-api-key-do-not-deploy',
   // Deterministic assertions: a limiter that is disabled in someone's .env would
   // turn the rate-limit tests into silent no-ops that still report as passing.

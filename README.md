@@ -68,6 +68,16 @@ pretend one, and the UI says when a mock is answering. `config/env.ts` refuses t
 `MOCK_WHATSAPP=true` or with the local disk storage driver, so the mocks cannot follow you into a live
 deployment by accident.
 
+### Connecting a real WhatsApp number
+
+Set `MOCK_WHATSAPP=false` and four platform values — `META_APP_ID`, `META_APP_SECRET`, `META_LOGIN_CONFIG_ID`,
+`WHATSAPP_VERIFY_TOKEN` — then connect each business's own number from **Settings → WhatsApp** in the app. Those
+four identify ConvoNexa to Meta; every customer's WABA id, phone number id and access token belongs to their
+workspace and is stored encrypted on their own row, never in the environment.
+
+Meta needs a public HTTPS callback, so local webhooks require a tunnel. The Meta app configuration, the tunnel
+setup, and the full connection architecture are in [`docs/META_INTEGRATION.md`](docs/META_INTEGRATION.md).
+
 ---
 
 ## Commands

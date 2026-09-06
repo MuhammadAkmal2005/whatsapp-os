@@ -1,136 +1,106 @@
 /**
- * WhatsApp Business Account Management Service.
+ * WhatsApp Business Account management.
  *
- * Handles workspace-scoped WhatsApp Business Account and Phone Number connections,
- * credential validation, zero-trust token encryption, and disconnection.
+ * Read side and lifecycle. The work of establishing a connection lives in
+ * `meta-onboarding.service.ts`, which both this manual-token path and the Embedded Signup
+ * path run through — so a number connected by pasting a System User token is verified
+ * exactly as strictly as one connected through Meta's dialog.
+ *
+ * The DTO is the other half of this file's job. Everything it exposes is safe to render:
+ * Meta's own identifiers, our lifecycle timestamps, and the words we chose for a status.
+ * The encrypted token and the encrypted registration PIN are not on the row type the
+ * repository returns, so there is no field here that could accidentally carry one to a
+ * React prop.
  */
 
 import 'server-only';
 
-import { env, isWhatsAppMocked } from '@/config/env';
 import { prisma } from '@/db/prisma';
-import { encryptSecret } from '@/lib/crypto';
 import { logger } from '@/lib/logger';
-import { NotFoundError, ValidationError } from '@/server/errors';
+import { NotFoundError } from '@/server/errors';
 import { appendAuditLog } from '@/server/repositories/audit.repository';
 import {
   disconnectWhatsAppAccount as repoDisconnectAccount,
   findAccountById,
   findAccountsWithPhoneNumbers,
-  findPhoneNumberWithAccountByPhoneNumberId,
-  upsertWhatsAppAccountWithPhoneNumber,
   type ChannelStatus,
+  type MetaConnectionMethod,
   type WhatsAppAccountWithPhoneNumbersRow,
 } from '@/server/repositories/whatsapp-account.repository';
-import { assertWithinPlanLimit } from '@/server/services/billing/limit-guard.service';
+import { MetaGraphClient } from '@/server/services/whatsapp/meta-graph.client';
+import {
+  establishMetaConnection,
+  type ConnectionWarning,
+} from '@/server/services/whatsapp/meta-onboarding.service';
 import { requirePermission, type TenantContext } from '@/server/tenancy/context';
 import type { ConnectWhatsAppInput } from '@/server/validation/whatsapp-account';
+
+export type WhatsAppPhoneNumberOverviewDTO = {
+  id: string;
+  phoneNumberId: string;
+  displayPhoneNumber: string;
+  verifiedName: string | null;
+  qualityRating: string | null;
+  /** Meta's phone-verification state, e.g. VERIFIED. */
+  codeVerificationStatus: string | null;
+  /** CLOUD_API once the number can send through the Cloud API. */
+  platformType: string | null;
+  throughputLevel: string | null;
+  status: ChannelStatus;
+  isDefault: boolean;
+  registeredAt: Date | null;
+  lastInboundAt: Date | null;
+  lastOutboundAt: Date | null;
+};
 
 export type WhatsAppAccountOverviewDTO = {
   id: string;
   wabaId: string;
+  metaBusinessId: string | null;
   displayName: string | null;
   status: ChannelStatus;
+  connectionMethod: MetaConnectionMethod;
   isMock: boolean;
   connectedAt: Date | null;
+  /** Null for a non-expiring System User token, or when Meta would not tell us. */
+  tokenExpiresAt: Date | null;
+  tokenUpdatedAt: Date | null;
+  /** When Meta accepted our subscription request for this WABA. */
+  subscribedAt: Date | null;
+  /** When a read of the subscription edge last confirmed it. The honest one. */
+  subscriptionVerifiedAt: Date | null;
+  lastInboundEventAt: Date | null;
+  lastOutboundSuccessAt: Date | null;
+  lastHealthCheckAt: Date | null;
+  disconnectedAt: Date | null;
   lastErrorAt: Date | null;
+  lastErrorCode: string | null;
   lastErrorMessage: string | null;
-  phoneNumbers: Array<{
-    id: string;
-    phoneNumberId: string;
-    displayPhoneNumber: string;
-    verifiedName: string | null;
-    qualityRating: string | null;
-    status: ChannelStatus;
-    isDefault: boolean;
-  }>;
+  phoneNumbers: WhatsAppPhoneNumberOverviewDTO[];
 };
 
-export type ValidateMetaCredentialsOptions = {
-  phoneNumberId: string;
-  accessToken: string;
-  apiVersion?: string;
-  baseUrl?: string;
-  fetchFn?: typeof fetch;
-};
-
-export type MetaPhoneNumberVerificationResult = {
-  verifiedName?: string | null;
-  displayPhoneNumber?: string | null;
-  qualityRating?: string | null;
-};
-
-/**
- * Validates Meta WhatsApp credentials against Meta Graph API.
- * Never logs or reflects the access token in errors.
- */
-export async function validateMetaCredentials(
-  options: ValidateMetaCredentialsOptions,
-): Promise<MetaPhoneNumberVerificationResult> {
-  const apiVersion = options.apiVersion ?? env.WHATSAPP_API_VERSION ?? 'v21.0';
-  const baseUrl = options.baseUrl ?? 'https://graph.facebook.com';
-  const fetchFn = options.fetchFn ?? fetch;
-  const url = `${baseUrl}/${apiVersion}/${encodeURIComponent(options.phoneNumberId)}?fields=verified_name,display_phone_number,quality_rating`;
-
-  let response: Response;
-  try {
-    response = await fetchFn(url, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${options.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Network error';
-    throw new ValidationError(`Failed to connect to Meta WhatsApp API for verification: ${msg}`);
-  }
-
-  if (!response.ok) {
-    let errorDetail = '';
-    try {
-      const errJson = (await response.json()) as { error?: { message?: string; code?: number } };
-      if (errJson?.error?.message) {
-        // Redact any potential token reflection
-        errorDetail = errJson.error.message.split(options.accessToken).join('[REDACTED]');
-      }
-    } catch {
-      // Body not JSON
-    }
-
-    const safeMessage = errorDetail
-      ? `Meta credential verification failed (${response.status}): ${errorDetail}`
-      : `Meta credential verification failed with HTTP status ${response.status}. Please check your Access Token and Phone Number ID.`;
-
-    throw new ValidationError(safeMessage);
-  }
-
-  try {
-    const data = (await response.json()) as {
-      verified_name?: string;
-      display_phone_number?: string;
-      quality_rating?: string;
-    };
-
-    return {
-      verifiedName: data.verified_name ?? null,
-      displayPhoneNumber: data.display_phone_number ?? null,
-      qualityRating: data.quality_rating ?? null,
-    };
-  } catch {
-    throw new ValidationError('Invalid response received from Meta WhatsApp API during verification.');
-  }
-}
-
-function mapToOverviewDTO(account: WhatsAppAccountWithPhoneNumbersRow): WhatsAppAccountOverviewDTO {
+export function mapToOverviewDTO(
+  account: WhatsAppAccountWithPhoneNumbersRow,
+): WhatsAppAccountOverviewDTO {
   return {
     id: account.id,
     wabaId: account.wabaId,
+    metaBusinessId: account.metaBusinessId,
     displayName: account.displayName,
     status: account.status,
+    connectionMethod: account.connectionMethod,
     isMock: account.isMock,
     connectedAt: account.connectedAt,
+    tokenExpiresAt: account.tokenExpiresAt,
+    tokenUpdatedAt: account.tokenUpdatedAt,
+    subscribedAt: account.subscribedAt,
+    subscriptionVerifiedAt: account.subscriptionVerifiedAt,
+    lastInboundEventAt: account.lastInboundEventAt,
+    lastOutboundSuccessAt: account.lastOutboundSuccessAt,
+    lastHealthCheckAt: account.lastHealthCheckAt,
+    disconnectedAt: account.disconnectedAt,
     lastErrorAt: account.lastErrorAt,
+    lastErrorCode: account.lastErrorCode,
     lastErrorMessage: account.lastErrorMessage,
     phoneNumbers: account.phoneNumbers.map((phone) => ({
       id: phone.id,
@@ -138,15 +108,19 @@ function mapToOverviewDTO(account: WhatsAppAccountWithPhoneNumbersRow): WhatsApp
       displayPhoneNumber: phone.displayPhoneNumber,
       verifiedName: phone.verifiedName,
       qualityRating: phone.qualityRating,
+      codeVerificationStatus: phone.codeVerificationStatus,
+      platformType: phone.platformType,
+      throughputLevel: phone.throughputLevel,
       status: phone.status,
       isDefault: phone.isDefault,
+      registeredAt: phone.registeredAt,
+      lastInboundAt: phone.lastInboundAt,
+      lastOutboundAt: phone.lastOutboundAt,
     })),
   };
 }
 
-/**
- * Returns the current WhatsApp Business Account configuration and phone numbers for the workspace.
- */
+/** The workspace's WhatsApp connections, including disconnected ones, newest first. */
 export async function getWhatsAppAccountOverview(
   ctx: TenantContext,
 ): Promise<WhatsAppAccountOverviewDTO[]> {
@@ -157,112 +131,58 @@ export async function getWhatsAppAccountOverview(
 }
 
 export type ConnectWhatsAppAccountOptions = {
+  /** Test seam. Production passes nothing, and the Graph client uses global `fetch`. */
   fetchFn?: typeof fetch;
   forceMock?: boolean;
 };
 
+export type ConnectWhatsAppAccountResult = WhatsAppAccountOverviewDTO & {
+  /** Problems that did not stop the connection but that the owner needs to see. */
+  warnings: readonly ConnectionWarning[];
+};
+
 /**
- * Connects or updates a WhatsApp Business Account and its primary phone number.
- * Validates Meta credentials, encrypts the access token, enforces cross-tenant uniqueness,
- * and records an audit log entry.
+ * Connects or updates a WhatsApp Business Account from a manually supplied token.
+ *
+ * The token is a System User token from the business's own Business Manager. Nothing about
+ * the input is trusted beyond being well-formed: the WABA is read back with the token and
+ * the phone number must be one Meta lists against it, so the ids in `input` are treated as
+ * a request, not a fact.
  */
 export async function connectWhatsAppAccount(
   ctx: TenantContext,
   input: ConnectWhatsAppInput,
   options?: ConnectWhatsAppAccountOptions,
-): Promise<WhatsAppAccountOverviewDTO> {
-  requirePermission(ctx, 'whatsapp:connect');
-
-  const workspaceId = ctx.workspaceId;
-
-  // 1. Cross-tenant isolation check: Ensure phone number is not claimed by another workspace
-  const existingPhone = await findPhoneNumberWithAccountByPhoneNumberId(
-    prisma,
-    input.phoneNumberId,
-  );
-
-  if (existingPhone && existingPhone.workspaceId !== workspaceId) {
-    throw new ValidationError(
-      'This WhatsApp phone number is already connected to another workspace. Disconnect it there first.',
-    );
-  }
-
-  const isMock = options?.forceMock ?? isWhatsAppMocked;
-  let verifiedName = input.displayName ?? null;
-  let qualityRating: string | null = null;
-  let displayPhoneNumber = input.displayPhoneNumber;
-
-  // 2. Live Meta credential validation
-  if (!isMock) {
-    const metaDetails = await validateMetaCredentials({
-      phoneNumberId: input.phoneNumberId,
-      accessToken: input.accessToken,
-      fetchFn: options?.fetchFn,
-    });
-
-    if (metaDetails.verifiedName) {
-      verifiedName = metaDetails.verifiedName;
-    }
-    if (metaDetails.qualityRating) {
-      qualityRating = metaDetails.qualityRating;
-    }
-    if (metaDetails.displayPhoneNumber) {
-      displayPhoneNumber = metaDetails.displayPhoneNumber;
-    }
-  }
-
-  // 3. Encrypt access token at rest
-  const accessTokenEncrypted = encryptSecret(input.accessToken, env.AUTH_SECRET);
-
-  // 4. Atomic upsert
-  const isUpdate = Boolean(existingPhone && existingPhone.workspaceId === workspaceId);
-  if (!isUpdate) {
-    await assertWithinPlanLimit(ctx, 'whatsappNumbers', 1);
-  }
-
-  const account = await upsertWhatsAppAccountWithPhoneNumber(prisma, workspaceId, {
-    wabaId: input.wabaId,
-    displayName: input.displayName ?? verifiedName ?? null,
-    accessTokenEncrypted,
-    status: 'CONNECTED',
-    isMock,
-    phoneNumberId: input.phoneNumberId,
-    displayPhoneNumber,
-    verifiedName,
-    qualityRating,
-    isDefault: true,
+): Promise<ConnectWhatsAppAccountResult> {
+  const result = await establishMetaConnection(ctx, {
+    method: 'MANUAL_TOKEN',
+    accessToken: input.accessToken,
+    // A System User token does not expire unless the business set an expiry, and Meta does
+    // not report one on the token itself; `debug_token` fills this in when it can.
+    tokenType: 'SYSTEM_USER',
+    tokenExpiresAt: null,
+    claimedWabaId: input.wabaId,
+    claimedPhoneNumberId: input.phoneNumberId,
+    preferredDisplayName: input.displayName ?? null,
+    fallbackDisplayPhoneNumber: input.displayPhoneNumber,
+    graph: options?.fetchFn ? new MetaGraphClient({ fetchFn: options.fetchFn }) : undefined,
+    forceMock: options?.forceMock,
   });
 
-  // 5. Append audit log (never including the access token)
-  await appendAuditLog(prisma, {
-    action: isUpdate ? 'whatsapp.account.updated' : 'whatsapp.account.connected',
-    workspaceId,
-    actorUserId: ctx.user.id,
-    actorMemberId: ctx.membershipId,
-    actorType: 'USER',
-    resourceType: 'WhatsAppAccount',
-    resourceId: account.id,
-    metadata: {
-      wabaId: input.wabaId,
-      phoneNumberId: input.phoneNumberId,
-      displayPhoneNumber,
-      isMock,
-    },
-  });
-
-  logger.info('whatsapp.account.connected', {
-    workspaceId,
-    accountId: account.id,
-    wabaId: input.wabaId,
-    phoneNumberId: input.phoneNumberId,
-    isMock,
-  });
-
-  return mapToOverviewDTO(account);
+  return { ...mapToOverviewDTO(result.account), warnings: result.warnings };
 }
 
 /**
- * Disconnects a WhatsApp Business Account, clearing stored tokens and updating statuses.
+ * Releases a number back to the business.
+ *
+ * The account row survives on purpose: conversations, contacts, orders and messages point
+ * at it, and that history is the business's. What is destroyed is the ability to act —
+ * the token, the token metadata, the subscription timestamps and the registration PIN.
+ *
+ * Meta is not asked to unsubscribe. The business may be moving the number to another tool
+ * or reconnecting here in a minute, and tearing down their subscription on their behalf is
+ * a change to their Meta account that they did not ask us to make. What we control is
+ * whether *we* can still use it, and after this we cannot.
  */
 export async function disconnectWhatsAppAccount(
   ctx: TenantContext,
@@ -276,7 +196,9 @@ export async function disconnectWhatsAppAccount(
     throw new NotFoundError(`WhatsAppAccount with id "${accountId}"`);
   }
 
-  await repoDisconnectAccount(prisma, workspaceId, accountId);
+  await repoDisconnectAccount(prisma, workspaceId, accountId, {
+    memberId: ctx.membershipId,
+  });
 
   await appendAuditLog(prisma, {
     action: 'whatsapp.account.disconnected',
@@ -288,6 +210,10 @@ export async function disconnectWhatsAppAccount(
     resourceId: accountId,
     metadata: {
       wabaId: account.wabaId,
+      connectionMethod: account.connectionMethod,
+      // Recorded so an audit trail shows how long the number was live, not just that it
+      // was removed.
+      connectedAt: account.connectedAt?.toISOString() ?? null,
     },
   });
 

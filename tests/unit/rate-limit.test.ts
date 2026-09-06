@@ -162,4 +162,25 @@ describe('configured limits are defensible', () => {
       expect(rule.windowSeconds, name).toBeGreaterThan(0);
     }
   });
+
+  /**
+   * The dispatch ceiling exists to stop one workspace's campaign occupying every worker
+   * slot while another workspace's customer waits for a reply. Two properties make it
+   * that rather than a throttle on the business: it must sit under Meta's own default
+   * throughput so we are never the cause of a 429, and it must sit above the composing
+   * limit so a human in the inbox is never blocked by the transport.
+   */
+  it('keeps message dispatch under Meta’s default per-number throughput', () => {
+    const perSecond = RATE_LIMITS.messageDispatch.limit / RATE_LIMITS.messageDispatch.windowSeconds;
+    // Meta's documented default is 80 messages/second per phone number.
+    expect(perSecond).toBeLessThan(80);
+    expect(perSecond).toBeGreaterThan(1);
+  });
+
+  it('never lets the transport ceiling sit below the composing ceiling', () => {
+    const dispatchPerSecond =
+      RATE_LIMITS.messageDispatch.limit / RATE_LIMITS.messageDispatch.windowSeconds;
+    const composePerSecond = RATE_LIMITS.messageSend.limit / RATE_LIMITS.messageSend.windowSeconds;
+    expect(dispatchPerSecond).toBeGreaterThan(composePerSecond);
+  });
 });

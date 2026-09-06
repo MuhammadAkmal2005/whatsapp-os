@@ -21,15 +21,19 @@ Before initiating deployment, verify all environment variables in your cloud pro
 | `STORAGE_SECRET_KEY` | AWS / R2 Secret Key | High-entropy credential. |
 | `STORAGE_BUCKET` | Bucket Name | Pre-created private bucket with versioning enabled. |
 | `MOCK_WHATSAPP` | `false` | Must be false in live production. |
-| `WHATSAPP_ACCESS_TOKEN` | Meta System User Token | Permanent System User token with `whatsapp_business_messaging` scope. |
-| `WHATSAPP_PHONE_NUMBER_ID` | Meta Phone Number ID | Numeric ID from Meta Developer Portal. |
-| `WHATSAPP_BUSINESS_ACCOUNT_ID` | Meta WABA ID | Business Account ID. |
-| `WHATSAPP_VERIFY_TOKEN` | High-entropy string | Webhook handshake token. |
-| `META_APP_SECRET` | App Secret | Used for SHA-256 HMAC webhook signature validation. |
+| `WHATSAPP_API_VERSION` | `v26.0` | Graph API version for every Meta call. Meta dates each version; check the changelog before pinning back. |
+| `META_APP_ID` | Meta App ID | ConvoNexa's own app id. Platform-level, not per customer. Not a secret, but never exposed as `NEXT_PUBLIC_`. |
+| `META_APP_SECRET` | App Secret | SHA-256 HMAC webhook signature validation and the server-side OAuth code exchange. |
+| `META_LOGIN_CONFIG_ID` | Login configuration id | Enables one-click Embedded Signup. Optional — without it, businesses connect by pasting a System User token. |
+| `WHATSAPP_VERIFY_TOKEN` | High-entropy string | Webhook handshake token. Must match the Meta app's Webhooks configuration exactly. |
 | `AI_PROVIDER` | `gemini` or `openai` | Paid enterprise API key configured (`AI_API_KEY`). |
 | `QUEUE_DRIVER` | `postgres` | Uses `FOR UPDATE SKIP LOCKED` for reliable async job claims. |
 | `LOG_FORMAT` | `json` | Structured JSON output for Datadog / CloudWatch / Grafana Loki. |
 | `LOG_LEVEL` | `info` | Default production verbosity. |
+
+> Customer WhatsApp credentials are **not** environment variables. Each workspace's access token, phone number id
+> and WABA id are captured during onboarding and stored encrypted per tenant. A global `WHATSAPP_ACCESS_TOKEN`
+> would put every customer on one WhatsApp number.
 
 ---
 

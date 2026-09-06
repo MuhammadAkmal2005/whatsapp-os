@@ -59,6 +59,25 @@ for AI behaviour: input, output, intent, provider, model, retrieved chunk ids, t
 confidence and band, whether grounding passed, whether a handoff fired and why, tokens, cost in micros, latency,
 and any error. Without it, "the AI said something wrong yesterday" is unanswerable.
 
+### Where the turn begins and ends
+
+The turn starts at a message row and finishes at a message row. Getting the customer's words into the first one
+and the reply out of the second is the channel's job, and the boundary is kept sharp on purpose: the agent has no
+idea it is talking over WhatsApp, which is what lets a second channel arrive without touching anything in this
+document. See [META_INTEGRATION.md](META_INTEGRATION.md) for that half.
+
+Two consequences are worth stating here, because they are limits on the agent rather than on the channel.
+
+**The agent has no authority over routing or credentials.** Which phone number a reply is sent from, which access
+token signs it, which WABA and Meta business it belongs to — all of it is read from the workspace's connection
+row inside the outbound service. No tool takes any of those as an argument, so no amount of prompt injection can
+make a reply leave from a different business's number.
+
+**A generated reply is not a sent reply.** Outbound delivery can fail after the turn has been recorded — a closed
+24-hour window, a rejected recipient, a lost response from Meta. The `AITurn` records what the agent decided; the
+`Message` status records what happened to it. Reading the first as evidence of the second would have the
+dashboard claiming a customer was answered when nobody was.
+
 ---
 
 ## Configuration

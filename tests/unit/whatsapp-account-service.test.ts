@@ -2,12 +2,22 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { env } from '@/config/env';
 import { decryptSecret, encryptSecret } from '@/lib/crypto';
-import { ValidationError } from '@/server/errors';
-import { validateMetaCredentials } from '@/server/services/whatsapp/whatsapp-account.service';
+import { isAppError, ProviderError } from '@/server/errors';
+import { isMetaGraphFailure } from '@/server/services/whatsapp/meta-failure';
+import { MetaGraphClient } from '@/server/services/whatsapp/meta-graph.client';
 import {
   connectWhatsAppSchema,
   disconnectWhatsAppSchema,
 } from '@/server/validation/whatsapp-account';
+
+/** Real `Response` objects, because the client reads headers and bodies, not a duck type. */
+function jsonResponse(body: unknown, init?: ResponseInit): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+    ...init,
+  });
+}
 
 describe('WhatsApp Account Validation Schemas', () => {
   it('validates a complete connect payload', () => {
@@ -53,74 +63,127 @@ describe('WhatsApp Account Validation Schemas', () => {
   });
 });
 
-describe('Live Meta Credential Validation Helper', () => {
-  it('returns verified phone details on 200 OK from Meta', async () => {
-    const mockFetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        verified_name: 'Akmal Official',
+describe('MetaGraphClient phone number read', () => {
+  it('normalises Meta phone fields into our summary shape', async () => {
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        id: '106540352242922',
         display_phone_number: '+92 300 1234567',
+        verified_name: 'Akmal Official',
         quality_rating: 'GREEN',
+        code_verification_status: 'VERIFIED',
+        platform_type: 'CLOUD_API',
+        throughput: { level: 'STANDARD' },
       }),
-    });
+    );
 
-    const result = await validateMetaCredentials({
+    const client = new MetaGraphClient({ fetchFn: mockFetch as unknown as typeof fetch });
+    const summary = await client.getPhoneNumber({
       phoneNumberId: '106540352242922',
-      accessToken: 'EAAG_valid_test_token',
-      fetchFn: mockFetch as unknown as typeof fetch,
+      accessToken: 'EAAG_valid_test_token_long_enough',
     });
 
-    expect(result.verifiedName).toBe('Akmal Official');
-    expect(result.displayPhoneNumber).toBe('+92 300 1234567');
-    expect(result.qualityRating).toBe('GREEN');
+    expect(summary).toEqual({
+      id: '106540352242922',
+      displayPhoneNumber: '+92 300 1234567',
+      verifiedName: 'Akmal Official',
+      qualityRating: 'GREEN',
+      codeVerificationStatus: 'VERIFIED',
+      platformType: 'CLOUD_API',
+      throughputLevel: 'STANDARD',
+    });
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/106540352242922?fields='),
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer EAAG_valid_test_token',
-        }),
-      }),
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/106540352242922?fields=');
+    expect((init.headers as Record<string, string>).Authorization).toBe(
+      'Bearer EAAG_valid_test_token_long_enough',
     );
   });
 
-  it('throws ValidationError with sanitized message on 401 Unauthorized from Meta', async () => {
-    const secretToken = 'EAAG_super_secret_token_12345';
-    const mockFetch = vi.fn().mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      json: async () => ({
-        error: {
-          message: `Invalid OAuth access token ${secretToken}`,
-          type: 'OAuthException',
-          code: 190,
+  it('redacts a token Meta reflects back in a 401 error message', async () => {
+    const secretToken = 'EAAG_super_secret_token_1234567890';
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: {
+            message: `Invalid OAuth access token ${secretToken}`,
+            type: 'OAuthException',
+            code: 190,
+          },
         },
-      }),
-    });
+        { status: 401 },
+      ),
+    );
 
-    const promise = validateMetaCredentials({
+    const client = new MetaGraphClient({ fetchFn: mockFetch as unknown as typeof fetch });
+    const attempt = client.getPhoneNumber({
       phoneNumberId: '106540352242922',
       accessToken: secretToken,
-      fetchFn: mockFetch as unknown as typeof fetch,
     });
 
-    await expect(promise).rejects.toThrow(ValidationError);
-    await expect(promise).rejects.toThrow('Meta credential verification failed (401)');
-    // Assert token was redacted from error message
-    await expect(promise).rejects.not.toThrow(secretToken);
+    await expect(attempt).rejects.toBeInstanceOf(ProviderError);
+    const error = await attempt.catch((caught: unknown) => caught);
+    expect(String(error)).not.toContain(secretToken);
+    expect(String(error)).toContain('[REDACTED]');
   });
 
-  it('handles network failure during verification', async () => {
-    const mockFetch = vi.fn().mockRejectedValueOnce(new Error('Connection timeout'));
+  it('redacts a secret that does not look like a Meta token', async () => {
+    // The belt-and-braces `EAA…` pattern cannot catch this one, so a pass here proves
+    // the per-call secrets list is doing the work rather than the regex.
+    const secretToken = 'shop_token_without_meta_prefix_98765';
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      jsonResponse(
+        { error: { message: `Bad token: ${secretToken}`, code: 190 } },
+        { status: 401 },
+      ),
+    );
 
-    const promise = validateMetaCredentials({
-      phoneNumberId: '106540352242922',
-      accessToken: 'sample_token',
-      fetchFn: mockFetch as unknown as typeof fetch,
+    const client = new MetaGraphClient({ fetchFn: mockFetch as unknown as typeof fetch });
+    const error = await client
+      .getPhoneNumber({ phoneNumberId: '106540352242922', accessToken: secretToken })
+      .catch((caught: unknown) => caught);
+
+    expect(String(error)).not.toContain(secretToken);
+  });
+
+  it('reports a refused connection as provably never sent', async () => {
+    // The distinction the whole retry story rests on: this failure is safe to retry,
+    // because the request never left the process.
+    const refused = Object.assign(new TypeError('fetch failed'), {
+      cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }),
     });
+    const mockFetch = vi.fn().mockRejectedValueOnce(refused);
 
-    await expect(promise).rejects.toThrow(ValidationError);
-    await expect(promise).rejects.toThrow('Failed to connect to Meta WhatsApp API');
+    const client = new MetaGraphClient({ fetchFn: mockFetch as unknown as typeof fetch });
+    const error = await client
+      .getPhoneNumber({ phoneNumberId: '106540352242922', accessToken: 'token_value_1234' })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ProviderError);
+    if (!isAppError(error) || !isMetaGraphFailure(error.cause)) {
+      throw new Error('transport failure record missing from error cause');
+    }
+    expect(error.cause.kind).toBe('transport');
+    expect(error.cause.transportCode).toBe('ECONNREFUSED');
+    expect(error.cause.requestPossiblySent).toBe(false);
+  });
+
+  it('reports a timeout as possibly sent', async () => {
+    const timedOut = Object.assign(new Error('The operation was aborted'), {
+      name: 'AbortError',
+    });
+    const mockFetch = vi.fn().mockRejectedValueOnce(timedOut);
+
+    const client = new MetaGraphClient({ fetchFn: mockFetch as unknown as typeof fetch });
+    const error = await client
+      .getPhoneNumber({ phoneNumberId: '106540352242922', accessToken: 'token_value_1234' })
+      .catch((caught: unknown) => caught);
+
+    if (!isAppError(error) || !isMetaGraphFailure(error.cause)) {
+      throw new Error('transport failure record missing from error cause');
+    }
+    expect(error.cause.transportCode).toBe('ABORT_ERR');
+    expect(error.cause.requestPossiblySent).toBe(true);
   });
 });
 
